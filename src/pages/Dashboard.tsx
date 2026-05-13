@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 
 import DashboardTopBar from '../components/dashboard/DashboardTopBar'
+import FinTrackNavBar from '../components/layout/FinTrackNavBar'
 import FloatingAssetCards from '../components/dashboard/FloatingAssetCards'
 import PortfolioHero from '../components/dashboard/PortfolioHero'
 import KpiStrip from '../components/dashboard/KpiStrip'
@@ -59,6 +60,9 @@ export default function Dashboard() {
             scrollbarColor: 'var(--border) transparent',
           } as React.CSSProperties}
         >
+          {/* Page navigation */}
+          <FinTrackNavBar />
+
           {/* Floating asset cards */}
           <FloatingAssetCards onAddClick={() => setShowAddWidget(true)} />
 
