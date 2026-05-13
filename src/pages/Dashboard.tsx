@@ -218,38 +218,16 @@ export default function Dashboard() {
     })
   }, [updateWidgets])
 
-  const handleDragStop = useCallback((_layout: GridItem[], oldItem: GridItem, newItem: GridItem) => {
+  const handleDragStart = useCallback((layout: GridItem[]) => {
+    isDraggingRef.current = true
+    preDragLayoutRef.current = new Map(
+      layout.map((i) => [i.i, { x: i.x, y: i.y, w: i.w, h: i.h }]),
+    )
+  }, [])
+
+  const handleDragStop = useCallback((_layout: GridItem[], _oldItem: GridItem, _newItem: GridItem) => {
     isDraggingRef.current = false
-    const preDrag = preDragLayoutRef.current
-    const dragged = { x: newItem.x, y: newItem.y, w: newItem.w, h: newItem.h }
-
-    let bestId: string | null = null
-    let bestArea = 0
-    for (const [id, rect] of preDrag.entries()) {
-      if (id === newItem.i) continue
-      const ix = Math.max(0, Math.min(dragged.x + dragged.w, rect.x + rect.w) - Math.max(dragged.x, rect.x))
-      const iy = Math.max(0, Math.min(dragged.y + dragged.h, rect.y + rect.h) - Math.max(dragged.y, rect.y))
-      const area = ix * iy
-      if (area > bestArea) { bestArea = area; bestId = id }
-    }
-
-    console.info('[Dashboard] dragStop %s → swap target=%s area=%d', newItem.i.slice(0, 8), bestId?.slice(0, 8) ?? 'none', bestArea)
-
-    updateWidgets((prev) => prev.map((w) => {
-      const pre = preDrag.get(w.id)
-      if (w.id === newItem.i) {
-        if (bestId) {
-          const target = preDrag.get(bestId)!
-          return { ...w, x: target.x, y: target.y }
-        }
-        return { ...w, x: oldItem.x, y: oldItem.y }
-      }
-      if (bestId && w.id === bestId) {
-        return { ...w, x: oldItem.x, y: oldItem.y }
-      }
-      return pre ? { ...w, x: pre.x, y: pre.y } : w
-    }))
-  }, [updateWidgets])
+  }, [])
 
   const handleDrop = useCallback((_layout: GridItem[], item: GridItem, _e: Event) => {
     setDroppingItem({ i: '__dropping__', w: 1, h: 1 })
@@ -283,14 +261,6 @@ export default function Dashboard() {
   const handleModalDragStart = useCallback((type: WidgetType, size: WidgetSize) => {
     setDroppingItem({ i: `dropping-${type}`, w: size.w, h: size.h })
     console.debug('[Dashboard] modal drag start — droppingItem set to %dx%d', size.w, size.h)
-  }, [])
-
-  const handleDragStart = useCallback((layout: GridItem[]) => {
-    isDraggingRef.current = true
-    preDragLayoutRef.current = new Map(
-      layout.map((i) => [i.i, { x: i.x, y: i.y, w: i.w, h: i.h }]),
-    )
-    console.debug('[Dashboard] dragStart — captured %d positions', layout.length)
   }, [])
 
   return (
@@ -399,8 +369,8 @@ export default function Dashboard() {
                       isDraggable={isEditMode}
                       isResizable={isEditMode}
                       useCSSTransforms={true}
-                      compactType={null}
-                      preventCollision={false}
+                      compactType="vertical"
+                      preventCollision={true}
                       isDroppable={true}
                       // @ts-expect-error react-grid-layout requires x/y but they're set on drop
                       droppingItem={droppingItem}
