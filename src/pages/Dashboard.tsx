@@ -314,7 +314,7 @@ export default function Dashboard() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
-                {totalPages > 1 && (
+                {totalPages > 0 && (
                   <div style={{
                     display: 'flex',
                     justifyContent: 'center',
@@ -322,26 +322,28 @@ export default function Dashboard() {
                     gap: 14,
                     marginBottom: 12,
                   }}>
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                      disabled={!hasPrev}
-                      style={{
-                        opacity: hasPrev ? 1 : 0.3,
-                        cursor: hasPrev ? 'pointer' : 'default',
-                        border: '1px solid var(--border)',
-                        borderRadius: '50%',
-                        width: 28, height: 28,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'var(--white)',
-                        color: 'var(--muted)',
-                      }}
-                    >
-                      <ChevronLeft size={14} />
-                    </motion.button>
+                    {totalPages > 1 && (
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                        disabled={!hasPrev}
+                        style={{
+                          opacity: hasPrev ? 1 : 0.3,
+                          cursor: hasPrev ? 'pointer' : 'default',
+                          border: '1px solid var(--border)',
+                          borderRadius: '50%',
+                          width: 28, height: 28,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'var(--white)',
+                          color: 'var(--muted)',
+                        }}
+                      >
+                        <ChevronLeft size={14} />
+                      </motion.button>
+                    )}
 
                     {Array.from({ length: totalPages }).map((_, i) => (
                       <motion.div
@@ -356,26 +358,28 @@ export default function Dashboard() {
                       />
                     ))}
 
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                      disabled={!hasNext}
-                      style={{
-                        opacity: hasNext ? 1 : 0.3,
-                        cursor: hasNext ? 'pointer' : 'default',
-                        border: '1px solid var(--border)',
-                        borderRadius: '50%',
-                        width: 28, height: 28,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'var(--white)',
-                        color: 'var(--muted)',
-                      }}
-                    >
-                      <ChevronRight size={14} />
-                    </motion.button>
+                    {totalPages > 1 && (
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                        disabled={!hasNext}
+                        style={{
+                          opacity: hasNext ? 1 : 0.3,
+                          cursor: hasNext ? 'pointer' : 'default',
+                          border: '1px solid var(--border)',
+                          borderRadius: '50%',
+                          width: 28, height: 28,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'var(--white)',
+                          color: 'var(--muted)',
+                        }}
+                      >
+                        <ChevronRight size={14} />
+                      </motion.button>
+                    )}
                   </div>
                 )}
 

@@ -1,9 +1,11 @@
 import { useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, X, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import WidgetPreview from './WidgetPreview'
 import type { WidgetType, WidgetSize } from '../../types/widgets.types'
 import { WIDGET_REGISTRY } from '../../constants/widgets.registry'
+
+const PER_PAGE = 4
 
 interface Props {
   open: boolean
@@ -19,14 +21,19 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
       WIDGET_REGISTRY.map((w) => [w.type, w.defaultSize])
     ) as Record<WidgetType, WidgetSize>
   )
+  const [page, setPage] = useState(0)
 
-  const filteredWidgets = useMemo(
+  const filtered = useMemo(
     () => WIDGET_REGISTRY.filter((w) =>
       w.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       w.description.toLowerCase().includes(searchQuery.toLowerCase())
     ),
     [searchQuery]
   )
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const safePage = Math.min(page, totalPages - 1)
+  const pageWidgets = filtered.slice(safePage * PER_PAGE, (safePage + 1) * PER_PAGE)
 
   const [isDragging, setIsDragging] = useState(false)
 
@@ -46,8 +53,6 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
   const handleDragEnd = useCallback(() => {
     setIsDragging(false)
   }, [])
-
-  console.debug('[AddWidgetModal] open=%s search="%s" filtered=%d drag=%s', open, searchQuery, filteredWidgets.length, isDragging)
 
   return (
     <AnimatePresence>
@@ -79,9 +84,10 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
                 background: 'var(--white)',
                 borderRadius: 20,
                 boxShadow: '0 25px 80px rgba(0,0,0,0.2), 0 0 0 1px var(--border)',
-                width: 680,
+                width: 600,
                 maxWidth: 'calc(100vw - 32px)',
-                maxHeight: 'calc(100vh - 60px)',
+                height: 'min(85vh, 760px)',
+                maxHeight: 'calc(100vh - 40px)',
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
@@ -94,14 +100,9 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
                 justifyContent: 'space-between',
                 padding: '20px 24px 0',
               }}>
-                <div>
-                  <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
-                    Добавить виджет
-                  </span>
-                  <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 10 }}>
-                    перетащите в сетку или нажмите «Добавить»
-                  </span>
-                </div>
+                <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>
+                  Добавить виджет
+                </span>
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
@@ -123,7 +124,7 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
               <div style={{ padding: '14px 24px 0' }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 8,
-                  background: 'var(--bg)', borderRadius: 10,
+                  background: 'var(--bg)', borderRadius: 999,
                   padding: '8px 14px',
                   border: '1px solid var(--border)',
                 }}>
@@ -131,7 +132,10 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
                   <input
                     placeholder="Поиск виджетов..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value)
+                      setPage(0)
+                    }}
                     style={{
                       flex: 1, background: 'none', border: 'none',
                       outline: 'none', fontSize: 13, color: 'var(--text)',
@@ -141,113 +145,192 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
                 </div>
               </div>
 
-              {/* Scrollable cards */}
+              {/* Widget grid */}
               <div style={{
-                display: 'flex', gap: 16, padding: '16px 24px 24px',
-                overflowX: 'auto', overflowY: 'hidden',
-                scrollbarWidth: 'thin',
-                minHeight: 240,
+                flex: 1, overflowY: 'auto', overflowX: 'hidden',
+                padding: '20px 24px 12px',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 16,
+                alignContent: 'start',
               }}>
-                {filteredWidgets.length === 0 ? (
+                {filtered.length === 0 ? (
                   <div style={{
-                    flex: 1, textAlign: 'center', padding: '60px 0',
+                    gridColumn: '1 / -1',
+                    textAlign: 'center', padding: '60px 0',
                     color: 'var(--muted)', fontSize: 13,
                   }}>
                     Ничего не найдено
                   </div>
-                ) : filteredWidgets.map((def) => {
-                  const selected = selectedSizes[def.type]
-
-                  return (
-                    <div
-                      key={def.type}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, def.type)}
-                      onDragEnd={handleDragEnd}
+                ) : (
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={safePage}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -12 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
                       style={{
-                        flexShrink: 0,
-                        width: 200,
-                        background: 'var(--white)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 14,
-                        padding: '14px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 10,
-                        boxShadow: 'var(--shadow-sm)',
-                        cursor: 'grab',
-                        userSelect: 'none',
+                        gridColumn: '1 / -1',
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: 16,
                       }}
                     >
-                      {/* Real widget preview */}
-                      <WidgetPreview type={def.type} w={selected.w} h={selected.h} />
+                      {pageWidgets.map((def) => {
+                        const selected = selectedSizes[def.type]
 
-                      {/* Info */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
-                          {def.title}
-                        </span>
-                        <span style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.3 }}>
-                          {def.description}
-                        </span>
-                      </div>
-
-                      {/* Size selector */}
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        {def.availableSizes.map((size) => (
-                          <button
-                            key={size.label}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSelectedSizes((prev) => ({ ...prev, [def.type]: size }))
-                            }}
+                        return (
+                          <div
+                            key={def.type}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, def.type)}
+                            onDragEnd={handleDragEnd}
+                            onClick={() => handleAdd(def.type, selected)}
                             style={{
-                              padding: '3px 8px',
-                              fontSize: 9,
-                              fontWeight: 700,
-                              borderRadius: 6,
-                              border: selected.label === size.label
-                                ? '1px solid var(--accent)'
-                                : '1px solid var(--border)',
-                              background: selected.label === size.label
-                                ? 'var(--accent)'
-                                : 'var(--bg)',
-                              color: selected.label === size.label ? '#fff' : 'var(--muted)',
+                              background: 'var(--white)',
+                              border: '1px solid var(--border)',
+                              borderRadius: 14,
+                              overflow: 'hidden',
                               cursor: 'pointer',
-                              fontFamily: 'var(--font)',
-                              transition: 'all 0.15s',
+                              userSelect: 'none',
+                              transition: 'border-color 0.2s',
                             }}
                           >
-                            {size.label}
-                          </button>
-                        ))}
-                      </div>
+                            {/* Preview — widget в натуральную величину */}
+                            <motion.div
+                              key={selected.label}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <WidgetPreview type={def.type} />
+                            </motion.div>
 
-                      {/* Add button */}
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.97 }}
-                        onClick={() => handleAdd(def.type, selected)}
-                        style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          gap: 4, marginTop: 'auto',
-                          padding: '7px 12px',
-                          background: 'var(--ink)',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: 8,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          fontFamily: 'var(--font)',
-                        }}
-                      >
-                        <Plus size={12} strokeWidth={2.5} /> Добавить
-                      </motion.button>
-                    </div>
-                  )
-                })}
+                            {/* Bottom bar: название + размеры */}
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '10px 14px',
+                              gap: 8,
+                            }}>
+                              <span style={{
+                                fontSize: 12, fontWeight: 600, color: 'var(--ink)',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                              }}>
+                                {def.title}
+                              </span>
+                              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                                {def.availableSizes.map((size) => (
+                                  <button
+                                    key={size.label}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setSelectedSizes((prev) => ({ ...prev, [def.type]: size }))
+                                    }}
+                                    style={{
+                                      padding: '2px 7px',
+                                      fontSize: 9,
+                                      fontWeight: 700,
+                                      borderRadius: 6,
+                                      border: selected.label === size.label
+                                        ? '1px solid var(--accent)'
+                                        : '1px solid var(--border)',
+                                      background: selected.label === size.label
+                                        ? 'var(--accent)'
+                                        : 'var(--bg)',
+                                      color: selected.label === size.label ? '#fff' : 'var(--muted)',
+                                      cursor: 'pointer',
+                                      fontFamily: 'var(--font)',
+                                    }}
+                                  >
+                                    {size.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </motion.div>
+                  </AnimatePresence>
+                )}
               </div>
+
+              {/* Page navigation */}
+              {totalPages > 0 && filtered.length > 0 && (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '0 24px 16px',
+                }}>
+                  {totalPages > 1 && (
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      disabled={safePage === 0}
+                      style={{
+                        opacity: safePage > 0 ? 1 : 0.3,
+                        cursor: safePage > 0 ? 'pointer' : 'default',
+                        border: '1px solid var(--border)',
+                        borderRadius: '50%',
+                        width: 26, height: 26,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'var(--white)',
+                        color: 'var(--muted)',
+                      }}
+                    >
+                      <ChevronLeft size={13} />
+                    </motion.button>
+                  )}
+
+                  {Array.from({ length: totalPages }).map((_, i) => (
+                    <motion.div
+                      key={i}
+                      animate={{
+                        scale: i === safePage ? 1.3 : 1,
+                        background: i === safePage ? 'var(--accent)' : 'var(--border)',
+                      }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                      style={{
+                        width: 6, height: 6,
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => setPage(i)}
+                    />
+                  ))}
+
+                  {totalPages > 1 && (
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                      disabled={safePage >= totalPages - 1}
+                      style={{
+                        opacity: safePage < totalPages - 1 ? 1 : 0.3,
+                        cursor: safePage < totalPages - 1 ? 'pointer' : 'default',
+                        border: '1px solid var(--border)',
+                        borderRadius: '50%',
+                        width: 26, height: 26,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'var(--white)',
+                        color: 'var(--muted)',
+                      }}
+                    >
+                      <ChevronRight size={13} />
+                    </motion.button>
+                  )}
+                </div>
+              )}
             </motion.div>
           </motion.div>
         </>
