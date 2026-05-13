@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# AI Factory — installed skills are tooling, not source
+.claude/skills/
+.ai-factory.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
