@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { MOCK_PRICES } from '../mock/prices.mock'
+import { ENV, USE_MOCK } from '../lib/env'
 
 interface StockPriceResult {
   price: number
@@ -7,11 +8,10 @@ interface StockPriceResult {
   isLoading: boolean
 }
 
-export function useStockPrice(symbol: string, useMock = true): StockPriceResult {
-  // Mock values derived synchronously — no effect needed for static data
+export function useStockPrice(symbol: string, useMock = USE_MOCK): StockPriceResult {
   const mockResult = useMemo<StockPriceResult>(() => {
     const asset = MOCK_PRICES.find((a) => a.symbol === symbol && a.type === 'stock')
-    console.debug('[useStockPrice]', symbol, 'mock price=', asset?.price ?? 0)
+    console.debug('[useStockPrice] %s mock price=%s', symbol, asset?.price ?? 0)
     return { price: asset?.price ?? 0, change: asset?.change24h ?? 0, isLoading: false }
   }, [symbol])
 
@@ -20,28 +20,29 @@ export function useStockPrice(symbol: string, useMock = true): StockPriceResult 
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (useMock) return
+    if (useMock || !ENV.FINNHUB_API_KEY) return
 
-    // TODO: real impl — GET https://finnhub.io/api/v1/quote
     const fetchQuote = async () => {
       try {
-        const key = (import.meta.env.VITE_FINNHUB_KEY as string | undefined) ?? ''
         const res = await fetch(
-          `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`,
+          `${ENV.FINNHUB_BASE_URL}/quote?symbol=${symbol}&token=${ENV.FINNHUB_API_KEY}`,
         )
+        if (!res.ok) throw new Error(`Finnhub ${res.status}`)
         const json = (await res.json()) as { c: number; dp: number }
         setPrice(json.c)
         setChange(json.dp)
         setIsLoading(false)
-        console.debug('[useStockPrice]', symbol, 'Finnhub price=', json.c)
+        console.info('[useStockPrice] %s Finnhub price=%s', symbol, json.c)
       } catch (err) {
-        console.error('[useStockPrice] fetch error:', err)
+        console.warn('[useStockPrice] fetch failed for %s:', symbol, err)
       }
     }
 
     void fetchQuote()
+    const id = setInterval(() => void fetchQuote(), 60_000)
+    return () => clearInterval(id)
   }, [symbol, useMock])
 
-  if (useMock) return mockResult
+  if (useMock || !ENV.FINNHUB_API_KEY) return mockResult
   return { price, change, isLoading }
 }

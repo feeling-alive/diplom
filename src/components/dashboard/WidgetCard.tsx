@@ -48,11 +48,14 @@ export default function WidgetCard({ widget, isEditMode, onRemove }: Props) {
         background: 'var(--white)',
         borderRadius: 14,
         boxShadow: 'var(--shadow-sm)',
-        border: isEditMode ? '1.5px dashed rgba(225,29,72,0.4)' : '1px solid var(--border)',
-        padding: isEditMode ? 20 : 16,
+        border: '1px solid var(--border)',
+        padding: 16,
         overflow: 'hidden',
         position: 'relative',
+        width: '100%',
+        height: '100%',
         minHeight: 120,
+        boxSizing: 'border-box',
         transition: 'box-shadow 0.2s, transform 0.2s, outline-color 0.2s, border-color 0.2s',
       }}
     >

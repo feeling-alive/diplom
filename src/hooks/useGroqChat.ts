@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
+import { ENV } from '../lib/env'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -13,12 +14,10 @@ export function useGroqChat({ systemPrompt }: UseGroqChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // ref mirrors messages so send() always sees the latest value without re-creating the callback
   const messagesRef = useRef<ChatMessage[]>([])
 
   const send = useCallback(async (userMessage: string) => {
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY as string | undefined
-    console.debug('[useGroqChat] send msg=', userMessage.slice(0, 60))
+    console.debug('[useGroqChat] send msg=%s', userMessage.slice(0, 60))
 
     const userMsg: ChatMessage = { role: 'user', content: userMessage }
     const history = [...messagesRef.current, userMsg]
@@ -28,14 +27,14 @@ export function useGroqChat({ systemPrompt }: UseGroqChatOptions) {
     setError(null)
 
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const response = await fetch(`${ENV.GROQ_BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey ?? ''}`,
+          Authorization: `Bearer ${ENV.GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: ENV.GROQ_MODEL,
           messages: [
             { role: 'system', content: systemPrompt },
             ...history,
@@ -54,7 +53,7 @@ export function useGroqChat({ systemPrompt }: UseGroqChatOptions) {
         choices: Array<{ message: { content: string } }>
       }
       const reply = json.choices[0]?.message.content ?? '(нет ответа)'
-      console.debug('[useGroqChat] reply=', reply.slice(0, 80))
+      console.debug('[useGroqChat] reply=%s', reply.slice(0, 80))
 
       const updated = [...history, { role: 'assistant' as const, content: reply }]
       messagesRef.current = updated

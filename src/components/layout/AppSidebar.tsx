@@ -9,6 +9,7 @@ import {
   User,
   Settings,
   LogOut,
+  Sparkles,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { icon: BarChart2, label: 'Рынок', path: '/market' },
   { icon: Newspaper, label: 'Новости', path: '/news' },
   { icon: TrendingUp, label: 'Активы', path: '/assets' },
+  { icon: Sparkles, label: 'AI Чат', path: '/chat' },
   { icon: User, label: 'Профиль', path: '/profile' },
 ]
 

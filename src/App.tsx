@@ -4,6 +4,7 @@ import MarketOverview from './pages/MarketOverview'
 import AssetPage from './pages/AssetPage'
 import NewsPage from './pages/NewsPage'
 import NewsArticlePage from './pages/NewsArticlePage'
+import ChatPage from './pages/ChatPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ProfilePage from './pages/ProfilePage'
@@ -31,6 +32,7 @@ function AppRoutes() {
                     <Route path="/asset/:symbol" element={<AssetPage />} />
                     <Route path="/news" element={<NewsPage />} />
                     <Route path="/news/:id" element={<NewsArticlePage />} />
+                    <Route path="/chat" element={<ChatPage />} />
                     <Route path="/profile" element={<ProfilePage />} />
                     <Route path="/subscription" element={<SubscriptionPage />} />
                     <Route path="/admin" element={<AdminPanelPage />} />

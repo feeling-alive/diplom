@@ -18,7 +18,7 @@ const COLS = 4
 const ROW_HEIGHT = 160
 const GRID_MARGIN = 16
 
-const STORAGE_KEY = 'fintrack_widgets'
+const STORAGE_KEY = 'fintrack_widgets_v2'
 
 interface GridItem {
   i: string; x: number; y: number; w: number; h: number
@@ -116,7 +116,9 @@ export default function Dashboard() {
 
   const gridContainerRef = useRef<HTMLDivElement>(null!)
   const addButtonRef = useRef<HTMLButtonElement>(null!)
-  const preDragLayoutRef = useRef<Map<string, { x: number; y: number }>>(new Map())
+  const preDragLayoutRef = useRef<Map<string, { x: number; y: number; w: number; h: number }>>(new Map())
+  const isDraggingRef = useRef(false)
+  const [droppingItem, setDroppingItem] = useState<{ i: string; w: number; h: number }>({ i: '__dropping__', w: 1, h: 1 })
 
   const isEmpty = widgets.length === 0
   const pageBoundary = 4
@@ -205,48 +207,59 @@ export default function Dashboard() {
   }, [])
 
   const handleLayoutChange = useCallback((layout: GridItem[]) => {
+    if (isDraggingRef.current) return
     updateWidgets((prev) => {
-      let next = prev.map((w) => {
+      const next = prev.map((w) => {
         const l = layout.find((li) => li.i === w.id)
         if (l) return { ...w, x: l.x, y: l.y, w: l.w, h: l.h }
         return w
       })
-
-      const movedId = next.find((w, i) =>
-        prev[i] && (w.x !== prev[i].x || w.y !== prev[i].y)
-      )?.id
-
-      if (movedId) {
-        const moved = next.find((w) => w.id === movedId)
-        const preDrag = preDragLayoutRef.current
-        if (moved && preDrag.has(movedId)) {
-          const oldPos = preDrag.get(movedId)!
-          const displacedId = [...preDrag.entries()].find(
-            ([id, pos]) => id !== movedId && pos.x === moved.x && pos.y === moved.y
-          )?.[0]
-
-          if (displacedId) {
-            const displaced = next.find((w) => w.id === displacedId)
-            if (displaced) {
-              next = next.map((w) => {
-                if (w.id === movedId) return { ...w, x: displaced.x, y: displaced.y }
-                if (w.id === displacedId) return { ...w, x: oldPos.x, y: oldPos.y }
-                return w
-              })
-            }
-          }
-        }
-      }
-
       return next
     })
   }, [updateWidgets])
 
+  const handleDragStop = useCallback((_layout: GridItem[], oldItem: GridItem, newItem: GridItem) => {
+    isDraggingRef.current = false
+    const preDrag = preDragLayoutRef.current
+    const dragged = { x: newItem.x, y: newItem.y, w: newItem.w, h: newItem.h }
+
+    let bestId: string | null = null
+    let bestArea = 0
+    for (const [id, rect] of preDrag.entries()) {
+      if (id === newItem.i) continue
+      const ix = Math.max(0, Math.min(dragged.x + dragged.w, rect.x + rect.w) - Math.max(dragged.x, rect.x))
+      const iy = Math.max(0, Math.min(dragged.y + dragged.h, rect.y + rect.h) - Math.max(dragged.y, rect.y))
+      const area = ix * iy
+      if (area > bestArea) { bestArea = area; bestId = id }
+    }
+
+    console.info('[Dashboard] dragStop %s → swap target=%s area=%d', newItem.i.slice(0, 8), bestId?.slice(0, 8) ?? 'none', bestArea)
+
+    updateWidgets((prev) => prev.map((w) => {
+      const pre = preDrag.get(w.id)
+      if (w.id === newItem.i) {
+        if (bestId) {
+          const target = preDrag.get(bestId)!
+          return { ...w, x: target.x, y: target.y }
+        }
+        return { ...w, x: oldItem.x, y: oldItem.y }
+      }
+      if (bestId && w.id === bestId) {
+        return { ...w, x: oldItem.x, y: oldItem.y }
+      }
+      return pre ? { ...w, x: pre.x, y: pre.y } : w
+    }))
+  }, [updateWidgets])
+
   const handleDrop = useCallback((_layout: GridItem[], item: GridItem, _e: Event) => {
+    setDroppingItem({ i: '__dropping__', w: 1, h: 1 })
     try {
       const data = JSON.parse(
         (_e as unknown as DragEvent).dataTransfer?.getData('text/plain') ?? '{}',
       ) as { type: WidgetType; w: number; h: number }
+
+      if (!data.type) return
+      console.info('[Dashboard] external drop type=%s at (%d,%d) size=%dx%d', data.type, item.x, item.y, data.w, data.h)
 
       updateWidgets((prev) => {
         const def = WIDGET_REGISTRY.find((r) => r.type === data.type)
@@ -255,16 +268,29 @@ export default function Dashboard() {
           ?? def.defaultSize
         const newWidget: DashboardWidget = {
           id: generateId(), type: data.type, size,
-          x: item.x, y: item.y,
+          x: Math.max(0, Math.min(item.x, COLS - size.w)),
+          y: Math.max(0, item.y),
           w: size.w, h: size.h,
         }
         return [...prev, newWidget]
       })
-    } catch { /* ignore invalid drop data */ }
+      setIsPickerOpen(false)
+    } catch (err) {
+      console.warn('[Dashboard] drop parse error:', err)
+    }
   }, [updateWidgets])
 
+  const handleModalDragStart = useCallback((type: WidgetType, size: WidgetSize) => {
+    setDroppingItem({ i: `dropping-${type}`, w: size.w, h: size.h })
+    console.debug('[Dashboard] modal drag start — droppingItem set to %dx%d', size.w, size.h)
+  }, [])
+
   const handleDragStart = useCallback((layout: GridItem[]) => {
-    preDragLayoutRef.current = new Map(layout.map((i) => [i.i, { x: i.x, y: i.y }]))
+    isDraggingRef.current = true
+    preDragLayoutRef.current = new Map(
+      layout.map((i) => [i.i, { x: i.x, y: i.y, w: i.w, h: i.h }]),
+    )
+    console.debug('[Dashboard] dragStart — captured %d positions', layout.length)
   }, [])
 
   return (
@@ -369,9 +395,11 @@ export default function Dashboard() {
                       isDraggable={isEditMode}
                       isResizable={isEditMode}
                       useCSSTransforms={true}
-                      compactType="vertical"
-                      preventCollision={true}
+                      compactType={null}
+                      preventCollision={false}
                       isDroppable={true}
+                      // @ts-expect-error react-grid-layout requires x/y but they're set on drop
+                      droppingItem={droppingItem}
                       margin={[GRID_MARGIN, GRID_MARGIN]}
                       containerPadding={[0, 0]}
                       // @ts-expect-error react-grid-layout types are limited
@@ -386,9 +414,11 @@ export default function Dashboard() {
                       onDrop={handleDrop}
                       // @ts-expect-error react-grid-layout types are limited
                       onDragStart={handleDragStart}
+                      // @ts-expect-error react-grid-layout types are limited
+                      onDragStop={handleDragStop}
                     >
                       {visibleWidgets.map((widget) => (
-                        <div key={widget.id} style={{ position: 'relative' }}>
+                        <div key={widget.id} style={{ height: '100%', width: '100%' }}>
                           <WidgetCard
                             widget={widget}
                             isEditMode={isEditMode}
@@ -415,7 +445,7 @@ export default function Dashboard() {
             open={isPickerOpen}
             onClose={() => setIsPickerOpen(false)}
             onAdd={handleAddWidget}
-            onDragStart={() => setIsPickerOpen(false)}
+            onDragStart={handleModalDragStart}
           />
         )}
       </AnimatePresence>
