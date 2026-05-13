@@ -15,8 +15,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/asset',  label: 'Активы',      Icon: TrendingUp, disabled: true },
 ]
 
-export default function FinTrackNavBar() {
-  console.debug('[FinTrackNavBar] rendered')
+export default function NavBar() {
+  console.debug('[NavBar] rendered')
 
   return (
     <nav

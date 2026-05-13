@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import FinTrackNavBar from '../components/layout/FinTrackNavBar'
+import NavBar from '../components/layout/FinTrackNavBar'
 import MarketSummaryBar from '../components/market-overview/MarketSummaryBar'
 import TopMovers from '../components/market-overview/TopMovers'
 import AssetTable from '../components/market-overview/AssetTable'
@@ -59,7 +59,7 @@ export default function MarketOverview() {
           } as React.CSSProperties}
         >
           {/* Shared page navigation */}
-          <FinTrackNavBar />
+          <NavBar />
 
           {/* Page header */}
           <div style={{ marginBottom: 16 }}>

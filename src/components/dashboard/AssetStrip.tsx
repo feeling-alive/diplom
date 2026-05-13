@@ -1,4 +1,5 @@
 import { motion, type Variants } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import type { Asset } from '../../types/market.types'
 import { MOCK_PRICES } from '../../mock/prices.mock'
 
@@ -16,6 +17,20 @@ const itemVariant: Variants = {
   show: { opacity: 1, x: 0, transition: { duration: 0.3 } },
 }
 
+const CARD_BASE = {
+  background: 'var(--white)',
+  border: '1px solid var(--border)',
+  borderRadius: 14,
+  padding: '10px 14px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
+  cursor: 'pointer',
+  minWidth: 120,
+  flexShrink: 0,
+  boxShadow: 'var(--shadow-sm)',
+} as const
+
 function formatPrice(price: number, type: string): string {
   if (type === 'forex') return price.toFixed(4)
   if (price >= 1000) return '$' + price.toLocaleString('en-US', { maximumFractionDigits: 0 })
@@ -23,6 +38,7 @@ function formatPrice(price: number, type: string): string {
 }
 
 export default function AssetStrip({ assets = MOCK_PRICES }: Props) {
+  const navigate = useNavigate()
   console.debug('[AssetStrip]', assets.length, 'assets rendered')
 
   return (
@@ -35,7 +51,6 @@ export default function AssetStrip({ assets = MOCK_PRICES }: Props) {
         gap: 10,
         overflowX: 'auto',
         padding: '2px 0 6px',
-        // Hide scrollbar
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',
       } as React.CSSProperties}
@@ -47,18 +62,8 @@ export default function AssetStrip({ assets = MOCK_PRICES }: Props) {
             key={asset.symbol}
             variants={itemVariant}
             whileHover={{ y: -1, boxShadow: 'var(--shadow-md)' }}
-            style={{
-              background: 'var(--white)',
-              border: '1px solid var(--border)',
-              borderRadius: 12,
-              padding: '10px 14px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-              cursor: 'pointer',
-              minWidth: 110,
-              flexShrink: 0,
-            }}
+            onClick={() => navigate(`/asset/${asset.symbol}`)}
+            style={CARD_BASE}
           >
             {/* Header row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

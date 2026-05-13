@@ -3,17 +3,17 @@
 ## Design system
 
 Colors — use ONLY these variables, no new colors ever:
-- accent: #E8264A
+- accent: #E11D48
 - accent-bg: #FFE5EC
-- ink: #0D0D0D
+- ink: #0F172A
 - text: #1A1A1A
-- muted: #8A8A8A
+- muted: #64748B
 - soft: #B8B6B0
 - bg: #F4F3F1
 - white: #FFFFFF
 - border: #ECEAE3
 - green: #22C55E
-- red: #E8264A
+- red: #E11D48
 
 Typography — Inter everywhere:
 - Sizes: 48px hero, 22px h1, 16px h2, 13px body, 11px small, 9px label
@@ -22,9 +22,9 @@ Typography — Inter everywhere:
 Border radius — use only: 8px / 12px / 16px / 24px / 999px (pill)
 
 Shadows:
-- sm: 0 4px 14px -4px rgba(20,20,20,.10)
-- md: 0 6px 18px -6px rgba(20,20,20,.10), 0 2px 6px -2px rgba(20,20,20,.06)
-- lg: 0 24px 60px -20px rgba(20,20,20,.18), 0 8px 24px -8px rgba(20,20,20,.08)
+- sm: 0 4px 14px rgba(0,0,0,0.06)
+- md: 0 6px 18px rgba(0,0,0,0.08), 0 2px 6px -2px rgba(0,0,0,0.05)
+- lg: 0 24px 60px -20px rgba(0,0,0,0.18), 0 8px 24px -8px rgba(0,0,0,0.08)
 
 ## Code requirements
 
