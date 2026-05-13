@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, X, Search } from 'lucide-react'
+import WidgetPreview from './WidgetPreview'
 import type { WidgetType, WidgetSize } from '../../types/widgets.types'
 import { WIDGET_REGISTRY } from '../../constants/widgets.registry'
 
@@ -9,17 +10,6 @@ interface Props {
   onClose: () => void
   onAdd: (type: WidgetType, size: WidgetSize) => void
   onDragStart?: (type: WidgetType, size: WidgetSize) => void
-}
-
-const PREVIEW_BASE = {
-  borderRadius: 10,
-  display: 'flex',
-  flexDirection: 'column' as const,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  gap: 6,
-  overflow: 'hidden',
-  transition: 'width 0.3s, height 0.3s',
 }
 
 export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Props) {
@@ -166,11 +156,7 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
                     Ничего не найдено
                   </div>
                 ) : filteredWidgets.map((def) => {
-                  const Icon = def.icon
                   const selected = selectedSizes[def.type]
-                  // Preview dimensions scale with grid units
-                  const previewW = selected.w * 48
-                  const previewH = selected.h * 40
 
                   return (
                     <div
@@ -193,21 +179,8 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
                         userSelect: 'none',
                       }}
                     >
-                      {/* Animated preview */}
-                      <motion.div
-                        animate={{ width: previewW, height: previewH }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                        style={{
-                          ...PREVIEW_BASE,
-                          background: `${def.color}10`,
-                          border: `1px solid ${def.color}30`,
-                        }}
-                      >
-                        <Icon size={Math.min(previewW, previewH) * 0.4} strokeWidth={1.5} color={def.color} />
-                        <span style={{ fontSize: 9, fontWeight: 600, color: def.color, textAlign: 'center', padding: '0 4px' }}>
-                          {def.title}
-                        </span>
-                      </motion.div>
+                      {/* Real widget preview */}
+                      <WidgetPreview type={def.type} w={selected.w} h={selected.h} />
 
                       {/* Info */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

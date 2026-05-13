@@ -14,7 +14,7 @@ import FearGreedWidget from './widgets/FearGreedWidget'
 import MarketVolumeWidget from './widgets/MarketVolumeWidget'
 import TrendingCoinsWidget from './widgets/TrendingCoinsWidget'
 
-function renderWidgetContent(type: WidgetType) {
+export function renderWidgetContent(type: WidgetType) {
   switch (type) {
     case 'watchlist': return <WatchlistPanel />
     case 'price_chart': return <PriceChartWidget />
