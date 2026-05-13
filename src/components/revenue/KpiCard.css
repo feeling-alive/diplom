@@ -1,0 +1,112 @@
+.kpi {
+  background: var(--c-bg-card);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  cursor: grab;
+  transition: box-shadow 0.18s, transform 0.18s;
+  min-width: 0;
+}
+.kpi--withuser {
+  background: #F7F7F7;
+  border-color: transparent;
+}
+.kpi:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-1px);
+}
+.kpi--dragging {
+  cursor: grabbing;
+  box-shadow: var(--shadow-hover);
+  z-index: 10;
+}
+.kpi--dark {
+  background: var(--c-dark);
+  color: #fff;
+  border-color: var(--c-dark);
+}
+.kpi--highlight {
+  border: 1.5px solid var(--c-accent);
+}
+.kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.kpi-label {
+  color: var(--c-text-mute);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+.kpi--dark .kpi-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+.kpi-value {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--c-text);
+  line-height: 1.1;
+}
+.kpi--dark .kpi-value { color: #fff; }
+.kpi--highlight .kpi-value { color: var(--c-accent); }
+.kpi-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.kpi-sub__dot {
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: #FFB36B;
+  margin-right: -2px;
+}
+.kpi-sub__btn {
+  width: 18px; height: 18px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.kpi-user {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  color: var(--c-text-soft);
+}
+.kpi-arrow {
+  margin-left: auto;
+  width: 18px; height: 18px;
+  background: var(--c-bg-soft);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-text);
+}
+.kpi-trend {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--c-accent-soft);
+  color: var(--c-accent-deep);
+}
+.kpi-trend.neg {
+  background: var(--c-bg-muted);
+  color: var(--c-text-soft);
+}

@@ -1,0 +1,50 @@
+.rail {
+  width: var(--rail-w);
+  background: var(--c-bg-app);
+  border-right: 1px solid var(--c-border-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0 16px;
+  gap: 6px;
+}
+.rail-logo { display: none; }
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  margin-top: 0;
+  flex: 1;
+}
+.rail-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-text);
+  transition: background 0.15s, color 0.15s;
+  position: relative;
+}
+.rail-btn:hover { background: var(--c-bg-soft); }
+.rail-btn--active { background: var(--c-accent); color: #fff; }
+.rail-btn--active:hover { background: var(--c-accent); color: #fff; }
+.rail-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+.rail-user { position: relative; }
+.rail-notif {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  background: var(--c-accent);
+  border-radius: 999px;
+  border: 1.5px solid #fff;
+}

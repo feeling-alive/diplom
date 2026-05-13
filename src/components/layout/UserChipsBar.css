@@ -1,0 +1,94 @@
+.ucb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 12px 0;
+  background: var(--c-bg-app);
+}
+.ucb-left { display: flex; align-items: center; gap: 8px; }
+.ucb-add {
+  width: 24px; height: 24px;
+  border: 1px dashed var(--c-text-mute);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-text-mute);
+}
+.ucb-add:hover { border-color: var(--c-accent); color: var(--c-accent); }
+.ucb-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 3px;
+  background: var(--c-bg-soft);
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--c-text);
+}
+.ucb-chip--me { background: var(--c-dark); padding: 3px; }
+.ucb-me {
+  width: 22px; height: 22px;
+  border-radius: 999px;
+  background: var(--c-dark);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1.5px solid var(--c-accent);
+}
+.ucb-right { display: flex; align-items: center; gap: 4px; }
+.ucb-iconbtn {
+  width: 28px; height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--c-text-soft);
+}
+.ucb-iconbtn:hover { background: var(--c-bg-soft); color: var(--c-text); }
+.ph {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: 18px;
+}
+.ph-title {
+  font-size: 28px;
+  font-weight: 300;
+  color: var(--c-text);
+  letter-spacing: -0.5px;
+}
+.ph-timeframe { display: flex; align-items: center; gap: 10px; }
+.ph-tf-text { color: var(--c-text-mute); font-size: 12px; }
+.ph-tf-toggle {
+  width: 32px; height: 18px;
+  background: var(--c-bg-muted);
+  border-radius: 999px;
+  position: relative;
+  transition: background 0.2s;
+}
+.ph-tf-toggle.is-on { background: var(--c-dark); }
+.ph-tf-knob {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  background: #fff;
+  border-radius: 999px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.ph-tf-toggle.is-on .ph-tf-knob { transform: translateX(14px); }
+.ph-tf-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--c-text);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 500;
+}
+.ph-tf-date:hover { background: var(--c-bg-soft); }
