@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronUp, ChevronDown } from 'lucide-react'
-import { MOCK_PRICES } from '../../mock/prices.mock'
+import { useNavigate } from 'react-router-dom'
+import { usePrices } from '../../hooks/usePrices'
 import { getMockOHLCV } from '../../mock/ohlcv.mock'
 import type { Asset } from '../../types/market.types'
 
@@ -77,16 +78,11 @@ function HeaderCell({ label, sortKey, activeSortKey, sortDir, onSort, align = 'l
     <div
       onClick={sortKey && onSort ? () => onSort(sortKey) : undefined}
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 3,
+        display: 'flex', alignItems: 'center', gap: 3,
         justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
-        fontSize: 10,
-        color: isActive ? 'var(--ink)' : 'var(--muted)',
-        fontWeight: 500,
-        cursor: sortKey ? 'pointer' : 'default',
-        userSelect: 'none',
-        padding: '0 0 10px',
+        fontSize: 10, color: isActive ? 'var(--ink)' : 'var(--muted)',
+        fontWeight: 500, cursor: sortKey ? 'pointer' : 'default',
+        userSelect: 'none', padding: '0 0 10px',
         borderBottom: '1px solid var(--border)',
       }}
     >
@@ -100,9 +96,37 @@ function HeaderCell({ label, sortKey, activeSortKey, sortDir, onSort, align = 'l
   )
 }
 
+function SkeletonRow({ index }: { index: number }) {
+  return (
+    <div
+      style={{
+        display: 'grid', gridTemplateColumns: GRID,
+        gap: '0 12px', padding: '10px 0',
+        borderBottom: '1px solid var(--border)', alignItems: 'center',
+      }}
+    >
+      <div style={{ height: 12, width: 16, borderRadius: 4, background: 'var(--border)', opacity: 0.6 - index * 0.1 }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--border)', flexShrink: 0, opacity: 0.5 }} />
+        <div>
+          <div style={{ height: 12, width: 60, borderRadius: 4, background: 'var(--border)', marginBottom: 4, opacity: 0.5 }} />
+          <div style={{ height: 10, width: 80, borderRadius: 4, background: 'var(--border)', opacity: 0.3 }} />
+        </div>
+      </div>
+      {[80, 50, 70, 65, 60].map((w, i) => (
+        <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ height: 12, width: w, borderRadius: 4, background: 'var(--border)', opacity: 0.4 }} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function AssetTable({ filter }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('marketCap')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const navigate = useNavigate()
+  const { all, cryptos, stocks, forex, indices, isLoading } = usePrices()
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -113,30 +137,51 @@ export default function AssetTable({ filter }: Props) {
     }
   }
 
-  const rows = useMemo(() => {
-    const filtered = filter === 'all'
-      ? MOCK_PRICES
-      : MOCK_PRICES.filter(a => a.type === filter)
+  const pool = filter === 'all' ? all
+    : filter === 'crypto' ? cryptos
+    : filter === 'stock' ? stocks
+    : filter === 'forex' ? forex
+    : indices
 
-    return [...filtered].sort((a, b) => {
+  const rows = useMemo(() => {
+    return [...pool].sort((a, b) => {
       const va = (a[sortKey] as number) ?? 0
       const vb = (b[sortKey] as number) ?? 0
       return sortDir === 'asc' ? va - vb : vb - va
     })
-  }, [filter, sortKey, sortDir])
+  }, [pool, sortKey, sortDir])
 
-  console.debug('[AssetTable] filter=', filter, 'sort=', sortKey, sortDir, 'rows=', rows.length)
+  console.debug('[AssetTable] filter=', filter, 'sort=', sortKey, sortDir, 'rows=', rows.length, 'isLoading=', isLoading)
+
+  function handleRowClick(symbol: string) {
+    console.debug('[AssetTable] row clicked, symbol=', symbol)
+    navigate(`/asset/${symbol}`)
+  }
+
+  const headerRow = (
+    <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: '0 12px', alignItems: 'end' }}>
+      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 500, padding: '0 0 10px', borderBottom: '1px solid var(--border)' }}>#</div>
+      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 500, padding: '0 0 10px', borderBottom: '1px solid var(--border)' }}>Актив</div>
+      <HeaderCell label="Цена"          sortKey="price"     activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" />
+      <HeaderCell label="Изм. 24ч"      sortKey="change24h" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" />
+      <HeaderCell label="Объём 24ч"     sortKey="volume24h" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" />
+      <HeaderCell label="Капитализация" sortKey="marketCap" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" />
+      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 500, padding: '0 0 10px', borderBottom: '1px solid var(--border)' }}>График</div>
+    </div>
+  )
+
+  if (isLoading) {
+    return (
+      <div>
+        {headerRow}
+        {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} index={i} />)}
+      </div>
+    )
+  }
 
   if (rows.length === 0) {
     return (
-      <div
-        style={{
-          padding: '24px',
-          textAlign: 'center',
-          fontSize: 12,
-          color: 'var(--muted)',
-        }}
-      >
+      <div style={{ padding: '24px', textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>
         Нет активов в этой категории
       </div>
     )
@@ -144,59 +189,31 @@ export default function AssetTable({ filter }: Props) {
 
   return (
     <div>
-      {/* Header row */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: GRID,
-          gap: '0 12px',
-          alignItems: 'end',
-        }}
-      >
-        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 500, padding: '0 0 10px', borderBottom: '1px solid var(--border)' }}>#</div>
-        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 500, padding: '0 0 10px', borderBottom: '1px solid var(--border)' }}>Актив</div>
-        <HeaderCell label="Цена"          sortKey="price"     activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" />
-        <HeaderCell label="Изм. 24ч"      sortKey="change24h" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" />
-        <HeaderCell label="Объём 24ч"     sortKey="volume24h" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" />
-        <HeaderCell label="Капитализация" sortKey="marketCap" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right" />
-        <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 500, padding: '0 0 10px', borderBottom: '1px solid var(--border)' }}>График</div>
-      </div>
+      {headerRow}
 
-      {/* Data rows */}
       {rows.map((asset, index) => (
         <motion.div
           key={asset.symbol}
           whileHover={{ backgroundColor: 'var(--bg)' }}
+          onClick={() => handleRowClick(asset.symbol)}
           style={{
-            display: 'grid',
-            gridTemplateColumns: GRID,
-            gap: '0 12px',
-            padding: '10px 0',
+            display: 'grid', gridTemplateColumns: GRID,
+            gap: '0 12px', padding: '10px 0',
             borderBottom: '1px solid var(--border)',
-            alignItems: 'center',
-            cursor: 'pointer',
+            alignItems: 'center', cursor: 'pointer',
           }}
         >
-          {/* # */}
           <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>
             {index + 1}
           </span>
 
-          {/* Актив */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div
               style={{
-                width: 30,
-                height: 30,
-                borderRadius: '50%',
+                width: 30, height: 30, borderRadius: '50%',
                 background: asset.color,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                fontSize: 12,
-                fontWeight: 700,
-                flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0,
               }}
             >
               {asset.icon}
@@ -209,12 +226,10 @@ export default function AssetTable({ filter }: Props) {
             </div>
           </div>
 
-          {/* Цена */}
           <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
             {formatPrice(asset.price, asset.type)}
           </div>
 
-          {/* Изм. 24ч */}
           <div style={{ textAlign: 'right' }}>
             <span
               className="badge"
@@ -227,17 +242,14 @@ export default function AssetTable({ filter }: Props) {
             </span>
           </div>
 
-          {/* Объём 24ч */}
           <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--text)' }}>
             {formatBillion(asset.volume24h)}
           </div>
 
-          {/* Капитализация */}
           <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--text)' }}>
             {asset.marketCap ? formatTrillion(asset.marketCap) : '–'}
           </div>
 
-          {/* Sparkline */}
           <SparklineCell symbol={asset.symbol} positive={asset.change24h >= 0} />
         </motion.div>
       ))}

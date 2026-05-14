@@ -51,8 +51,11 @@ export function usePrices(): PriceMap {
         const symbols = ['AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA','JPM','V','WMT']
         const results = await Promise.allSettled(
           symbols.map(async (s) => {
-            const r = await fetch(`${ENV.FINNHUB_BASE_URL}/quote?symbol=${s}&token=${ENV.FINNHUB_API_KEY}`)
-            if (!r.ok) throw new Error()
+            const r = await fetch(
+              `${ENV.FINNHUB_BASE_URL}/quote?symbol=${s}&token=${ENV.FINNHUB_API_KEY}`,
+              { signal: AbortSignal.timeout(4000) },
+            )
+            if (!r.ok) throw new Error(`${r.status}`)
             const d = await r.json() as { c: number; dp: number }
             return { symbol: s, price: d.c, change24h: d.dp }
           })
@@ -74,7 +77,7 @@ export function usePrices(): PriceMap {
     }
 
     void tick()
-    const interval = setInterval(() => void tick(), 15_000)
+    const interval = setInterval(() => void tick(), 60_000)
     return () => { mounted.current = false; clearInterval(interval) }
   }, [])
 

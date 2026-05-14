@@ -87,6 +87,7 @@ export function useAssetPrice(
         try {
           const res = await fetch(
             `${ENV.FINNHUB_BASE_URL}/quote?symbol=${symbol}&token=${ENV.FINNHUB_API_KEY}`,
+            { signal: AbortSignal.timeout(4000) },
           )
           if (!res.ok) throw new Error(`Finnhub ${res.status}`)
           const json = (await res.json()) as { c: number; dp: number }

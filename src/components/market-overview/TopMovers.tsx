@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown } from 'lucide-react'
-import { MOCK_PRICES } from '../../mock/prices.mock'
+import { usePrices } from '../../hooks/usePrices'
 import type { Asset } from '../../types/market.types'
 
 type FilterType = 'all' | 'crypto' | 'stock' | 'forex' | 'index'
@@ -28,26 +28,15 @@ function MoverSection({ title, items, positive }: SectionProps) {
           minHeight: 100,
         }}
       >
-        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-          Нет данных
-        </span>
+        <span style={{ fontSize: 11, color: 'var(--muted)' }}>Нет данных</span>
       </div>
     )
   }
 
   return (
     <div className="card" style={{ padding: '14px 16px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          marginBottom: 10,
-        }}
-      >
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
-          {title}
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{title}</span>
         {positive
           ? <TrendingUp size={14} strokeWidth={2} color="var(--green)" />
           : <TrendingDown size={14} strokeWidth={2} color="var(--accent)" />
@@ -67,44 +56,26 @@ function MoverSection({ title, items, positive }: SectionProps) {
             borderBottom: index < items.length - 1 ? '1px solid var(--border)' : 'none',
           }}
         >
-          {/* Asset circle */}
           <div
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: '50%',
+              width: 28, height: 28, borderRadius: '50%',
               background: asset.color,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontSize: 11,
-              fontWeight: 700,
-              flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0,
             }}
           >
             {asset.icon}
           </div>
 
-          {/* Name */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>
               {asset.symbol}
             </div>
-            <div
-              style={{
-                fontSize: 10,
-                color: 'var(--muted)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
+            <div style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {asset.name}
             </div>
           </div>
 
-          {/* Price + badge */}
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>
               ${asset.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
@@ -126,25 +97,22 @@ function MoverSection({ title, items, positive }: SectionProps) {
 }
 
 export default function TopMovers({ filter }: Props) {
-  const filtered = filter === 'all'
-    ? MOCK_PRICES
-    : MOCK_PRICES.filter(a => a.type === filter)
+  const { all, cryptos, stocks, forex, indices } = usePrices()
 
-  const gainers = [...filtered].sort((a, b) => b.change24h - a.change24h).slice(0, 3)
-  const losers  = [...filtered].sort((a, b) => a.change24h - b.change24h).slice(0, 3)
+  const pool = filter === 'all' ? all
+    : filter === 'crypto' ? cryptos
+    : filter === 'stock' ? stocks
+    : filter === 'forex' ? forex
+    : indices
 
-  console.debug('[TopMovers] filter=', filter, 'gainers=', gainers.map(a => a.symbol))
+  const gainers = [...pool].sort((a, b) => b.change24h - a.change24h).slice(0, 3)
+  const losers  = [...pool].sort((a, b) => a.change24h - b.change24h).slice(0, 3)
 
-  if (filtered.length < 2) {
+  console.debug('[TopMovers] filter=', filter, 'pool=', pool.length, 'gainers=', gainers.map(a => a.symbol))
+
+  if (pool.length < 2) {
     return (
-      <div
-        style={{
-          padding: '12px 16px',
-          fontSize: 12,
-          color: 'var(--muted)',
-          textAlign: 'center',
-        }}
-      >
+      <div style={{ padding: '12px 16px', fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
         Нет данных для этой категории
       </div>
     )

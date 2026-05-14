@@ -1,39 +1,38 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import NavBar from '../components/layout/FinTrackNavBar'
 import AssetHeader from '../components/asset/AssetHeader'
-import CandlestickChart from '../components/asset/CandlestickChart'
-import ChatPanel from '../components/asset/ChatPanel'
-import { MOCK_PRICES } from '../mock/prices.mock'
+import MainCard from '../components/asset/MainCard'
+import MetricsBar from '../components/asset/MetricsBar'
+import NewsPanel from '../components/asset/NewsPanel'
+import AIPanel from '../components/asset/AIPanel'
+import { usePrices } from '../hooks/usePrices'
 
 export default function AssetPage() {
   const { symbol } = useParams<{ symbol: string }>()
   const navigate = useNavigate()
+  const { bySymbol } = usePrices()
 
-  const asset = MOCK_PRICES.find(a => a.symbol === symbol)
+  const asset = symbol ? bySymbol[symbol] : undefined
 
-  console.debug('[AssetPage] symbol=', symbol, 'found=', !!asset)
+  console.debug('[AssetPage] symbol=%s found=%s', symbol, !!asset)
 
   if (!asset) {
     return (
-      <div className="app-page">
+      <div className="main-content" style={{ flex: 1 }}>
         <div
+          className="main-scroll"
           style={{
-            width: '100%',
-            height: '100%',
-            background: 'var(--white)',
-            borderRadius: 22,
-            boxShadow: 'var(--shadow-lg)',
-            overflow: 'hidden',
+            padding: '20px 24px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             gap: 10,
+            minHeight: '70vh',
           }}
         >
-          <div style={{ fontSize: 40, fontWeight: 800, color: 'var(--border)' }}>404</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>
+          <div style={{ fontSize: 56, fontWeight: 800, color: 'var(--border)' }}>404</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>
             Актив не найден
           </div>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>
@@ -42,12 +41,12 @@ export default function AssetPage() {
           <button
             onClick={() => navigate('/market')}
             style={{
-              marginTop: 8,
+              marginTop: 12,
               padding: '8px 20px',
               background: 'var(--ink)',
               color: '#fff',
               border: 'none',
-              borderRadius: 8,
+              borderRadius: 999,
               fontSize: 13,
               fontWeight: 600,
               cursor: 'pointer',
@@ -61,49 +60,42 @@ export default function AssetPage() {
   }
 
   return (
-    <div className="app-page">
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          background: 'var(--white)',
-          borderRadius: 22,
-          boxShadow: 'var(--shadow-lg)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
+    <div className="main-content" style={{ flex: 1 }}>
+      <motion.div
+        className="main-scroll"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        style={{ padding: '20px 24px 24px' }}
       >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            padding: '12px 22px 22px',
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'var(--border) transparent',
-          } as React.CSSProperties}
-        >
-          <NavBar />
-          <AssetHeader asset={asset} />
+        <AssetHeader asset={asset} />
 
-          {/* Chart + AI chat */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '3fr 2fr',
-              gap: 12,
-              alignItems: 'start',
-            }}
-          >
-            <CandlestickChart symbol={asset.symbol} />
-            <ChatPanel asset={asset} />
+        {/* Two-column body */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 65fr) minmax(0, 35fr)',
+          gap: 16,
+          alignItems: 'start',
+        }}>
+          {/* LEFT column */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <MainCard asset={asset} />
+            <MetricsBar asset={asset} />
           </div>
-        </motion.div>
-      </div>
+
+          {/* RIGHT column */}
+          <div style={{
+            display: 'grid',
+            gridTemplateRows: '60fr 40fr',
+            gap: 14,
+            height: 'calc(420px + 16px + 100px)',
+            minHeight: 540,
+          }}>
+            <NewsPanel symbol={asset.symbol} ticker={asset.symbol} />
+            <AIPanel symbol={asset.symbol} />
+          </div>
+        </div>
+      </motion.div>
     </div>
   )
 }

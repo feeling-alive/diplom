@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, TrendingUp, TrendingDown } from 'lucide-react'
+import { ChevronLeft, TrendingUp, TrendingDown, Star } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAssetPrice } from '../../hooks/useAssetPrice'
 import type { Asset } from '../../types/market.types'
@@ -15,46 +16,40 @@ function formatPrice(price: number, type: Asset['type']): string {
   return `$${price.toFixed(4)}`
 }
 
-function formatVolume(n: number): string {
-  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`
-  return `$${(n / 1e6).toFixed(0)}M`
-}
-
-function formatMarketCap(n: number): string {
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`
-  return `$${(n / 1e9).toFixed(1)}B`
-}
-
 export default function AssetHeader({ asset }: Props) {
   const navigate = useNavigate()
-  const { price, change24h } = useAssetPrice(asset.symbol, asset.type, true)
+  const { price: livePrice, change24h: liveChange } = useAssetPrice(asset.symbol, asset.type, true)
+  const [isStarred, setIsStarred] = useState(false)
+
+  const price = livePrice || asset.price
+  const change24h = liveChange || asset.change24h
   const positive = change24h >= 0
 
-  console.debug('[AssetHeader] symbol=', asset.symbol, 'price=', price, 'change24h=', change24h)
+  console.debug('[AssetHeader] %s price=%s change=%s starred=%s', asset.symbol, price, change24h, isStarred)
 
   return (
     <motion.div
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="card"
       style={{
-        padding: '16px 20px',
-        marginBottom: 12,
         display: 'flex',
         alignItems: 'center',
         gap: 16,
+        marginBottom: 16,
         flexWrap: 'wrap',
       }}
     >
       {/* Back button */}
-      <button
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
         onClick={() => navigate('/market')}
         style={{
-          background: 'var(--bg)',
+          background: 'var(--white)',
           border: '1px solid var(--border)',
-          borderRadius: 8,
-          padding: '6px 10px',
+          borderRadius: 999,
+          padding: '7px 12px',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -66,41 +61,42 @@ export default function AssetHeader({ asset }: Props) {
       >
         <ChevronLeft size={14} strokeWidth={2} />
         Назад
-      </button>
+      </motion.button>
 
       {/* Icon */}
       <div
         style={{
-          width: 40,
-          height: 40,
+          width: 48,
+          height: 48,
           borderRadius: '50%',
           background: asset.color,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: '#fff',
-          fontSize: 16,
+          fontSize: 20,
           fontWeight: 700,
           flexShrink: 0,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
         }}
       >
         {asset.icon}
       </div>
 
       {/* Name + symbol */}
-      <div style={{ flex: 1, minWidth: 100 }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}>
+      <div style={{ flex: 1, minWidth: 140 }}>
+        <div style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 500 }}>{asset.name}</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}>
           {asset.symbol}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{asset.name}</div>
       </div>
 
       {/* Price + change */}
       <div style={{ textAlign: 'right' }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', lineHeight: 1.2 }}>
+        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', lineHeight: 1.1, letterSpacing: '-0.02em' }}>
           {formatPrice(price, asset.type)}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 4 }}>
           {positive
             ? <TrendingUp size={12} strokeWidth={2} color="var(--green)" />
             : <TrendingDown size={12} strokeWidth={2} color="var(--accent)" />}
@@ -116,37 +112,33 @@ export default function AssetHeader({ asset }: Props) {
         </div>
       </div>
 
-      {/* Volume */}
-      {asset.volume24h ? (
-        <div
-          style={{
-            textAlign: 'right',
-            paddingLeft: 20,
-            borderLeft: '1px solid var(--border)',
-          }}
-        >
-          <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Объём 24ч</div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
-            {formatVolume(asset.volume24h)}
-          </div>
-        </div>
-      ) : null}
-
-      {/* Market cap */}
-      {asset.marketCap ? (
-        <div
-          style={{
-            textAlign: 'right',
-            paddingLeft: 20,
-            borderLeft: '1px solid var(--border)',
-          }}
-        >
-          <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>Капитализация</div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
-            {formatMarketCap(asset.marketCap)}
-          </div>
-        </div>
-      ) : null}
+      {/* Star button */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => {
+          console.debug('[AssetHeader] star toggled, was=%s', isStarred)
+          setIsStarred((v) => !v)
+        }}
+        style={{
+          background: isStarred ? 'var(--accent)' : 'var(--white)',
+          border: '1px solid ' + (isStarred ? 'var(--accent)' : 'var(--border)'),
+          borderRadius: 999,
+          padding: '8px 14px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontSize: 12,
+          fontWeight: 600,
+          color: isStarred ? '#fff' : 'var(--ink)',
+          flexShrink: 0,
+          transition: 'background 0.2s, border-color 0.2s, color 0.2s',
+        }}
+      >
+        <Star size={14} strokeWidth={2} fill={isStarred ? '#fff' : 'none'} />
+        {isStarred ? 'В списке' : 'Добавить в список'}
+      </motion.button>
     </motion.div>
   )
 }

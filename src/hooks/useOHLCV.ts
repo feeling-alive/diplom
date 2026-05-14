@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { PricePoint, Timeframe } from '../types/market.types'
 import { getMockOHLCV } from '../mock/ohlcv.mock'
+import { ENV, USE_MOCK } from '../lib/env'
 
 // Maps Timeframe to OKX bar parameter string
 const OKX_BAR: Record<Timeframe, string> = {
@@ -27,7 +28,6 @@ const FINNHUB_RES: Record<Timeframe, string> = {
 }
 
 async function fetchOKXCandles(symbol: string, timeframe: Timeframe): Promise<PricePoint[]> {
-  // TODO: real impl — OKX candles API
   const bar = OKX_BAR[timeframe]
   const res = await fetch(
     `https://www.okx.com/api/v5/market/candles?instId=${symbol}&bar=${bar}&limit=100`,
@@ -45,13 +45,11 @@ async function fetchOKXCandles(symbol: string, timeframe: Timeframe): Promise<Pr
 }
 
 async function fetchFinnhubCandles(symbol: string, timeframe: Timeframe): Promise<PricePoint[]> {
-  // TODO: real impl — Finnhub candle API
   const resolution = FINNHUB_RES[timeframe]
   const to = Math.floor(Date.now() / 1000)
-  const from = to - 100 * 3600 // rough 100-bar window
-  const key = (import.meta.env.VITE_FINNHUB_KEY as string | undefined) ?? ''
+  const from = to - 100 * 3600
   const res = await fetch(
-    `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}&token=${key}`,
+    `${ENV.FINNHUB_BASE_URL}/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}&token=${ENV.FINNHUB_API_KEY}`,
   )
   const json = (await res.json()) as {
     t: number[]
@@ -79,7 +77,7 @@ interface OHLCVResult {
   error: Error | null
 }
 
-export function useOHLCV(symbol: string, timeframe: Timeframe, useMock = true): OHLCVResult {
+export function useOHLCV(symbol: string, timeframe: Timeframe, useMock = USE_MOCK): OHLCVResult {
   const { data, isLoading, error } = useQuery<PricePoint[], Error>({
     queryKey: ['ohlcv', symbol, timeframe, useMock],
     queryFn: async () => {

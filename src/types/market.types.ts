@@ -4,7 +4,7 @@ export interface Asset {
   type: 'crypto' | 'stock' | 'forex' | 'index'
   price: number
   change24h: number     // percent change over 24h
-  changeDollar: number  // dollar change
+  changeDollar?: number // dollar change
   volume24h: number
   marketCap?: number
   high24h: number
