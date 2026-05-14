@@ -18,29 +18,25 @@ export function usePrices(): PriceMap {
   const [prices, setPrices] = useState<Asset[]>(() => MOCK_PRICES.map((a) => ({ ...a })))
   const [isLoading, setIsLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState(0)
-  const fetchId = useRef(0)
+  const mounted = useRef(true)
 
   useEffect(() => {
-    const id = ++fetchId.current
+    mounted.current = true
     console.log('[usePrices] mounted')
 
-    async function tick() {
-      if (id !== fetchId.current) return
+    async function fetchAndUpdate() {
+      if (!mounted.current) return
       const updates = new Map<string, Partial<Asset>>()
 
-      // OKX
       try {
         const res = await fetch('https://www.okx.com/api/v5/market/tickers?instType=SPOT&limit=50')
         if (res.ok) {
           const json = await res.json() as { data: Array<{ instId: string; last: string; volCcy24h: string }> }
-          for (const t of json.data ?? []) {
-            updates.set(t.instId, { price: parseFloat(t.last), volume24h: Math.round(parseFloat(t.volCcy24h)) })
-          }
-          console.log('[usePrices] OKX: %d tickers, first: %s=$%s', json.data?.length ?? 0, json.data?.[0]?.instId, json.data?.[0]?.last)
+          for (const t of json.data ?? []) updates.set(t.instId, { price: parseFloat(t.last), volume24h: Math.round(parseFloat(t.volCcy24h)) })
+          console.log('[usePrices] OKX: %d tickers', json.data?.length ?? 0)
         }
-      } catch { /* ignore */ }
+      } catch (e) { console.warn('[usePrices] OKX fail:', e) }
 
-      // Frankfurter
       try {
         const res = await fetch(`${ENV.FRANKFURTER_BASE_URL}/latest?from=USD`)
         if (res.ok) {
@@ -50,9 +46,8 @@ export function usePrices(): PriceMap {
             updates.set(`${ccy}-USD`, { price: +(1 / rate).toFixed(4) })
           }
         }
-      } catch { /* ignore */ }
+      } catch (e) { console.warn('[usePrices] Frankfurter fail:', e) }
 
-      // Finnhub
       if (ENV.FINNHUB_API_KEY) {
         const top = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'JPM', 'V', 'WMT']
         const results = await Promise.allSettled(
@@ -69,26 +64,29 @@ export function usePrices(): PriceMap {
         console.log('[usePrices] Finnhub: %d stocks', results.filter((r) => r.status === 'fulfilled').length)
       }
 
-      if (id !== fetchId.current) return
+      if (!mounted.current) return
 
       setPrices((prev) => {
         const next = prev.map((a) => {
           const u = updates.get(a.symbol)
           if (u) return { ...a, ...u }
-          // jitter for non-updated
           const jitter = 1 + (Math.random() - 0.5) * 0.01
           return { ...a, price: a.price * jitter }
         })
-        console.log('[usePrices] updated, sample: %s=$%s %s=$%s', next[0]?.symbol, next[0]?.price.toFixed(2), next[1]?.symbol, next[1]?.price.toFixed(2))
+        console.log('[usePrices] updated: %s=$%s %s=$%s', next[0]?.symbol, next[0]?.price?.toFixed(2), next[1]?.symbol, next[1]?.price?.toFixed(2))
         return next
       })
       setLastUpdated(Date.now())
       setIsLoading(false)
     }
 
-    void tick()
-    const interval = setInterval(() => void tick(), 15_000)
-    return () => { fetchId.current = -1; clearInterval(interval) }
+    void fetchAndUpdate()
+    const interval = setInterval(() => void fetchAndUpdate(), 15_000)
+
+    return () => {
+      mounted.current = false
+      clearInterval(interval)
+    }
   }, [])
 
   const bySymbol: Record<string, Asset> = {}
