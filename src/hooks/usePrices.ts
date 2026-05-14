@@ -26,10 +26,7 @@ export function usePrices(): PriceMap {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    if (USE_MOCK) {
-      setIsLoading(false)
-      return
-    }
+    console.log('[usePrices] mounted, USE_MOCK=%s', USE_MOCK)
 
     let cancelled = false
 
