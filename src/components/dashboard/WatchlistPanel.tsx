@@ -8,8 +8,9 @@ interface Props {
 }
 
 export default function WatchlistPanel({ assets: propAssets }: Props) {
-  const { cryptos } = usePrices()
+  const { cryptos, isLoading, lastUpdated } = usePrices()
   const assets = propAssets ?? cryptos.slice(0, 10)
+  console.log('[WatchlistPanel] render count=%d loading=%s updated=%s sample=%s', assets.length, isLoading, new Date(lastUpdated).toLocaleTimeString(), assets[0]?.symbol + '=$' + assets[0]?.price?.toFixed(2))
 
   if (assets.length === 0) {
     return (

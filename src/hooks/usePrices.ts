@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Asset } from '../types/market.types'
 import { MOCK_PRICES } from '../mock/prices.mock'
-import { ENV, USE_MOCK } from '../lib/env'
+import { ENV } from '../lib/env'
 
 export interface PriceMap {
   bySymbol: Record<string, Asset>
@@ -11,103 +11,84 @@ export interface PriceMap {
   indices: Asset[]
   all: Asset[]
   isLoading: boolean
-  isLive: boolean
-}
-
-function jitter(value: number, pct = 0.5): number {
-  const factor = 1 + (Math.random() - 0.5) * 0.02 * pct
-  return value * factor
+  lastUpdated: number
 }
 
 export function usePrices(): PriceMap {
-  const [prices, setPrices] = useState<Asset[]>(MOCK_PRICES)
-  const [isLive, setIsLive] = useState(false)
+  const [prices, setPrices] = useState<Asset[]>(() => MOCK_PRICES.map((a) => ({ ...a })))
   const [isLoading, setIsLoading] = useState(true)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [lastUpdated, setLastUpdated] = useState(0)
+  const fetchId = useRef(0)
 
   useEffect(() => {
-    console.log('[usePrices] mounted, USE_MOCK=%s', USE_MOCK)
+    const id = ++fetchId.current
+    console.log('[usePrices] mounted')
 
-    let cancelled = false
-
-    async function fetchAll() {
+    async function tick() {
+      if (id !== fetchId.current) return
       const updates = new Map<string, Partial<Asset>>()
-      let anyLive = false
 
-      // 1. Crypto via OKX
+      // OKX
       try {
         const res = await fetch('https://www.okx.com/api/v5/market/tickers?instType=SPOT&limit=50')
         if (res.ok) {
           const json = await res.json() as { data: Array<{ instId: string; last: string; volCcy24h: string }> }
           for (const t of json.data ?? []) {
-            updates.set(t.instId, { price: parseFloat(t.last), volume24h: parseFloat(t.volCcy24h) ?? 0 })
+            updates.set(t.instId, { price: parseFloat(t.last), volume24h: Math.round(parseFloat(t.volCcy24h)) })
           }
-          anyLive = true
-          console.info('[usePrices] OKX: %d tickers', json.data?.length ?? 0)
+          console.log('[usePrices] OKX: %d tickers, first: %s=$%s', json.data?.length ?? 0, json.data?.[0]?.instId, json.data?.[0]?.last)
         }
-      } catch { /* okx not available */ }
+      } catch { /* ignore */ }
 
-      // 2. Forex via Frankfurter  
+      // Frankfurter
       try {
         const res = await fetch(`${ENV.FRANKFURTER_BASE_URL}/latest?from=USD`)
         if (res.ok) {
           const json = await res.json() as { rates: Record<string, number> }
           for (const [ccy, rate] of Object.entries(json.rates ?? {})) {
             updates.set(`USD-${ccy}`, { price: rate })
-            updates.set(`${ccy}-USD`, { price: 1 / rate })
+            updates.set(`${ccy}-USD`, { price: +(1 / rate).toFixed(4) })
           }
-          anyLive = true
-          console.info('[usePrices] Frankfurter: %d rates', Object.keys(json.rates ?? {}).length)
         }
-      } catch { /* frankfurter not available */ }
+      } catch { /* ignore */ }
 
-      // 3. Stocks via Finnhub
+      // Finnhub
       if (ENV.FINNHUB_API_KEY) {
-        const symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'JPM', 'V', 'WMT']
+        const top = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'JPM', 'V', 'WMT']
         const results = await Promise.allSettled(
-          symbols.map(async (s) => {
+          top.map(async (s) => {
             const r = await fetch(`${ENV.FINNHUB_BASE_URL}/quote?symbol=${s}&token=${ENV.FINNHUB_API_KEY}`)
             if (!r.ok) throw new Error()
-            const d = await r.json() as { c: number; dp: number; h: number; l: number }
+            const d = await r.json() as { c: number; dp: number }
             return { symbol: s, price: d.c, change24h: d.dp }
           })
         )
         for (const r of results) {
-          if (r.status === 'fulfilled' && r.value) {
-            updates.set(r.value.symbol, { price: r.value.price, change24h: r.value.change24h })
-          }
+          if (r.status === 'fulfilled' && r.value) updates.set(r.value.symbol, { price: r.value.price, change24h: r.value.change24h })
         }
-        const loaded = results.filter((r) => r.status === 'fulfilled').length
-        if (loaded > 0) { anyLive = true; console.info('[usePrices] Finnhub: %d stocks', loaded) }
+        console.log('[usePrices] Finnhub: %d stocks', results.filter((r) => r.status === 'fulfilled').length)
       }
 
-      if (!cancelled) {
-        if (anyLive) {
-          setPrices((prev) => prev.map((a) => {
-            const u = updates.get(a.symbol)
-            return u ? { ...a, ...u } : { ...a, price: jitter(a.price, 2), change24h: a.change24h + (Math.random() - 0.5) * 0.5 }
-          }))
-          setIsLive(true)
-        } else {
-          setPrices((prev) => prev.map((a) => ({ ...a, price: jitter(a.price, 5), change24h: a.change24h + (Math.random() - 0.5) * 0.5 })))
-        }
-        setIsLoading(false)
-      }
+      if (id !== fetchId.current) return
+
+      setPrices((prev) => {
+        const next = prev.map((a) => {
+          const u = updates.get(a.symbol)
+          if (u) return { ...a, ...u }
+          // jitter for non-updated
+          const jitter = 1 + (Math.random() - 0.5) * 0.01
+          return { ...a, price: a.price * jitter }
+        })
+        console.log('[usePrices] updated, sample: %s=$%s %s=$%s', next[0]?.symbol, next[0]?.price.toFixed(2), next[1]?.symbol, next[1]?.price.toFixed(2))
+        return next
+      })
+      setLastUpdated(Date.now())
+      setIsLoading(false)
     }
 
-    void fetchAll()
-
-    // Tick every 30s for slight variation
-    intervalRef.current = setInterval(() => {
-      if (!cancelled) {
-        setPrices((prev) => prev.map((a) => ({ ...a, price: jitter(a.price, 1), change24h: a.change24h + (Math.random() - 0.5) * 0.2 })))
-      }
-    }, 30_000)
-
-    return () => {
-      cancelled = true
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
+    void tick()
+    const interval = setInterval(() => void tick(), 15_000)
+    return () => { fetchId.current = -1; clearInterval(interval) }
   }, [])
 
   const bySymbol: Record<string, Asset> = {}
@@ -121,6 +102,6 @@ export function usePrices(): PriceMap {
     indices: prices.filter((a) => a.type === 'index'),
     all: prices,
     isLoading,
-    isLive,
+    lastUpdated,
   }
 }
