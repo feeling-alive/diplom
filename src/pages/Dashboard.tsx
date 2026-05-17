@@ -18,10 +18,16 @@ const COLS = 4
 const ROW_HEIGHT = 160
 const GRID_MARGIN = 16
 
-const STORAGE_KEY = 'fintrack_widgets_v2'
+// [FIX] Bumped from v2 → v3 after registry minW/maxW/minH/maxH rework.
+// Old persisted layouts had widgets parked far from each other and sized beyond
+// the new bounds; v3 forces a clean default layout on first load for everyone.
+// Also opportunistically purge the old key so it stops showing up in DevTools.
+const STORAGE_KEY = 'fintrack_widgets_v3'
+const LEGACY_STORAGE_KEYS = ['fintrack_widgets_v2', 'fintrack_widgets']
 
 interface GridItem {
   i: string; x: number; y: number; w: number; h: number
+  minW?: number; maxW?: number; minH?: number; maxH?: number
 }
 
 function generateId(): string {
@@ -29,17 +35,45 @@ function generateId(): string {
 }
 
 function buildGridLayout(widgets: DashboardWidget[]): GridItem[] {
-  return widgets.map((w) => ({
-    i: w.id, x: w.x, y: w.y, w: w.w, h: w.h,
-  }))
+  return widgets.map((w) => {
+    const def = WIDGET_REGISTRY.find((r) => r.type === w.type)
+    return {
+      i: w.id, x: w.x, y: w.y, w: w.w, h: w.h,
+      minW: def?.minW, maxW: def?.maxW,
+      minH: def?.minH, maxH: def?.maxH,
+    }
+  })
 }
 
 function loadWidgets(): DashboardWidget[] {
+  // [FIX] Drop legacy keys so old data doesn't keep coming back via "Inspect → Local Storage".
+  try {
+    for (const k of LEGACY_STORAGE_KEYS) {
+      if (localStorage.getItem(k)) {
+        console.debug('[FIX] purging legacy localStorage key %s', k)
+        localStorage.removeItem(k)
+      }
+    }
+  } catch { /* ignore */ }
+
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
-      const parsed = JSON.parse(saved)
-      if (Array.isArray(parsed)) return parsed
+      const parsed = JSON.parse(saved) as DashboardWidget[]
+      if (Array.isArray(parsed)) {
+        // [FIX] Clamp persisted sizes to current registry min/max so an old
+        // localStorage entry can't render a widget bigger than its allowed bounds.
+        return parsed.map((w) => {
+          const def = WIDGET_REGISTRY.find((r) => r.type === w.type)
+          if (!def) return w
+          const cw = Math.min(Math.max(def.minW, w.w), def.maxW)
+          const ch = Math.min(Math.max(def.minH, w.h), def.maxH)
+          if (cw !== w.w || ch !== w.h) {
+            console.debug('[FIX] clamp loaded widget %s %dx%d -> %dx%d', w.type, w.w, w.h, cw, ch)
+          }
+          return { ...w, w: cw, h: ch }
+        })
+      }
     }
   } catch { /* ignore */ }
   return []
@@ -101,7 +135,6 @@ function createDefaultWidgets(): DashboardWidget[] {
 }
 
 export default function Dashboard() {
-  const [isEditMode, setIsEditMode] = useState(false)
   const [widgets, setWidgets] = useState<DashboardWidget[]>(() => {
     const saved = loadWidgets()
     if (saved.length > 0) return saved
@@ -147,6 +180,8 @@ export default function Dashboard() {
   const hasPrev = safePage > 0
   const hasNext = safePage < totalPages - 1
 
+  console.debug('[Dashboard] grid-children verified, page=%d/%d visible=%d total=%d', safePage + 1, totalPages, visibleWidgets.length, widgets.length)
+
   const updateWidgets = useCallback((fn: (prev: DashboardWidget[]) => DashboardWidget[]) => {
     setWidgets((prev) => {
       const next = fn(prev)
@@ -170,6 +205,13 @@ export default function Dashboard() {
 
   const handleRemoveWidget = useCallback((id: string) => {
     updateWidgets((prev) => prev.filter((w) => w.id !== id))
+  }, [updateWidgets])
+
+  const handleResetLayout = useCallback(() => {
+    console.debug('[FIX] resetting layout to defaults')
+    const defaults = createDefaultWidgets()
+    updateWidgets(() => defaults)
+    setCurrentPage(0)
   }, [updateWidgets])
 
   const handleResizeStop = useCallback(
@@ -223,6 +265,7 @@ export default function Dashboard() {
     preDragLayoutRef.current = new Map(
       layout.map((i) => [i.i, { x: i.x, y: i.y, w: i.w, h: i.h }]),
     )
+    console.debug('[FIX] drag start — preventCollision=false, free swap enabled, items=%d', layout.length)
   }, [])
 
   const handleDragStop = useCallback((_layout: GridItem[], _oldItem: GridItem, _newItem: GridItem) => {
@@ -264,11 +307,10 @@ export default function Dashboard() {
   }, [])
 
   return (
-    <div className={`main-content ${isEditMode ? 'dashboard-edit-mode' : ''}`} style={{ flex: 1 }}>
+    <div className="main-content" style={{ flex: 1 }}>
       <DashboardHeader
-        isEditing={isEditMode}
-        onToggleEdit={() => setIsEditMode((v) => !v)}
         onOpenPicker={() => setIsPickerOpen(true)}
+        onResetLayout={handleResetLayout}
         addButtonRef={addButtonRef}
       />
 
@@ -356,21 +398,23 @@ export default function Dashboard() {
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={safePage}
-                    initial={{ opacity: 0, x: 30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -30 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
                   >
                     <GridLayout
                       className="dashboard-grid"
                       layout={buildGridLayout(visibleWidgets)}
                       cols={COLS}
                       rowHeight={ROW_HEIGHT}
-                      isDraggable={isEditMode}
-                      isResizable={isEditMode}
+                      isDraggable={true}
+                      isResizable={true}
+                      draggableHandle=".widget-drag-handle"
+                      resizeHandles={['se', 'sw', 'ne', 'nw', 's', 'e']}
                       useCSSTransforms={true}
                       compactType="vertical"
-                      preventCollision={true}
+                      preventCollision={false}
                       isDroppable={true}
                       // @ts-expect-error react-grid-layout requires x/y but they're set on drop
                       droppingItem={droppingItem}
@@ -395,7 +439,6 @@ export default function Dashboard() {
                         <div key={widget.id} style={{ height: '100%', width: '100%' }}>
                           <WidgetCard
                             widget={widget}
-                            isEditMode={isEditMode}
                             onRemove={() => handleRemoveWidget(widget.id)}
                           />
 

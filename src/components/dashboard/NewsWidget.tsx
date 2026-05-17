@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import type { NewsItem } from '../../types/market.types'
+import type { WidgetSizeProps } from '../../types/widgets.types'
 import { MOCK_NEWS } from '../../mock/news.mock'
 
 type NewsFilter = 'all' | 'crypto' | 'stock' | 'forex'
@@ -43,35 +44,32 @@ function formatRelativeTime(iso: string): string {
   return `${Math.floor(hours / 24)} д`
 }
 
-interface Props {
+interface Props extends WidgetSizeProps {
   news?: NewsItem[]
 }
 
-export default function NewsWidget({ news = MOCK_NEWS }: Props) {
+export default function NewsWidget({ news = MOCK_NEWS, gridW = 2, gridH = 2 }: Props) {
   const [filter, setFilter] = useState<NewsFilter>('all')
+  const limit = gridH >= 3 ? 6 : 3
+  const filtered = filterNews(news, filter).slice(0, limit)
 
-  const filtered = filterNews(news, filter).slice(0, 4)
-
-  console.debug('[NewsWidget] filter=', filter, 'showing', filtered.length, 'items')
+  console.debug('[NewsWidget] gridW=%d gridH=%d filter=%s showing=%d', gridW, gridH, filter, filtered.length)
 
   return (
-    <div
-      style={{
-        background: 'var(--white)',
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        padding: 16,
-      }}
-    >
-      {/* Header */}
-      <div style={{ marginBottom: 10 }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+    <div style={{
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      boxSizing: 'border-box',
+    }}>
+      <div style={{ marginBottom: 6, flexShrink: 0 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
           Новости рынка
         </span>
       </div>
-
-      {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexShrink: 0, flexWrap: 'wrap' }}>
         {TABS.map((tab) => (
           <button
             key={tab.key}
@@ -94,7 +92,7 @@ export default function NewsWidget({ news = MOCK_NEWS }: Props) {
         ))}
       </div>
 
-      {/* News items */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
       {filtered.length === 0 ? (
         <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>Нет новостей</p>
       ) : (
@@ -115,7 +113,6 @@ export default function NewsWidget({ news = MOCK_NEWS }: Props) {
                 transition: 'border-left-color 0.15s, padding-left 0.15s',
               }}
             >
-              {/* Sentiment dot */}
               <div
                 style={{
                   width: 8,
@@ -127,7 +124,6 @@ export default function NewsWidget({ news = MOCK_NEWS }: Props) {
                 }}
               />
 
-              {/* Text block */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
                 <p
                   style={{
@@ -138,13 +134,13 @@ export default function NewsWidget({ news = MOCK_NEWS }: Props) {
                     lineHeight: 1.4,
                     overflow: 'hidden',
                     display: '-webkit-box',
-                    WebkitLineClamp: 2,
+                    WebkitLineClamp: gridW >= 3 ? 3 : 2,
                     WebkitBoxOrient: 'vertical',
                   } as React.CSSProperties}
                 >
                   {item.title}
                 </p>
-                <span style={{ fontSize: 10, color: 'var(--muted)' }}>
+                <span style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {item.source} · {formatRelativeTime(item.publishedAt)}
                 </span>
               </div>
@@ -152,6 +148,7 @@ export default function NewsWidget({ news = MOCK_NEWS }: Props) {
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }

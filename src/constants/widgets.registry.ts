@@ -5,6 +5,10 @@ import {
 } from 'lucide-react';
 import type { WidgetDefinition } from '../types/widgets.types';
 
+// [FIX] Per-widget resize axes (см. patch 2026-05-17):
+//   minW === maxW  → resize ТОЛЬКО по вертикали (фиксированная ширина)
+//   minH === maxH  → resize ТОЛЬКО по горизонтали (фиксированная высота)
+//   обе различаются → свободный resize по обеим осям
 export const WIDGET_REGISTRY: WidgetDefinition[] = [
   {
     type: 'kpi_portfolio',
@@ -13,12 +17,13 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     icon: TrendingUp,
     color: '#e11d48',
     availableSizes: [
-      { w: 4, h: 1, label: '4×1' },
-      { w: 3, h: 1, label: '3×1' },
       { w: 2, h: 1, label: '2×1' },
+      { w: 3, h: 1, label: '3×1' },
+      { w: 4, h: 1, label: '4×1' },
     ],
     defaultSize: { w: 4, h: 1, label: '4×1' },
-    minW: 2, minH: 1, maxW: 4, maxH: 2,
+    // Только ширина: всегда тонкая полоса в одну строку.
+    minW: 2, minH: 1, maxW: 4, maxH: 1,
   },
   {
     type: 'watchlist',
@@ -29,10 +34,11 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     availableSizes: [
       { w: 2, h: 2, label: '2×2' },
       { w: 2, h: 3, label: '2×3' },
-      { w: 3, h: 2, label: '3×2' },
+      { w: 2, h: 4, label: '2×4' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 2, minH: 2, maxW: 3, maxH: 4,
+    // Только высота: список активов растёт вниз, ширина фиксирована.
+    minW: 2, minH: 2, maxW: 2, maxH: 4,
   },
   {
     type: 'price_chart',
@@ -44,9 +50,12 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
       { w: 2, h: 2, label: '2×2' },
       { w: 3, h: 2, label: '3×2' },
       { w: 4, h: 2, label: '4×2' },
+      { w: 3, h: 3, label: '3×3' },
+      { w: 4, h: 3, label: '4×3' },
     ],
     defaultSize: { w: 3, h: 2, label: '3×2' },
-    minW: 2, minH: 2, maxW: 4, maxH: 3,
+    // Обе оси: график удобно тянуть и вширь, и в высоту.
+    minW: 2, minH: 2, maxW: 4, maxH: 4,
   },
   {
     type: 'allocation',
@@ -57,9 +66,12 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     availableSizes: [
       { w: 1, h: 2, label: '1×2' },
       { w: 2, h: 2, label: '2×2' },
+      { w: 2, h: 3, label: '2×3' },
+      { w: 3, h: 3, label: '3×3' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 1, minH: 2, maxW: 2, maxH: 3,
+    // Обе оси: круговая диаграмма + легенда, гибкая компоновка.
+    minW: 1, minH: 2, maxW: 3, maxH: 4,
   },
   {
     type: 'community',
@@ -70,8 +82,11 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     availableSizes: [
       { w: 2, h: 2, label: '2×2' },
       { w: 2, h: 3, label: '2×3' },
+      { w: 2, h: 4, label: '2×4' },
+      { w: 3, h: 3, label: '3×3' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
+    // Обе оси, но широкий диапазон по высоте (лента постов).
     minW: 2, minH: 2, maxW: 3, maxH: 4,
   },
   {
@@ -82,7 +97,9 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     color: '#64748b',
     availableSizes: [
       { w: 2, h: 2, label: '2×2' },
-      { w: 3, h: 2, label: '3×2' },
+      { w: 2, h: 3, label: '2×3' },
+      { w: 2, h: 4, label: '2×4' },
+      { w: 3, h: 3, label: '3×3' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
     minW: 2, minH: 2, maxW: 3, maxH: 4,
@@ -95,10 +112,12 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     color: '#22c55e',
     availableSizes: [
       { w: 2, h: 2, label: '2×2' },
+      { w: 3, h: 2, label: '3×2' },
       { w: 2, h: 3, label: '2×3' },
+      { w: 3, h: 3, label: '3×3' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 2, minH: 2, maxW: 3, maxH: 3,
+    minW: 2, minH: 2, maxW: 4, maxH: 4,
   },
   {
     type: 'forex_rates',
@@ -107,11 +126,13 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     icon: DollarSign,
     color: '#0ea5e9',
     availableSizes: [
-      { w: 2, h: 2, label: '2×2' },
       { w: 3, h: 1, label: '3×1' },
+      { w: 4, h: 1, label: '4×1' },
+      { w: 2, h: 2, label: '2×2' },
+      { w: 3, h: 2, label: '3×2' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 2, minH: 1, maxW: 3, maxH: 3,
+    minW: 2, minH: 1, maxW: 4, maxH: 3,
   },
   {
     type: 'fear_greed',
@@ -121,8 +142,9 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     color: '#f97316',
     availableSizes: [
       { w: 1, h: 1, label: '1×1' },
-      { w: 1, h: 2, label: '1×2' },
       { w: 2, h: 1, label: '2×1' },
+      { w: 1, h: 2, label: '1×2' },
+      { w: 2, h: 2, label: '2×2' },
     ],
     defaultSize: { w: 1, h: 2, label: '1×2' },
     minW: 1, minH: 1, maxW: 2, maxH: 2,
@@ -136,9 +158,11 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     availableSizes: [
       { w: 2, h: 1, label: '2×1' },
       { w: 3, h: 1, label: '3×1' },
+      { w: 4, h: 1, label: '4×1' },
     ],
     defaultSize: { w: 2, h: 1, label: '2×1' },
-    minW: 2, minH: 1, maxW: 4, maxH: 2,
+    // Только ширина: одна строка с цифрой + опциональный спарк-график.
+    minW: 2, minH: 1, maxW: 4, maxH: 1,
   },
   {
     type: 'trending_coins',
@@ -148,9 +172,11 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     color: '#ef4444',
     availableSizes: [
       { w: 2, h: 2, label: '2×2' },
-      { w: 3, h: 2, label: '3×2' },
+      { w: 2, h: 3, label: '2×3' },
+      { w: 2, h: 4, label: '2×4' },
+      { w: 3, h: 3, label: '3×3' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 2, minH: 2, maxW: 3, maxH: 3,
+    minW: 2, minH: 2, maxW: 3, maxH: 4,
   },
 ];

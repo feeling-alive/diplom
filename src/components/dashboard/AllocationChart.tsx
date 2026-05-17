@@ -1,6 +1,7 @@
 import React from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { MOCK_PRICES } from '../../mock/prices.mock'
+import type { WidgetSizeProps } from '../../types/widgets.types'
 
 const SLICE_DATA = MOCK_PRICES.slice(0, 5).map((a) => ({
   name: a.name,
@@ -66,63 +67,73 @@ function renderCustomizedLabel({ cx, cy, midAngle, innerRadius, outerRadius, ind
   )
 }
 
-export default function AllocationChart() {
-  console.debug('[AllocationChart] rendered', SLICE_DATA.length, 'slices')
+type Props = WidgetSizeProps
+
+export default function AllocationChart({ gridW = 2, gridH = 2 }: Props) {
+  const showLegend = gridH >= 3
+  const showPct = gridW >= 2
+
+  console.debug('[AllocationChart] gridW=%d gridH=%d slices=%d legend=%s', gridW, gridH, SLICE_DATA.length, showLegend)
 
   return (
     <div
       style={{
-        background: 'var(--white)',
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        padding: 16,
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
       }}
     >
-      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Распределение</span>
-
-      <ResponsiveContainer width="100%" height={180}>
-        <PieChart>
-          <Pie
-            data={SLICE_DATA}
-            cx="50%"
-            cy="50%"
-            outerRadius={75}
-            dataKey="value"
-            labelLine={false}
-            label={renderCustomizedLabel as (props: unknown) => React.ReactElement | null}
-          >
-            {SLICE_DATA.map((entry) => (
-              <Cell key={entry.symbol} fill={entry.color} stroke="var(--white)" strokeWidth={2} />
-            ))}
-          </Pie>
-          <Tooltip content={<CustomTooltip />} />
-        </PieChart>
-      </ResponsiveContainer>
-
-      {/* Legend */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
-        {SLICE_DATA.map((item) => {
-          const pct = (item.value / total * 100).toFixed(1)
-          return (
-            <div
-              key={item.symbol}
-              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+      <div style={{ flex: 1, minHeight: 0, width: '100%' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={SLICE_DATA}
+              cx="50%"
+              cy="50%"
+              outerRadius="80%"
+              dataKey="value"
+              labelLine={false}
+              label={renderCustomizedLabel as (props: unknown) => React.ReactElement | null}
             >
-              <div
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: item.color,
-                  flexShrink: 0,
-                }}
-              />
-              <span style={{ fontSize: 11, color: 'var(--text)', flex: 1 }}>{item.name}</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>{pct}%</span>
-            </div>
-          )
-        })}
+              {SLICE_DATA.map((entry) => (
+                <Cell key={entry.symbol} fill={entry.color} stroke="var(--white)" strokeWidth={2} />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
+
+      {showLegend && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, flexShrink: 0 }}>
+          {SLICE_DATA.map((item) => {
+            const pct = (item.value / total * 100).toFixed(1)
+            return (
+              <div
+                key={item.symbol}
+                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+              >
+                <div
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: item.color,
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ fontSize: 11, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                {showPct && (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>{pct}%</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
