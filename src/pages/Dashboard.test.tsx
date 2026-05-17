@@ -21,8 +21,9 @@ vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-vi.mock('react-grid-layout', () => ({
+vi.mock('react-grid-layout/legacy', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  WidthProvider: <P extends object>(Comp: React.ComponentType<P>) => Comp,
 }))
 
 function wrapper({ children }: { children: React.ReactNode }) {
