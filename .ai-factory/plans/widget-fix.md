@@ -225,7 +225,7 @@ Milestone: `none` — Rationale: roadmap-артефакт в проекте от
 
 ### Фаза 3 — Финал (Блок 4)
 
-#### Task #23 — Финальная сверка реестра + тесты
+#### Task #23 — Финальная сверка реестра + тесты — [x]
 - Пройтись по всему `WIDGET_REGISTRY` — проверить, что для каждого изменённого виджета `defaultSize`/`minW`/`maxW`/`minH`/`maxH`/`availableSizes` соответствуют spec из Блока 3. Виджеты не из списка ТЗ (`technical_analysis`, `economic_calendar`, `heatmap`, `portfolio_pnl`, `dominance_chart`, `price_alerts`, `macd_widget`, `rsi_gauge`, `order_book`, `global_market_cap`, `funding_rate`, `gas_tracker`, `currency_converter`, `whale_tracker`, `stock_screener`, `sentiment_meter`, `liquidations`, `yield_curve`, `correlation_matrix`, `ai_signal`) не трогать.
 - `npm run lint` — 0 ошибок.
 - `npm run test` — все тесты зелёные. Если тест ссылается на `kpi_portfolio` — заменить на `market_ticker`.

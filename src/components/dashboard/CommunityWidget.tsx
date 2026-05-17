@@ -23,8 +23,8 @@ function truncate(text: string, max = 85): string {
 }
 
 export default function CommunityWidget({ posts: propPosts, gridW = 2, gridH = 2 }: Props) {
-  // Кол-во постов: 2×2 → 2, 2×3 → 4, 3×2 → 3, 3×3 → 6 (плотные строки, без растяжения отступов)
-  const limit = gridH >= 3 ? (gridW >= 3 ? 6 : 4) : (gridW >= 3 ? 3 : 2)
+  // Кол-во постов: 2×2 → 3, 2×3 → 4, 3×2 → 4, 3×3 → 6 (плотные строки, без растяжения отступов)
+  const limit = gridH >= 3 ? (gridW >= 3 ? 6 : 4) : (gridW >= 3 ? 4 : 3)
   const posts = propPosts ?? MOCK_COMMUNITY.slice(0, limit)
 
   console.debug('[CommunityWidget] gridW=%d gridH=%d posts=%d', gridW, gridH, posts.length)
