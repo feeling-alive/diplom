@@ -1,37 +1,52 @@
 import { useMemo } from 'react'
 import { usePrices } from '../../../hooks/usePrices'
 import { formatChange } from '../../../utils/format'
+import type { WidgetSizeProps } from '../../../types/widgets.types'
 
-export default function TopMoversWidget() {
+type Props = WidgetSizeProps
+
+export default function TopMoversWidget({ gridW = 2, gridH = 2 }: Props) {
   const { all } = usePrices()
 
+  const limit = gridH >= 3 ? 6 : 3
   const sorted = useMemo(() => {
-    return [...all].sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h)).slice(0, 10)
+    return [...all].sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h)).slice(0, 20)
   }, [all])
 
-  const gainers = sorted.filter((s) => s.change24h > 0).slice(0, 5)
-  const losers = sorted.filter((s) => s.change24h < 0).slice(0, 5)
+  const gainers = sorted.filter((s) => s.change24h > 0).slice(0, limit)
+  const losers = sorted.filter((s) => s.change24h < 0).slice(0, limit)
+
+  console.debug('[TopMoversWidget] gridW=%d gridH=%d gainers=%d losers=%d', gridW, gridH, gainers.length, losers.length)
 
   return (
-    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, minHeight: 320 }}>
-      <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
-        <div style={{ flex: 1 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>▲ Рост</span>
+    <div style={{
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      gap: 16,
+      overflow: 'hidden',
+      boxSizing: 'border-box',
+    }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6, flexShrink: 0 }}>▲ Рост</span>
+        <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           {gainers.length === 0 && <span style={{ fontSize: 11, color: 'var(--muted)' }}>Нет данных</span>}
           {gainers.map((s) => (
-            <div key={s.symbol} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{s.symbol.split('-')[0]}</span>
-              <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600 }}>{formatChange(s.change24h)}</span>
+            <div key={s.symbol} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.symbol.split('-')[0]}</span>
+              <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600, flexShrink: 0 }}>{formatChange(s.change24h)}</span>
             </div>
           ))}
         </div>
-        <div style={{ flex: 1 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>▼ Падение</span>
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6, flexShrink: 0 }}>▼ Падение</span>
+        <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           {losers.length === 0 && <span style={{ fontSize: 11, color: 'var(--muted)' }}>Нет данных</span>}
           {losers.map((s) => (
-            <div key={s.symbol} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{s.symbol.split('-')[0]}</span>
-              <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>{formatChange(s.change24h)}</span>
+            <div key={s.symbol} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.symbol.split('-')[0]}</span>
+              <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600, flexShrink: 0 }}>{formatChange(s.change24h)}</span>
             </div>
           ))}
         </div>

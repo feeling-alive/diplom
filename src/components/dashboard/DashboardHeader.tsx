@@ -1,16 +1,15 @@
 import { motion } from 'framer-motion'
-import { Search, Pencil, AlignLeft, Plus } from 'lucide-react'
+import { Search, AlignLeft, Plus, RotateCcw } from 'lucide-react'
 
 interface Props {
-  onToggleEdit: () => void
-  isEditing: boolean
   onOpenWidgetMenu?: () => void
   onOpenPicker?: () => void
+  onResetLayout?: () => void
   addButtonRef?: React.RefObject<HTMLButtonElement>
 }
 
-export default function DashboardHeader({ onToggleEdit, isEditing, onOpenWidgetMenu, onOpenPicker, addButtonRef }: Props) {
-  console.debug('[DashboardHeader] render isEditing=', isEditing)
+export default function DashboardHeader({ onOpenWidgetMenu, onOpenPicker, onResetLayout, addButtonRef }: Props) {
+  console.debug('[DashboardHeader] render')
 
   const handleAddWidget = onOpenWidgetMenu || onOpenPicker || (() => {})
 
@@ -61,31 +60,35 @@ export default function DashboardHeader({ onToggleEdit, isEditing, onOpenWidgetM
 
       {/* Right — actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {/* Pencil (edit mode toggle) */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onToggleEdit}
-          data-testid="edit-mode-btn"
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: '50%',
-            border: '1px solid var(--border)',
-            background: isEditing ? 'var(--accent)' : 'var(--white)',
-            color: isEditing ? '#fff' : 'var(--muted)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            flexShrink: 0,
-            transition: 'background 0.15s, color 0.15s',
-          }}
-          aria-label="Режим редактирования"
-          title={isEditing ? 'Выйти из режима редактирования' : 'Режим редактирования'}
-        >
-          <Pencil size={14} strokeWidth={2} />
-        </motion.button>
+        {/* Reset layout */}
+        {onResetLayout && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              if (window.confirm('Сбросить раскладку дашборда к стандартной?')) {
+                onResetLayout()
+              }
+            }}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              border: '1px solid var(--border)',
+              background: 'var(--white)',
+              color: 'var(--muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+            aria-label="Сбросить раскладку"
+            title="Сбросить раскладку к стандартной"
+          >
+            <RotateCcw size={14} strokeWidth={2} />
+          </motion.button>
+        )}
 
         {/* Menu */}
         <motion.button

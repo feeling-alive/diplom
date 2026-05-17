@@ -42,3 +42,8 @@ export interface DashboardWidget {
   w: number;
   h: number;
 }
+
+export interface WidgetSizeProps {
+  gridW?: number;
+  gridH?: number;
+}

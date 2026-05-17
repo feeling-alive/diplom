@@ -1,9 +1,8 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react'
-import GridLayout from 'react-grid-layout'
+import { useState, useCallback, useRef } from 'react'
+import GridLayout, { WidthProvider, type Layout, type LayoutItem } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import WidgetCard from '../components/dashboard/WidgetCard'
@@ -17,29 +16,55 @@ import type { DashboardWidget, WidgetType, WidgetSize } from '../types/widgets.t
 const COLS = 4
 const ROW_HEIGHT = 160
 const GRID_MARGIN = 16
+const STORAGE_KEY = 'fintrack_widgets_v3'
+const LEGACY_STORAGE_KEYS = ['fintrack_widgets_v2', 'fintrack_widgets']
 
-const STORAGE_KEY = 'fintrack_widgets_v2'
-
-interface GridItem {
-  i: string; x: number; y: number; w: number; h: number
-}
+// [FIX] WidthProvider HOC ОБЯЗАТЕЛЕН — без него GridLayout использует дефолт 1200px,
+// координаты drag не совпадают с реальным контейнером → drop кладёт виджет не туда,
+// resize считается от чужой ширины → не работает.
+const ResponsiveGrid = WidthProvider(GridLayout)
 
 function generateId(): string {
   return 'w_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
 }
 
-function buildGridLayout(widgets: DashboardWidget[]): GridItem[] {
-  return widgets.map((w) => ({
-    i: w.id, x: w.x, y: w.y, w: w.w, h: w.h,
-  }))
+function buildGridLayout(widgets: DashboardWidget[]): LayoutItem[] {
+  return widgets.map((w) => {
+    const def = WIDGET_REGISTRY.find((r) => r.type === w.type)
+    return {
+      i: w.id, x: w.x, y: w.y, w: w.w, h: w.h,
+      minW: def?.minW, maxW: def?.maxW,
+      minH: def?.minH, maxH: def?.maxH,
+    }
+  })
 }
 
 function loadWidgets(): DashboardWidget[] {
   try {
+    for (const k of LEGACY_STORAGE_KEYS) {
+      if (localStorage.getItem(k)) {
+        console.debug('[FIX] purging legacy localStorage key %s', k)
+        localStorage.removeItem(k)
+      }
+    }
+  } catch { /* ignore */ }
+
+  try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
-      const parsed = JSON.parse(saved)
-      if (Array.isArray(parsed)) return parsed
+      const parsed = JSON.parse(saved) as DashboardWidget[]
+      if (Array.isArray(parsed)) {
+        return parsed.map((w) => {
+          const def = WIDGET_REGISTRY.find((r) => r.type === w.type)
+          if (!def) return w
+          const cw = Math.min(Math.max(def.minW, w.w), def.maxW)
+          const ch = Math.min(Math.max(def.minH, w.h), def.maxH)
+          if (cw !== w.w || ch !== w.h) {
+            console.debug('[FIX] clamp loaded widget %s %dx%d -> %dx%d', w.type, w.w, w.h, cw, ch)
+          }
+          return { ...w, w: cw, h: ch }
+        })
+      }
     }
   } catch { /* ignore */ }
   return []
@@ -101,7 +126,6 @@ function createDefaultWidgets(): DashboardWidget[] {
 }
 
 export default function Dashboard() {
-  const [isEditMode, setIsEditMode] = useState(false)
   const [widgets, setWidgets] = useState<DashboardWidget[]>(() => {
     const saved = loadWidgets()
     if (saved.length > 0) return saved
@@ -112,40 +136,12 @@ export default function Dashboard() {
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [isResizing, setIsResizing] = useState<string | null>(null)
   const [resizeSize, setResizeSize] = useState<{ w: number; h: number } | null>(null)
-  const [currentPage, setCurrentPage] = useState(0)
 
-  const gridContainerRef = useRef<HTMLDivElement>(null!)
   const addButtonRef = useRef<HTMLButtonElement>(null!)
-  const preDragLayoutRef = useRef<Map<string, { x: number; y: number; w: number; h: number }>>(new Map())
   const isDraggingRef = useRef(false)
-  const [droppingItem, setDroppingItem] = useState<{ i: string; w: number; h: number }>({ i: '__dropping__', w: 1, h: 1 })
+  const [droppingItem, setDroppingItem] = useState<{ i: string; w: number; h: number; x: number; y: number }>({ i: '__dropping__', w: 1, h: 1, x: 0, y: 0 })
 
   const isEmpty = widgets.length === 0
-  const pageBoundary = 4
-
-  const { paginatedWidgets, totalPages } = useMemo(() => {
-    if (widgets.length === 0 || pageBoundary <= 0) {
-      return { paginatedWidgets: [widgets], totalPages: 1 }
-    }
-
-    const maxPage = Math.max(0, ...widgets.map((w) => Math.floor(w.y / pageBoundary)))
-    const pages: DashboardWidget[][] = Array.from({ length: maxPage + 1 }, () => [])
-
-    for (const w of widgets) {
-      const page = Math.min(Math.floor(w.y / pageBoundary), maxPage)
-      pages[page].push({
-        ...w,
-        y: w.y - page * pageBoundary,
-      })
-    }
-
-    return { paginatedWidgets: pages, totalPages: pages.length }
-  }, [widgets, pageBoundary])
-
-  const safePage = Math.min(currentPage, Math.max(0, totalPages - 1))
-  const visibleWidgets = paginatedWidgets[safePage] ?? []
-  const hasPrev = safePage > 0
-  const hasNext = safePage < totalPages - 1
 
   const updateWidgets = useCallback((fn: (prev: DashboardWidget[]) => DashboardWidget[]) => {
     setWidgets((prev) => {
@@ -172,8 +168,15 @@ export default function Dashboard() {
     updateWidgets((prev) => prev.filter((w) => w.id !== id))
   }, [updateWidgets])
 
+  const handleResetLayout = useCallback(() => {
+    console.debug('[FIX] resetting layout to defaults')
+    const defaults = createDefaultWidgets()
+    updateWidgets(() => defaults)
+  }, [updateWidgets])
+
   const handleResizeStop = useCallback(
-    (_layout: GridItem[], _oldItem: GridItem, newItem: GridItem) => {
+    (_layout: Layout, _oldItem: LayoutItem | null, newItem: LayoutItem | null) => {
+      if (!newItem) return
       updateWidgets((prev) => {
         const next = prev.map((w) => {
           if (w.id === newItem.i) {
@@ -194,19 +197,21 @@ export default function Dashboard() {
     [updateWidgets],
   )
 
-  const handleResizeStart = useCallback((_layout: GridItem[], _oldItem: GridItem, newItem: GridItem) => {
+  const handleResizeStart = useCallback((_layout: Layout, _oldItem: LayoutItem | null, newItem: LayoutItem | null) => {
+    if (!newItem) return
     setIsResizing(newItem.i)
     setResizeSize({ w: newItem.w, h: newItem.h })
   }, [])
 
-  const handleResize = useCallback((_layout: GridItem[], _oldItem: GridItem, newItem: GridItem) => {
+  const handleResize = useCallback((_layout: Layout, _oldItem: LayoutItem | null, newItem: LayoutItem | null) => {
+    if (!newItem) return
     setResizeSize({
       w: Math.round(newItem.w),
       h: Math.round(newItem.h),
     })
   }, [])
 
-  const handleLayoutChange = useCallback((layout: GridItem[]) => {
+  const handleLayoutChange = useCallback((layout: Layout) => {
     if (isDraggingRef.current) return
     updateWidgets((prev) => {
       const next = prev.map((w) => {
@@ -218,19 +223,23 @@ export default function Dashboard() {
     })
   }, [updateWidgets])
 
-  const handleDragStart = useCallback((layout: GridItem[]) => {
+  const handleDragStart = useCallback((layout: Layout) => {
     isDraggingRef.current = true
-    preDragLayoutRef.current = new Map(
-      layout.map((i) => [i.i, { x: i.x, y: i.y, w: i.w, h: i.h }]),
-    )
+    console.debug('[FIX] drag start — items=%d', layout.length)
   }, [])
 
-  const handleDragStop = useCallback((_layout: GridItem[], _oldItem: GridItem, _newItem: GridItem) => {
+  const handleDragStop = useCallback((layout: Layout) => {
     isDraggingRef.current = false
-  }, [])
+    updateWidgets((prev) => prev.map((w) => {
+      const l = layout.find((li) => li.i === w.id)
+      if (l) return { ...w, x: l.x, y: l.y }
+      return w
+    }))
+  }, [updateWidgets])
 
-  const handleDrop = useCallback((_layout: GridItem[], item: GridItem, _e: Event) => {
-    setDroppingItem({ i: '__dropping__', w: 1, h: 1 })
+  const handleDrop = useCallback((_layout: Layout, item: LayoutItem | undefined, _e: Event) => {
+    setDroppingItem({ i: '__dropping__', w: 1, h: 1, x: 0, y: 0 })
+    if (!item) return
     try {
       const data = JSON.parse(
         (_e as unknown as DragEvent).dataTransfer?.getData('text/plain') ?? '{}',
@@ -259,158 +268,73 @@ export default function Dashboard() {
   }, [updateWidgets])
 
   const handleModalDragStart = useCallback((type: WidgetType, size: WidgetSize) => {
-    setDroppingItem({ i: `dropping-${type}`, w: size.w, h: size.h })
+    setDroppingItem({ i: `dropping-${type}`, w: size.w, h: size.h, x: 0, y: 0 })
     console.debug('[Dashboard] modal drag start — droppingItem set to %dx%d', size.w, size.h)
   }, [])
 
+  console.debug('[Dashboard] render widgets=%d', widgets.length)
+
   return (
-    <div className={`main-content ${isEditMode ? 'dashboard-edit-mode' : ''}`} style={{ flex: 1 }}>
+    <div className="main-content" style={{ flex: 1 }}>
       <DashboardHeader
-        isEditing={isEditMode}
-        onToggleEdit={() => setIsEditMode((v) => !v)}
         onOpenPicker={() => setIsPickerOpen(true)}
+        onResetLayout={handleResetLayout}
         addButtonRef={addButtonRef}
       />
 
-      <div className="main-scroll" style={{ position: 'relative' }}>
-        <div ref={gridContainerRef} style={{ minHeight: '100%' }}>
-          <AnimatePresence mode="wait">
-            {isEmpty ? (
-              <EmptyDashboard key="empty" onOpenPicker={() => setIsPickerOpen(true)} />
-            ) : (
-              <motion.div
-                key="grid"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+      <div className="main-scroll">
+        <AnimatePresence mode="wait">
+          {isEmpty ? (
+            <EmptyDashboard key="empty" onOpenPicker={() => setIsPickerOpen(true)} />
+          ) : (
+            <motion.div
+              key="grid"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ResponsiveGrid
+                className="dashboard-grid"
+                layout={buildGridLayout(widgets)}
+                cols={COLS}
+                rowHeight={ROW_HEIGHT}
+                isDraggable={true}
+                isResizable={true}
+                draggableHandle=".widget-drag-handle"
+                resizeHandles={['se', 'sw', 'ne', 'nw', 's', 'e']}
+                useCSSTransforms={true}
+                compactType="vertical"
+                preventCollision={false}
+                isDroppable={true}
+                droppingItem={droppingItem}
+                margin={[GRID_MARGIN, GRID_MARGIN]}
+                containerPadding={[0, 0]}
+                measureBeforeMount={false}
+                onLayoutChange={handleLayoutChange}
+                onResizeStop={handleResizeStop}
+                onResizeStart={handleResizeStart}
+                onResize={handleResize}
+                onDrop={handleDrop}
+                onDragStart={handleDragStart}
+                onDragStop={handleDragStop}
               >
-                {totalPages > 0 && (
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    gap: 14,
-                    marginBottom: 12,
-                  }}>
-                    {totalPages > 1 && (
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                        disabled={!hasPrev}
-                        style={{
-                          opacity: hasPrev ? 1 : 0.3,
-                          cursor: hasPrev ? 'pointer' : 'default',
-                          border: '1px solid var(--border)',
-                          borderRadius: '50%',
-                          width: 28, height: 28,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: 'var(--white)',
-                          color: 'var(--muted)',
-                        }}
-                      >
-                        <ChevronLeft size={14} />
-                      </motion.button>
-                    )}
+                {widgets.map((widget) => (
+                  <div key={widget.id} style={{ height: '100%', width: '100%' }}>
+                    <WidgetCard
+                      widget={widget}
+                      onRemove={() => handleRemoveWidget(widget.id)}
+                    />
 
-                    {Array.from({ length: totalPages }).map((_, i) => (
-                      <motion.div
-                        key={i}
-                        animate={{
-                          scale: i === safePage ? 1.3 : 1,
-                          background: i === safePage ? 'var(--accent)' : 'var(--border)',
-                        }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                        style={{ width: 6, height: 6, borderRadius: '50%', cursor: 'pointer' }}
-                        onClick={() => setCurrentPage(i)}
-                      />
-                    ))}
-
-                    {totalPages > 1 && (
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                        disabled={!hasNext}
-                        style={{
-                          opacity: hasNext ? 1 : 0.3,
-                          cursor: hasNext ? 'pointer' : 'default',
-                          border: '1px solid var(--border)',
-                          borderRadius: '50%',
-                          width: 28, height: 28,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: 'var(--white)',
-                          color: 'var(--muted)',
-                        }}
-                      >
-                        <ChevronRight size={14} />
-                      </motion.button>
+                    {isResizing === widget.id && resizeSize && (
+                      <SizeIndicator w={resizeSize.w} h={resizeSize.h} />
                     )}
                   </div>
-                )}
-
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={safePage}
-                    initial={{ opacity: 0, x: 30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -30 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-                  >
-                    <GridLayout
-                      className="dashboard-grid"
-                      layout={buildGridLayout(visibleWidgets)}
-                      cols={COLS}
-                      rowHeight={ROW_HEIGHT}
-                      isDraggable={isEditMode}
-                      isResizable={isEditMode}
-                      useCSSTransforms={true}
-                      compactType="vertical"
-                      preventCollision={true}
-                      isDroppable={true}
-                      // @ts-expect-error react-grid-layout requires x/y but they're set on drop
-                      droppingItem={droppingItem}
-                      margin={[GRID_MARGIN, GRID_MARGIN]}
-                      containerPadding={[0, 0]}
-                      // @ts-expect-error react-grid-layout types are limited
-                      onLayoutChange={handleLayoutChange}
-                      // @ts-expect-error react-grid-layout types are limited
-                      onResizeStop={handleResizeStop}
-                      // @ts-expect-error react-grid-layout types are limited
-                      onResizeStart={handleResizeStart}
-                      // @ts-expect-error react-grid-layout types are limited
-                      onResize={handleResize}
-                      // @ts-expect-error react-grid-layout types are limited
-                      onDrop={handleDrop}
-                      // @ts-expect-error react-grid-layout types are limited
-                      onDragStart={handleDragStart}
-                      // @ts-expect-error react-grid-layout types are limited
-                      onDragStop={handleDragStop}
-                    >
-                      {visibleWidgets.map((widget) => (
-                        <div key={widget.id} style={{ height: '100%', width: '100%' }}>
-                          <WidgetCard
-                            widget={widget}
-                            isEditMode={isEditMode}
-                            onRemove={() => handleRemoveWidget(widget.id)}
-                          />
-
-                          {isResizing === widget.id && resizeSize && (
-                            <SizeIndicator w={resizeSize.w} h={resizeSize.h} />
-                          )}
-                        </div>
-                      ))}
-                    </GridLayout>
-                  </motion.div>
-                </AnimatePresence>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+                ))}
+              </ResponsiveGrid>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <AnimatePresence>

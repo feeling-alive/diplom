@@ -240,125 +240,113 @@ ul, li { list-style: none; }
 .dashboard-search .search-input::placeholder { color: var(--soft); }
 
 /* ============================================
-   REACT-GRID-LAYOUT
+   REACT-GRID-LAYOUT — iPhone-style DnD always on
    ============================================ */
-.react-resizable-handle { display: none; }
-.react-grid-item > .react-resizable-handle { display: none; }
 
-/* Resize handle: visible accent corner on hover in edit mode */
-.dashboard-edit-mode .react-grid-item > .react-resizable-handle {
-  display: block !important;
-  width: 22px;
-  height: 22px;
-  bottom: 0;
-  right: 0;
+/* Hide the default tiny corner indicator — we use our own resize handles */
+.react-grid-item > .react-resizable-handle {
+  background-image: none !important;
   padding: 0;
-  background: transparent;
-  background-image: none;
-  cursor: nwse-resize;
   opacity: 0;
   transition: opacity 0.2s;
-  z-index: 5;
+  z-index: 4;
 }
 
-.dashboard-edit-mode .react-grid-item:hover > .react-resizable-handle {
-  opacity: 0.7;
-  background-image: linear-gradient(
-    135deg,
-    transparent 0%,
-    transparent 55%,
-    var(--accent) 55%,
-    var(--accent) 100%
-  );
+/* Show resize handles when hovering the widget */
+.react-grid-item:hover > .react-resizable-handle {
+  opacity: 1;
+}
+
+/* Per-side handle positioning (we enabled se/sw/ne/nw/s/e) */
+.react-grid-item > .react-resizable-handle-se {
+  width: 18px; height: 18px; bottom: 0; right: 0;
+  cursor: nwse-resize;
+  background-image: linear-gradient(135deg, transparent 0 55%, var(--accent) 55% 100%) !important;
   border-bottom-right-radius: 14px;
 }
+.react-grid-item > .react-resizable-handle-sw {
+  width: 18px; height: 18px; bottom: 0; left: 0;
+  cursor: nesw-resize;
+  background-image: linear-gradient(225deg, transparent 0 55%, var(--accent) 55% 100%) !important;
+  border-bottom-left-radius: 14px;
+}
+.react-grid-item > .react-resizable-handle-ne {
+  width: 18px; height: 18px; top: 0; right: 0;
+  cursor: nesw-resize;
+  background-image: linear-gradient(45deg, transparent 0 55%, var(--accent) 55% 100%) !important;
+  border-top-right-radius: 14px;
+}
+.react-grid-item > .react-resizable-handle-nw {
+  width: 18px; height: 18px; top: 0; left: 0;
+  cursor: nwse-resize;
+  background-image: linear-gradient(315deg, transparent 0 55%, var(--accent) 55% 100%) !important;
+  border-top-left-radius: 14px;
+}
+.react-grid-item > .react-resizable-handle-s {
+  width: 40%; height: 8px; bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+  background: linear-gradient(0deg, var(--accent), transparent) !important;
+  border-radius: 0 0 6px 6px;
+}
+.react-grid-item > .react-resizable-handle-e {
+  width: 8px; height: 40%; right: 0; top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+  background: linear-gradient(270deg, var(--accent), transparent) !important;
+  border-radius: 0 6px 6px 0;
+}
 
-.dashboard-edit-mode .react-grid-item > .react-resizable-handle:hover {
-  opacity: 1 !important;
+/* iPhone-style drag: neighbours glide smoothly, no ghost placeholder */
+.react-grid-item {
+  transition: transform 200ms ease, opacity 200ms ease;
 }
 
 .react-grid-item.react-draggable-dragging {
   transition: none !important;
   z-index: 100;
   cursor: grabbing;
-  transform: scale(1.02) !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15) !important;
+  opacity: 0.92;
+  transform: scale(1.03) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18) !important;
   border-radius: 16px;
 }
 
+/* Hide default placeholder — widget floats under cursor instead */
+.react-grid-placeholder,
 .react-grid-item.react-grid-placeholder {
-  background: rgba(225, 29, 72, 0.06) !important;
-  border: 1.5px dashed rgba(225, 29, 72, 0.3) !important;
-  border-radius: 16px !important;
-  box-shadow: none !important;
-  opacity: 1 !important;
-  transition: all 0.15s ease !important;
+  display: none !important;
 }
 
-.dashboard-edit-mode * {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-}
+/* Drag handle (widget header) */
+.widget-drag-handle { cursor: grab; }
+.widget-drag-handle:active { cursor: grabbing; }
 
-.dashboard-edit-mode .react-grid-item {
-  cursor: grab;
-}
-
-.dashboard-edit-mode .widget-card {
-  outline: 1.5px dashed rgba(225, 29, 72, 0.4);
-  outline-offset: 2px;
-}
-.dashboard-edit-mode .widget-card:hover {
-  outline-color: rgba(225, 29, 72, 0.7);
-}
-
-.dashboard-edit-mode .react-grid-item > .react-resizable-handle {
-  opacity: 0;
-  background-image: linear-gradient(
-    135deg,
-    transparent 0%,
-    transparent 55%,
-    var(--accent) 55%,
-    var(--accent) 100%
-  );
-  border-bottom-right-radius: 14px;
-  transition: opacity 0.2s;
-}
-
-.dashboard-edit-mode .react-grid-item:hover > .react-resizable-handle {
-  opacity: 0.7;
-}
-
-.dashboard-edit-mode .react-grid-item > .react-resizable-handle:hover {
-  opacity: 1 !important;
-}
-
-/* Custom resize corner */
-.widget-resize-corner {
+/* Remove button — visible on widget hover */
+.widget-remove-btn {
   position: absolute;
-  bottom: 8px;
-  right: 8px;
-  width: 20px;
-  height: 20px;
-  display: grid;
-  grid-template-columns: repeat(2, 4px);
-  gap: 3px;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--red);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
   align-items: center;
   justify-content: center;
-  cursor: se-resize;
+  z-index: 10;
   opacity: 0;
-  transition: opacity 0.2s;
+  transform: scale(0.85);
+  transition: opacity 0.15s, transform 0.15s;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
-.widget-card:hover .widget-resize-corner { opacity: 1; }
-.resize-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--muted);
-}
-.resize-dot:last-child {
-  grid-column: 2;
-  grid-row: 2;
+.widget-card:hover .widget-remove-btn {
+  opacity: 1;
+  transform: scale(1);
 }
 
 /* Picker panel */

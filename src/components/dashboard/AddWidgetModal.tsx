@@ -204,7 +204,7 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
                               animate={{ opacity: 1 }}
                               transition={{ duration: 0.2 }}
                             >
-                              <WidgetPreview type={def.type} />
+                              <WidgetPreview type={def.type} gridW={selected.w} gridH={selected.h} />
                             </motion.div>
 
                             {/* Bottom bar: название + размеры */}

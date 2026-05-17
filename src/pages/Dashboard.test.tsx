@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { vi, describe, it, expect } from 'vitest'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -21,8 +21,9 @@ vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-vi.mock('react-grid-layout', () => ({
+vi.mock('react-grid-layout/legacy', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  WidthProvider: <P extends object>(Comp: React.ComponentType<P>) => Comp,
 }))
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -39,15 +40,15 @@ describe('Dashboard', () => {
     render(<Dashboard />, { wrapper })
   })
 
-  it('shows Edit button for drag-and-drop mode', () => {
-    render(<Dashboard />, { wrapper })
-    const editBtn = screen.getByTestId('edit-mode-btn')
-    expect(editBtn).toBeInTheDocument()
-  })
-
   it('has AddWidget button', () => {
     render(<Dashboard />, { wrapper })
     const addBtn = document.querySelector('[aria-label="Добавить виджет"]')
     expect(addBtn).toBeInTheDocument()
+  })
+
+  it('has Reset layout button', () => {
+    render(<Dashboard />, { wrapper })
+    const resetBtn = document.querySelector('[aria-label="Сбросить раскладку"]')
+    expect(resetBtn).toBeInTheDocument()
   })
 })
