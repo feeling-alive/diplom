@@ -156,7 +156,7 @@ Milestone: `none` — Rationale: roadmap-артефакт в проекте от
   - Лог: `console.warn('[useAssetPrice] non-finite change24h for %s, defaulting to 0', symbol)`.
 - ResponsiveContainer уже 100%/100% — оставить (`PriceChartWidget.tsx:202`).
 
-#### Task #15 — Allocation: donut + градиент
+#### Task #15 — Allocation: donut + градиент — [x]
 **Файлы:** `src/constants/widgets.registry.ts`, `src/components/dashboard/AllocationChart.tsx`.
 
 - **Реестр:** `availableSizes: [{w:2,h:2},{w:2,h:3}]`, `minW:2, maxW:2, minH:2, maxH:3`, `defaultSize: {w:2,h:2}`.
@@ -169,14 +169,14 @@ Milestone: `none` — Rationale: roadmap-артефакт в проекте от
   - Убрать `renderCustomizedLabel` overlays на 2×2.
 - Лог: `console.debug('[AllocationChart] gridH=%d legend=%s', gridH, gridH >= 3)`.
 
-#### Task #16 — Community: размеры + плотность
+#### Task #16 — Community: размеры + плотность — [x]
 **Файлы:** `src/constants/widgets.registry.ts`, `src/components/dashboard/CommunityWidget.tsx`.
 
 - **Реестр:** `availableSizes: [{w:2,h:2},{w:2,h:3},{w:3,h:2},{w:3,h:3}]`, `minW:2, maxW:3, minH:2, maxH:3`, `defaultSize: {w:2,h:2}`.
 - **Компонент:** число постов по `gridH` (2→2, 3→4). `gap` между постами `≤ 8px`. Внутренний скролл (overflow:auto, кастомный скроллбар уже глобальный).
 - Никаких `justify-content: space-between` если постов меньше чем влезает.
 
-#### Task #17 — News: размеры + перенос заголовков
+#### Task #17 — News: размеры + перенос заголовков — [x]
 **Файлы:** `src/constants/widgets.registry.ts`, `src/components/dashboard/NewsWidget.tsx`.
 
 - **Реестр:** `availableSizes: [{w:2,h:2},{w:2,h:3},{w:3,h:2},{w:3,h:3}]`, `minW:2, maxW:3, minH:2, maxH:3`, `defaultSize: {w:2,h:2}`.

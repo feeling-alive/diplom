@@ -50,7 +50,8 @@ interface Props extends WidgetSizeProps {
 
 export default function NewsWidget({ news = MOCK_NEWS, gridW = 2, gridH = 2 }: Props) {
   const [filter, setFilter] = useState<NewsFilter>('all')
-  const limit = gridH >= 3 ? 6 : 3
+  // Lim per size: 2x2→3, 2x3→6, 3x2→4, 3x3→8 — расти и по высоте, и по ширине
+  const limit = gridH >= 3 ? (gridW >= 3 ? 8 : 6) : (gridW >= 3 ? 4 : 3)
   const filtered = filterNews(news, filter).slice(0, limit)
 
   console.debug('[NewsWidget] gridW=%d gridH=%d filter=%s showing=%d', gridW, gridH, filter, filtered.length)
@@ -132,11 +133,11 @@ export default function NewsWidget({ news = MOCK_NEWS, gridW = 2, gridH = 2 }: P
                     color: 'var(--text)',
                     margin: 0,
                     lineHeight: 1.4,
-                    overflow: 'hidden',
-                    display: '-webkit-box',
-                    WebkitLineClamp: gridW >= 3 ? 3 : 2,
-                    WebkitBoxOrient: 'vertical',
-                  } as React.CSSProperties}
+                    // [FIX] заголовки переносятся целиком, без ellipsis — спека vidget fix.md
+                    whiteSpace: 'normal',
+                    overflowWrap: 'anywhere',
+                    wordBreak: 'break-word',
+                  }}
                 >
                   {item.title}
                 </p>

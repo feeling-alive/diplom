@@ -66,14 +66,11 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     icon: PieChart,
     color: '#8b5cf6',
     availableSizes: [
-      { w: 1, h: 2, label: '1×2' },
       { w: 2, h: 2, label: '2×2' },
       { w: 2, h: 3, label: '2×3' },
-      { w: 3, h: 3, label: '3×3' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
-    // Обе оси: круговая диаграмма + легенда, гибкая компоновка.
-    minW: 1, minH: 2, maxW: 3, maxH: 4,
+    minW: 2, minH: 2, maxW: 2, maxH: 3,
   },
   {
     type: 'community',
@@ -84,12 +81,11 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     availableSizes: [
       { w: 2, h: 2, label: '2×2' },
       { w: 2, h: 3, label: '2×3' },
-      { w: 2, h: 4, label: '2×4' },
+      { w: 3, h: 2, label: '3×2' },
       { w: 3, h: 3, label: '3×3' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
-    // Обе оси, но широкий диапазон по высоте (лента постов).
-    minW: 2, minH: 2, maxW: 3, maxH: 4,
+    minW: 2, minH: 2, maxW: 3, maxH: 3,
   },
   {
     type: 'news',
@@ -100,11 +96,11 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     availableSizes: [
       { w: 2, h: 2, label: '2×2' },
       { w: 2, h: 3, label: '2×3' },
-      { w: 2, h: 4, label: '2×4' },
+      { w: 3, h: 2, label: '3×2' },
       { w: 3, h: 3, label: '3×3' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 2, minH: 2, maxW: 3, maxH: 4,
+    minW: 2, minH: 2, maxW: 3, maxH: 3,
   },
   {
     type: 'top_movers',
