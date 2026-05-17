@@ -11,7 +11,27 @@ export type WidgetType =
   | 'forex_rates'
   | 'fear_greed'
   | 'market_volume'
-  | 'trending_coins';
+  | 'trending_coins'
+  | 'technical_analysis'
+  | 'economic_calendar'
+  | 'heatmap'
+  | 'portfolio_pnl'
+  | 'dominance_chart'
+  | 'price_alerts'
+  | 'macd_widget'
+  | 'rsi_gauge'
+  | 'order_book'
+  | 'global_market_cap'
+  | 'funding_rate'
+  | 'gas_tracker'
+  | 'currency_converter'
+  | 'whale_tracker'
+  | 'stock_screener'
+  | 'sentiment_meter'
+  | 'liquidations'
+  | 'yield_curve'
+  | 'correlation_matrix'
+  | 'ai_signal';
 
 export type WidgetSize = {
   w: number;

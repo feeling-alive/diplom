@@ -14,8 +14,8 @@ import { WIDGET_REGISTRY } from '../constants/widgets.registry'
 import type { DashboardWidget, WidgetType, WidgetSize } from '../types/widgets.types'
 
 const COLS = 4
-const ROW_HEIGHT = 160
-const GRID_MARGIN = 16
+const ROW_HEIGHT = 110
+const GRID_MARGIN = 10
 const STORAGE_KEY = 'fintrack_widgets_v3'
 const LEGACY_STORAGE_KEYS = ['fintrack_widgets_v2', 'fintrack_widgets']
 

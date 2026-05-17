@@ -13,6 +13,26 @@ import ForexRatesWidget from './widgets/ForexRatesWidget'
 import FearGreedWidget from './widgets/FearGreedWidget'
 import MarketVolumeWidget from './widgets/MarketVolumeWidget'
 import TrendingCoinsWidget from './widgets/TrendingCoinsWidget'
+import TechnicalAnalysisWidget from './widgets/TechnicalAnalysisWidget'
+import EconomicCalendarWidget from './widgets/EconomicCalendarWidget'
+import HeatmapWidget from './widgets/HeatmapWidget'
+import PortfolioPnlWidget from './widgets/PortfolioPnlWidget'
+import DominanceChartWidget from './widgets/DominanceChartWidget'
+import PriceAlertsWidget from './widgets/PriceAlertsWidget'
+import MacdWidget from './widgets/MacdWidget'
+import RsiGaugeWidget from './widgets/RsiGaugeWidget'
+import OrderBookWidget from './widgets/OrderBookWidget'
+import GlobalMarketCapWidget from './widgets/GlobalMarketCapWidget'
+import FundingRateWidget from './widgets/FundingRateWidget'
+import GasTrackerWidget from './widgets/GasTrackerWidget'
+import CurrencyConverterWidget from './widgets/CurrencyConverterWidget'
+import WhaleTrackerWidget from './widgets/WhaleTrackerWidget'
+import StockScreenerWidget from './widgets/StockScreenerWidget'
+import SentimentMeterWidget from './widgets/SentimentMeterWidget'
+import LiquidationsWidget from './widgets/LiquidationsWidget'
+import YieldCurveWidget from './widgets/YieldCurveWidget'
+import CorrelationMatrixWidget from './widgets/CorrelationMatrixWidget'
+import AiSignalWidget from './widgets/AiSignalWidget'
 
 export function renderWidgetContent(type: WidgetType, gridW: number, gridH: number) {
   switch (type) {
@@ -27,6 +47,26 @@ export function renderWidgetContent(type: WidgetType, gridW: number, gridH: numb
     case 'fear_greed': return <FearGreedWidget gridW={gridW} gridH={gridH} />
     case 'market_volume': return <MarketVolumeWidget gridW={gridW} gridH={gridH} />
     case 'trending_coins': return <TrendingCoinsWidget gridW={gridW} gridH={gridH} />
+    case 'technical_analysis': return <TechnicalAnalysisWidget gridW={gridW} gridH={gridH} />
+    case 'economic_calendar': return <EconomicCalendarWidget gridW={gridW} gridH={gridH} />
+    case 'heatmap': return <HeatmapWidget gridW={gridW} gridH={gridH} />
+    case 'portfolio_pnl': return <PortfolioPnlWidget gridW={gridW} gridH={gridH} />
+    case 'dominance_chart': return <DominanceChartWidget gridW={gridW} gridH={gridH} />
+    case 'price_alerts': return <PriceAlertsWidget gridW={gridW} gridH={gridH} />
+    case 'macd_widget': return <MacdWidget gridW={gridW} gridH={gridH} />
+    case 'rsi_gauge': return <RsiGaugeWidget gridW={gridW} gridH={gridH} />
+    case 'order_book': return <OrderBookWidget gridW={gridW} gridH={gridH} />
+    case 'global_market_cap': return <GlobalMarketCapWidget gridW={gridW} gridH={gridH} />
+    case 'funding_rate': return <FundingRateWidget gridW={gridW} gridH={gridH} />
+    case 'gas_tracker': return <GasTrackerWidget gridW={gridW} gridH={gridH} />
+    case 'currency_converter': return <CurrencyConverterWidget gridW={gridW} gridH={gridH} />
+    case 'whale_tracker': return <WhaleTrackerWidget gridW={gridW} gridH={gridH} />
+    case 'stock_screener': return <StockScreenerWidget gridW={gridW} gridH={gridH} />
+    case 'sentiment_meter': return <SentimentMeterWidget gridW={gridW} gridH={gridH} />
+    case 'liquidations': return <LiquidationsWidget gridW={gridW} gridH={gridH} />
+    case 'yield_curve': return <YieldCurveWidget gridW={gridW} gridH={gridH} />
+    case 'correlation_matrix': return <CorrelationMatrixWidget gridW={gridW} gridH={gridH} />
+    case 'ai_signal': return <AiSignalWidget gridW={gridW} gridH={gridH} />
     default: return null
   }
 }
@@ -47,10 +87,10 @@ export default function WidgetCard({ widget, onRemove }: Props) {
       className="widget-card"
       style={{
         background: 'var(--white)',
-        borderRadius: 14,
+        borderRadius: 12,
         boxShadow: 'var(--shadow-sm)',
         border: '1px solid var(--border)',
-        padding: 16,
+        padding: 10,
         overflow: 'hidden',
         position: 'relative',
         width: '100%',
@@ -66,8 +106,8 @@ export default function WidgetCard({ widget, onRemove }: Props) {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 6,
-          marginBottom: 10,
+          gap: 5,
+          marginBottom: 6,
           flexShrink: 0,
           minWidth: 0,
           cursor: 'grab',
@@ -76,26 +116,27 @@ export default function WidgetCard({ widget, onRemove }: Props) {
       >
         {def && Icon && (
           <div style={{
-            width: 24,
-            height: 24,
-            borderRadius: 6,
+            width: 18,
+            height: 18,
+            borderRadius: 5,
             background: `${def.color}15`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
           }}>
-            <Icon size={13} strokeWidth={2} color={def.color} />
+            <Icon size={11} strokeWidth={2} color={def.color} />
           </div>
         )}
         <span style={{
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 600,
           color: 'var(--ink)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
           minWidth: 0,
+          letterSpacing: 0.1,
         }}>
           {def?.title ?? widget.type}
         </span>

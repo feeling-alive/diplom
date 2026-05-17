@@ -2,6 +2,9 @@ import {
   TrendingUp, Star, BarChart2, PieChart, Users,
   Newspaper, ArrowUpDown, DollarSign, Gauge,
   Activity, Flame,
+  Calendar, Grid, Wallet, Bell, AlertTriangle,
+  Globe, Percent, Fuel, ArrowLeftRight, Anchor,
+  Filter, Smile, LineChart, Sparkles, ListOrdered,
 } from 'lucide-react';
 import type { WidgetDefinition } from '../types/widgets.types';
 
@@ -17,13 +20,14 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     icon: TrendingUp,
     color: '#e11d48',
     availableSizes: [
+      { w: 1, h: 1, label: '1×1' },
       { w: 2, h: 1, label: '2×1' },
       { w: 3, h: 1, label: '3×1' },
       { w: 4, h: 1, label: '4×1' },
     ],
     defaultSize: { w: 4, h: 1, label: '4×1' },
-    // Только ширина: всегда тонкая полоса в одну строку.
-    minW: 2, minH: 1, maxW: 4, maxH: 1,
+    // Только ширина: всегда тонкая полоса в одну строку, теперь можно сузить до 1.
+    minW: 1, minH: 1, maxW: 4, maxH: 1,
   },
   {
     type: 'watchlist',
@@ -47,6 +51,7 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     icon: BarChart2,
     color: '#3b82f6',
     availableSizes: [
+      { w: 1, h: 2, label: '1×2' },
       { w: 2, h: 2, label: '2×2' },
       { w: 3, h: 2, label: '3×2' },
       { w: 4, h: 2, label: '4×2' },
@@ -54,8 +59,7 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
       { w: 4, h: 3, label: '4×3' },
     ],
     defaultSize: { w: 3, h: 2, label: '3×2' },
-    // Обе оси: график удобно тянуть и вширь, и в высоту.
-    minW: 2, minH: 2, maxW: 4, maxH: 4,
+    minW: 1, minH: 2, maxW: 4, maxH: 4,
   },
   {
     type: 'allocation',
@@ -156,13 +160,13 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     icon: Activity,
     color: '#a855f7',
     availableSizes: [
+      { w: 1, h: 1, label: '1×1' },
       { w: 2, h: 1, label: '2×1' },
       { w: 3, h: 1, label: '3×1' },
       { w: 4, h: 1, label: '4×1' },
     ],
     defaultSize: { w: 2, h: 1, label: '2×1' },
-    // Только ширина: одна строка с цифрой + опциональный спарк-график.
-    minW: 2, minH: 1, maxW: 4, maxH: 1,
+    minW: 1, minH: 1, maxW: 4, maxH: 1,
   },
   {
     type: 'trending_coins',
@@ -178,5 +182,147 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
     minW: 2, minH: 2, maxW: 3, maxH: 4,
+  },
+
+  // ===== New widgets (vidget.md) =====
+  {
+    type: 'technical_analysis', title: 'Теханализ', description: 'Покупать / Нейтрально / Продавать (MA, RSI, MACD)',
+    icon: Gauge, color: '#6366f1',
+    availableSizes: [{ w: 2, h: 2, label: '2×2' }, { w: 2, h: 3, label: '2×3' }],
+    defaultSize: { w: 2, h: 2, label: '2×2' },
+    minW: 2, minH: 2, maxW: 3, maxH: 3,
+  },
+  {
+    type: 'economic_calendar', title: 'Экон. календарь', description: 'Предстоящие события рынка',
+    icon: Calendar, color: '#0891b2',
+    availableSizes: [{ w: 3, h: 2, label: '3×2' }, { w: 4, h: 2, label: '4×2' }, { w: 3, h: 3, label: '3×3' }],
+    defaultSize: { w: 3, h: 2, label: '3×2' },
+    minW: 3, minH: 2, maxW: 4, maxH: 4,
+  },
+  {
+    type: 'heatmap', title: 'Тепловая карта', description: 'Размер = капитализация, цвет = % за день',
+    icon: Grid, color: '#dc2626',
+    availableSizes: [{ w: 3, h: 2, label: '3×2' }, { w: 4, h: 2, label: '4×2' }, { w: 4, h: 3, label: '4×3' }],
+    defaultSize: { w: 4, h: 2, label: '4×2' },
+    minW: 3, minH: 2, maxW: 4, maxH: 4,
+  },
+  {
+    type: 'portfolio_pnl', title: 'P&L портфеля', description: 'Прибыль/убыток за день/неделю/месяц',
+    icon: Wallet, color: '#16a34a',
+    availableSizes: [{ w: 1, h: 1, label: '1×1' }, { w: 2, h: 1, label: '2×1' }, { w: 3, h: 1, label: '3×1' }, { w: 4, h: 1, label: '4×1' }],
+    defaultSize: { w: 3, h: 1, label: '3×1' },
+    minW: 1, minH: 1, maxW: 4, maxH: 1,
+  },
+  {
+    type: 'dominance_chart', title: 'Доминация BTC', description: 'BTC / ETH / Альткоины',
+    icon: PieChart, color: '#d97706',
+    availableSizes: [{ w: 1, h: 2, label: '1×2' }, { w: 2, h: 2, label: '2×2' }, { w: 3, h: 2, label: '3×2' }],
+    defaultSize: { w: 2, h: 2, label: '2×2' },
+    minW: 1, minH: 2, maxW: 3, maxH: 3,
+  },
+  {
+    type: 'price_alerts', title: 'Уведомления цен', description: 'Активные ценовые алерты',
+    icon: Bell, color: '#7c3aed',
+    availableSizes: [{ w: 2, h: 2, label: '2×2' }, { w: 2, h: 3, label: '2×3' }],
+    defaultSize: { w: 2, h: 2, label: '2×2' },
+    minW: 2, minH: 2, maxW: 3, maxH: 4,
+  },
+  {
+    type: 'macd_widget', title: 'MACD', description: 'Сигнальная линия и гистограмма',
+    icon: BarChart2, color: '#0284c7',
+    availableSizes: [{ w: 2, h: 2, label: '2×2' }, { w: 3, h: 2, label: '3×2' }],
+    defaultSize: { w: 2, h: 2, label: '2×2' },
+    minW: 2, minH: 2, maxW: 4, maxH: 3,
+  },
+  {
+    type: 'rsi_gauge', title: 'RSI индикатор', description: 'Перекупленность / перепроданность',
+    icon: Activity, color: '#b45309',
+    availableSizes: [{ w: 1, h: 1, label: '1×1' }, { w: 1, h: 2, label: '1×2' }, { w: 2, h: 1, label: '2×1' }],
+    defaultSize: { w: 1, h: 2, label: '1×2' },
+    minW: 1, minH: 1, maxW: 2, maxH: 2,
+  },
+  {
+    type: 'order_book', title: 'Стакан ордеров', description: 'Bid/Ask в реальном времени',
+    icon: ListOrdered, color: '#047857',
+    availableSizes: [{ w: 2, h: 2, label: '2×2' }, { w: 2, h: 3, label: '2×3' }],
+    defaultSize: { w: 2, h: 2, label: '2×2' },
+    minW: 2, minH: 2, maxW: 3, maxH: 4,
+  },
+  {
+    type: 'global_market_cap', title: 'Капитал рынка', description: 'Общая капитализация крипторынка',
+    icon: Globe, color: '#9333ea',
+    availableSizes: [{ w: 1, h: 1, label: '1×1' }, { w: 2, h: 1, label: '2×1' }, { w: 3, h: 1, label: '3×1' }],
+    defaultSize: { w: 2, h: 1, label: '2×1' },
+    minW: 1, minH: 1, maxW: 4, maxH: 1,
+  },
+  {
+    type: 'funding_rate', title: 'Фандинг ставки', description: 'Финансирование фьючерсов топ-монет',
+    icon: Percent, color: '#be123c',
+    availableSizes: [{ w: 2, h: 2, label: '2×2' }, { w: 3, h: 2, label: '3×2' }],
+    defaultSize: { w: 2, h: 2, label: '2×2' },
+    minW: 2, minH: 2, maxW: 3, maxH: 3,
+  },
+  {
+    type: 'gas_tracker', title: 'Gas трекер', description: 'Slow / Standard / Fast (Ethereum)',
+    icon: Fuel, color: '#15803d',
+    availableSizes: [{ w: 1, h: 1, label: '1×1' }, { w: 1, h: 2, label: '1×2' }, { w: 2, h: 1, label: '2×1' }],
+    defaultSize: { w: 2, h: 1, label: '2×1' },
+    minW: 1, minH: 1, maxW: 2, maxH: 2,
+  },
+  {
+    type: 'currency_converter', title: 'Конвертер валют', description: 'Быстрый обмен фиат/крипта',
+    icon: ArrowLeftRight, color: '#0369a1',
+    availableSizes: [{ w: 2, h: 1, label: '2×1' }, { w: 2, h: 2, label: '2×2' }],
+    defaultSize: { w: 2, h: 2, label: '2×2' },
+    minW: 2, minH: 1, maxW: 3, maxH: 2,
+  },
+  {
+    type: 'whale_tracker', title: 'Кит-трекер', description: 'Крупные on-chain транзакции',
+    icon: Anchor, color: '#1d4ed8',
+    availableSizes: [{ w: 2, h: 2, label: '2×2' }, { w: 3, h: 2, label: '3×2' }],
+    defaultSize: { w: 2, h: 2, label: '2×2' },
+    minW: 2, minH: 2, maxW: 3, maxH: 4,
+  },
+  {
+    type: 'stock_screener', title: 'Скринер акций', description: 'P/E, дивиденды, % изменения',
+    icon: Filter, color: '#92400e',
+    availableSizes: [{ w: 3, h: 2, label: '3×2' }, { w: 4, h: 2, label: '4×2' }],
+    defaultSize: { w: 3, h: 2, label: '3×2' },
+    minW: 3, minH: 2, maxW: 4, maxH: 4,
+  },
+  {
+    type: 'sentiment_meter', title: 'Настроение рынка', description: 'Bullish / Bearish (соцсети + новости)',
+    icon: Smile, color: '#be185d',
+    availableSizes: [{ w: 1, h: 2, label: '1×2' }, { w: 2, h: 2, label: '2×2' }],
+    defaultSize: { w: 2, h: 2, label: '2×2' },
+    minW: 1, minH: 2, maxW: 2, maxH: 3,
+  },
+  {
+    type: 'liquidations', title: 'Ликвидации', description: 'Лонги и шорты за 24ч',
+    icon: AlertTriangle, color: '#b91c1c',
+    availableSizes: [{ w: 2, h: 2, label: '2×2' }, { w: 3, h: 2, label: '3×2' }],
+    defaultSize: { w: 2, h: 2, label: '2×2' },
+    minW: 2, minH: 2, maxW: 4, maxH: 3,
+  },
+  {
+    type: 'yield_curve', title: 'Кривая доходности', description: 'US Treasuries 2Y / 5Y / 10Y / 30Y',
+    icon: LineChart, color: '#1e40af',
+    availableSizes: [{ w: 3, h: 2, label: '3×2' }, { w: 4, h: 2, label: '4×2' }],
+    defaultSize: { w: 3, h: 2, label: '3×2' },
+    minW: 3, minH: 2, maxW: 4, maxH: 3,
+  },
+  {
+    type: 'correlation_matrix', title: 'Корреляции', description: 'Матрица связи активов вотч-листа',
+    icon: Grid, color: '#065f46',
+    availableSizes: [{ w: 3, h: 2, label: '3×2' }, { w: 3, h: 3, label: '3×3' }],
+    defaultSize: { w: 3, h: 2, label: '3×2' },
+    minW: 2, minH: 2, maxW: 4, maxH: 4,
+  },
+  {
+    type: 'ai_signal', title: 'ИИ сигнал', description: 'Тренд + рекомендация по активу',
+    icon: Sparkles, color: '#7e22ce',
+    availableSizes: [{ w: 1, h: 1, label: '1×1' }, { w: 2, h: 1, label: '2×1' }, { w: 2, h: 2, label: '2×2' }, { w: 3, h: 1, label: '3×1' }],
+    defaultSize: { w: 2, h: 2, label: '2×2' },
+    minW: 1, minH: 1, maxW: 3, maxH: 3,
   },
 ];

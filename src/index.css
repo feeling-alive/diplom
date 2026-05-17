@@ -243,58 +243,38 @@ ul, li { list-style: none; }
    REACT-GRID-LAYOUT — iPhone-style DnD always on
    ============================================ */
 
-/* Hide the default tiny corner indicator — we use our own resize handles */
+/* Resize handles: invisible but functional — user grabs the widget edge directly.
+   The native cursor change (nwse-resize / ns-resize / ew-resize) signals where to grab. */
 .react-grid-item > .react-resizable-handle {
+  background: transparent !important;
   background-image: none !important;
+  border: none !important;
   padding: 0;
-  opacity: 0;
-  transition: opacity 0.2s;
+  opacity: 1;
   z-index: 4;
 }
 
-/* Show resize handles when hovering the widget */
-.react-grid-item:hover > .react-resizable-handle {
-  opacity: 1;
-}
-
-/* Per-side handle positioning (we enabled se/sw/ne/nw/s/e) */
+/* Corner hit-areas — overlap a few pixels onto the edge for easy grabbing */
 .react-grid-item > .react-resizable-handle-se {
-  width: 18px; height: 18px; bottom: 0; right: 0;
-  cursor: nwse-resize;
-  background-image: linear-gradient(135deg, transparent 0 55%, var(--accent) 55% 100%) !important;
-  border-bottom-right-radius: 14px;
+  width: 14px; height: 14px; bottom: 0; right: 0; cursor: nwse-resize;
 }
 .react-grid-item > .react-resizable-handle-sw {
-  width: 18px; height: 18px; bottom: 0; left: 0;
-  cursor: nesw-resize;
-  background-image: linear-gradient(225deg, transparent 0 55%, var(--accent) 55% 100%) !important;
-  border-bottom-left-radius: 14px;
+  width: 14px; height: 14px; bottom: 0; left: 0; cursor: nesw-resize;
 }
 .react-grid-item > .react-resizable-handle-ne {
-  width: 18px; height: 18px; top: 0; right: 0;
-  cursor: nesw-resize;
-  background-image: linear-gradient(45deg, transparent 0 55%, var(--accent) 55% 100%) !important;
-  border-top-right-radius: 14px;
+  width: 14px; height: 14px; top: 0; right: 0; cursor: nesw-resize;
 }
 .react-grid-item > .react-resizable-handle-nw {
-  width: 18px; height: 18px; top: 0; left: 0;
-  cursor: nwse-resize;
-  background-image: linear-gradient(315deg, transparent 0 55%, var(--accent) 55% 100%) !important;
-  border-top-left-radius: 14px;
+  width: 14px; height: 14px; top: 0; left: 0; cursor: nwse-resize;
 }
+/* Edge hit-areas — span most of the edge for natural side-grabbing */
 .react-grid-item > .react-resizable-handle-s {
-  width: 40%; height: 8px; bottom: 0; left: 50%;
-  transform: translateX(-50%);
+  width: calc(100% - 28px); height: 8px; bottom: 0; left: 14px;
   cursor: ns-resize;
-  background: linear-gradient(0deg, var(--accent), transparent) !important;
-  border-radius: 0 0 6px 6px;
 }
 .react-grid-item > .react-resizable-handle-e {
-  width: 8px; height: 40%; right: 0; top: 50%;
-  transform: translateY(-50%);
+  width: 8px; height: calc(100% - 28px); right: 0; top: 14px;
   cursor: ew-resize;
-  background: linear-gradient(270deg, var(--accent), transparent) !important;
-  border-radius: 0 6px 6px 0;
 }
 
 /* iPhone-style drag: neighbours glide smoothly, no ghost placeholder */
@@ -325,10 +305,10 @@ ul, li { list-style: none; }
 /* Remove button — visible on widget hover */
 .widget-remove-btn {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 22px;
-  height: 22px;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: var(--red);
   color: #fff;
