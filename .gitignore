@@ -16,6 +16,11 @@ dist-ssr
 .claude/skills/
 .ai-factory.json
 
+# Secrets / environment — NEVER commit
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
