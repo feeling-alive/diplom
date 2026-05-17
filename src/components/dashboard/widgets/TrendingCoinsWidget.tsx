@@ -8,12 +8,14 @@ type Props = WidgetSizeProps
 export default function TrendingCoinsWidget({ gridW = 2, gridH = 2 }: Props) {
   const { cryptos } = usePrices()
 
-  const limit = gridH >= 3 ? 6 : 3
+  // Растёт только вниз — больше монет на больших gridH
+  const limit = gridH >= 4 ? 11 : gridH >= 3 ? 8 : 5
+  const compact = gridW <= 1
   const coins = useMemo(() => {
     return [...cryptos].sort((a, b) => b.volume24h - a.volume24h).slice(0, limit)
   }, [cryptos, limit])
 
-  console.debug('[TrendingCoinsWidget] gridW=%d gridH=%d coins=%d', gridW, gridH, coins.length)
+  console.debug('[TrendingCoinsWidget] gridW=%d gridH=%d coins=%d compact=%s', gridW, gridH, coins.length, compact)
 
   return (
     <div style={{
@@ -34,28 +36,31 @@ export default function TrendingCoinsWidget({ gridW = 2, gridH = 2 }: Props) {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 10,
-              padding: '7px 0',
+              gap: compact ? 6 : 10,
+              padding: compact ? '5px 2px' : '6px 0',
               borderBottom: isLast ? 'none' : '1px solid var(--border)',
               cursor: 'pointer',
             }}
           >
             <div style={{
-              width: 26, height: 26, borderRadius: '50%', background: coin.color,
+              width: compact ? 22 : 26, height: compact ? 22 : 26,
+              borderRadius: '50%', background: coin.color,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontSize: 10, fontWeight: 700, flexShrink: 0,
+              color: '#fff', fontSize: compact ? 9 : 10, fontWeight: 700, flexShrink: 0,
             }}>
               {coin.icon}
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                {coin.symbol.split('-')[0]}
-              </span>
-            </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)', display: 'block' }}>{formatPrice(coin.price, coin.type)}</span>
-              <span style={{ fontSize: 9, fontWeight: 600, color: isPositive ? 'var(--green)' : 'var(--accent)', display: 'block' }}>
-                {isPositive ? '+' : ''}{coin.change24h.toFixed(1)}%
+            {!compact && (
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+                  {coin.symbol.split('-')[0]}
+                </span>
+              </div>
+            )}
+            <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: compact ? 'auto' : 0 }}>
+              <span style={{ fontSize: compact ? 10 : 11, fontWeight: 700, color: 'var(--ink)', display: 'block', fontVariantNumeric: 'tabular-nums' }}>{formatPrice(coin.price, coin.type)}</span>
+              <span style={{ fontSize: 9, fontWeight: 600, color: isPositive ? 'var(--green)' : 'var(--accent)', display: 'block', fontVariantNumeric: 'tabular-nums' }}>
+                {isPositive ? '+' : ''}{Number.isFinite(coin.change24h) ? coin.change24h.toFixed(1) : '0.0'}%
               </span>
             </div>
           </div>

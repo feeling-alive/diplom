@@ -186,13 +186,13 @@ Milestone: `none` — Rationale: roadmap-артефакт в проекте от
   - Кол-во новостей растёт с `gridH` (2→3, 3→6) и `gridW` (3→+2 поста).
   - Убрать `flex justify-content: space-between` снизу — пустоты быть не должно.
 
-#### Task #18 — TopMovers: два столбца + плотность
+#### Task #18 — TopMovers: два столбца + плотность — [x]
 **Файлы:** `src/constants/widgets.registry.ts`, `src/components/dashboard/widgets/TopMoversWidget.tsx`.
 
 - **Реестр:** `availableSizes: [{w:2,h:2},{w:2,h:3},{w:3,h:2}]`, `minW:2, maxW:3, minH:2, maxH:3`, `defaultSize: {w:2,h:2}`.
 - **Компонент:** layout `grid-template-columns: 1fr 1fr` — слева «Рост», справа «Падение». Padding строки `6-8px`. Без bottom-пустоты.
 
-#### Task #19 — ForexRates: 3 размера, две раскладки
+#### Task #19 — ForexRates: 3 размера, две раскладки — [x]
 **Файлы:** `src/constants/widgets.registry.ts`, `src/components/dashboard/widgets/ForexRatesWidget.tsx`.
 
 - **Реестр:** `availableSizes: [{w:2,h:1},{w:3,h:1},{w:2,h:2}]`, `minW:2, maxW:3, minH:1, maxH:2`, `defaultSize: {w:2,h:2}`.
@@ -201,13 +201,13 @@ Milestone: `none` — Rationale: roadmap-артефакт в проекте от
   - `gridH===2` → grid 2×2 крупные карточки (пара жирно сверху, курс крупно, % внизу в pill).
 - Лог: `console.debug('[ForexRatesWidget] gridW=%d gridH=%d layout=%s', gridW, gridH, gridH===1?'row':'grid')`.
 
-#### Task #20 — FearGreed: gauge без воздуха, maxW:2
+#### Task #20 — FearGreed: gauge без воздуха, maxW:2 — [x]
 **Файлы:** `src/constants/widgets.registry.ts`, `src/components/dashboard/widgets/FearGreedWidget.tsx`.
 
 - **Реестр:** уже `minW:1, maxW:2, minH:1, maxH:2` и размеры `1x1, 2x1, 1x2, 2x2` — заменить на `1x1, 1x2, 2x2` (убрать `2x1` если не вписывается в логику, оставить если нужен — спека ТЗ перечисляет `1×1, 1×2, 2×2`). `defaultSize: {w:1, h:2}`.
 - **Компонент:** SVG-gauge заполняет всю карточку (без выраженных margin/padding); число + подпись (например «Greed») идут вплотную под стрелкой, без отступа `space-between`.
 
-#### Task #21 — MarketVolume: 1×1 и 2×1
+#### Task #21 — MarketVolume: 1×1 и 2×1 — [x]
 **Файлы:** `src/constants/widgets.registry.ts`, `src/components/dashboard/widgets/MarketVolumeWidget.tsx`.
 
 - **Реестр:** `availableSizes: [{w:1,h:1},{w:2,h:1}]`, `minW:1, maxW:2, minH:1, maxH:1`, `defaultSize: {w:2,h:1}`.
@@ -215,7 +215,7 @@ Milestone: `none` — Rationale: roadmap-артефакт в проекте от
   - `gridW===1` → только крупная цифра объёма (например `$24.5B`) + подпись «Объём 24ч» снизу.
   - `gridW===2` → цифра слева (40-50% ширины), мини-`LineChart`/`AreaChart` справа (50-60% ширины), `ResponsiveContainer 100%/100%`.
 
-#### Task #22 — TrendingCoins: только вертикальный рост
+#### Task #22 — TrendingCoins: только вертикальный рост — [x]
 **Файлы:** `src/constants/widgets.registry.ts`, `src/components/dashboard/widgets/TrendingCoinsWidget.tsx`.
 
 - **Реестр:** `availableSizes: [{w:1,h:2},{w:1,h:3},{w:1,h:4},{w:2,h:2},{w:2,h:3}]`, `minW:1, maxW:2, minH:2, maxH:4`, `defaultSize: {w:2,h:2}`.

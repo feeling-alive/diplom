@@ -55,6 +55,7 @@ export default function FearGreedWidget({ gridW = 1, gridH = 2 }: Props) {
     )
   }
 
+  // [FIX] gauge заполняет всю карточку без воздуха; число и подпись вплотную под стрелкой.
   return (
     <div
       style={{
@@ -64,11 +65,12 @@ export default function FearGreedWidget({ gridW = 1, gridH = 2 }: Props) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: 0,
         boxSizing: 'border-box',
         overflow: 'hidden',
       }}
     >
-      <svg width="100%" height="60%" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid meet" style={{ maxWidth: 200 }}>
+      <svg width="100%" height="100%" viewBox="0 0 160 100" preserveAspectRatio="xMidYMid meet" style={{ flex: 1, minHeight: 0 }}>
         {segments.map((seg, i) => (
           <path
             key={i}
@@ -88,9 +90,16 @@ export default function FearGreedWidget({ gridW = 1, gridH = 2 }: Props) {
           strokeLinecap="round"
         />
         <circle cx={80} cy={90} r={4} fill={color} />
+        {/* число внутри SVG, вплотную под центром */}
+        <text x={80} y={88} textAnchor="middle" style={{ fontSize: 22, fontWeight: 800, fill: color }}>
+          {index}
+        </text>
       </svg>
-      <span style={{ fontSize: 28, fontWeight: 800, color, marginTop: 2 }}>{index}</span>
-      {showLabel && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginTop: 2 }}>{label}</span>}
+      {showLabel && (
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', flexShrink: 0, marginTop: -4 }}>
+          {label}
+        </span>
+      )}
     </div>
   )
 }

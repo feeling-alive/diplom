@@ -110,12 +110,11 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     color: '#22c55e',
     availableSizes: [
       { w: 2, h: 2, label: '2×2' },
-      { w: 3, h: 2, label: '3×2' },
       { w: 2, h: 3, label: '2×3' },
-      { w: 3, h: 3, label: '3×3' },
+      { w: 3, h: 2, label: '3×2' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 2, minH: 2, maxW: 4, maxH: 4,
+    minW: 2, minH: 2, maxW: 3, maxH: 3,
   },
   {
     type: 'forex_rates',
@@ -124,13 +123,12 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     icon: DollarSign,
     color: '#0ea5e9',
     availableSizes: [
+      { w: 2, h: 1, label: '2×1' },
       { w: 3, h: 1, label: '3×1' },
-      { w: 4, h: 1, label: '4×1' },
       { w: 2, h: 2, label: '2×2' },
-      { w: 3, h: 2, label: '3×2' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 2, minH: 1, maxW: 4, maxH: 3,
+    minW: 2, minH: 1, maxW: 3, maxH: 2,
   },
   {
     type: 'fear_greed',
@@ -140,7 +138,6 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     color: '#f97316',
     availableSizes: [
       { w: 1, h: 1, label: '1×1' },
-      { w: 2, h: 1, label: '2×1' },
       { w: 1, h: 2, label: '1×2' },
       { w: 2, h: 2, label: '2×2' },
     ],
@@ -156,11 +153,9 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     availableSizes: [
       { w: 1, h: 1, label: '1×1' },
       { w: 2, h: 1, label: '2×1' },
-      { w: 3, h: 1, label: '3×1' },
-      { w: 4, h: 1, label: '4×1' },
     ],
     defaultSize: { w: 2, h: 1, label: '2×1' },
-    minW: 1, minH: 1, maxW: 4, maxH: 1,
+    minW: 1, minH: 1, maxW: 2, maxH: 1,
   },
   {
     type: 'trending_coins',
@@ -169,13 +164,14 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     icon: Flame,
     color: '#ef4444',
     availableSizes: [
+      { w: 1, h: 2, label: '1×2' },
+      { w: 1, h: 3, label: '1×3' },
+      { w: 1, h: 4, label: '1×4' },
       { w: 2, h: 2, label: '2×2' },
       { w: 2, h: 3, label: '2×3' },
-      { w: 2, h: 4, label: '2×4' },
-      { w: 3, h: 3, label: '3×3' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 2, minH: 2, maxW: 3, maxH: 4,
+    minW: 1, minH: 2, maxW: 2, maxH: 4,
   },
 
   // ===== New widgets (vidget.md) =====
