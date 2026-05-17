@@ -6,7 +6,7 @@ export type WidgetType =
   | 'allocation'
   | 'community'
   | 'news'
-  | 'kpi_portfolio'
+  | 'market_ticker'
   | 'top_movers'
   | 'forex_rates'
   | 'fear_greed'

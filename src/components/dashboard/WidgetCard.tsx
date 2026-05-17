@@ -8,6 +8,7 @@ import AllocationChart from './AllocationChart'
 import CommunityWidget from './CommunityWidget'
 import NewsWidget from './NewsWidget'
 import PersonalizedPanel from './PersonalizedPanel'
+import MarketTicker from './MarketTicker'
 import TopMoversWidget from './widgets/TopMoversWidget'
 import ForexRatesWidget from './widgets/ForexRatesWidget'
 import FearGreedWidget from './widgets/FearGreedWidget'
@@ -41,7 +42,7 @@ export function renderWidgetContent(type: WidgetType, gridW: number, gridH: numb
     case 'allocation': return <AllocationChart gridW={gridW} gridH={gridH} />
     case 'community': return <CommunityWidget gridW={gridW} gridH={gridH} />
     case 'news': return <NewsWidget gridW={gridW} gridH={gridH} />
-    case 'kpi_portfolio': return <PersonalizedPanel gridW={gridW} gridH={gridH} />
+    case 'market_ticker': return <MarketTicker gridW={gridW} gridH={gridH} />
     case 'top_movers': return <TopMoversWidget gridW={gridW} gridH={gridH} />
     case 'forex_rates': return <ForexRatesWidget gridW={gridW} gridH={gridH} />
     case 'fear_greed': return <FearGreedWidget gridW={gridW} gridH={gridH} />

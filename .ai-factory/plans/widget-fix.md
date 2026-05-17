@@ -109,7 +109,7 @@ Milestone: `none` — Rationale: roadmap-артефакт в проекте от
 
 > **Правило для каждой задачи в этой фазе:** изменения в реестре `src/constants/widgets.registry.ts` идут вместе с правкой компонента виджета — в одном коммите по чекпоинту.
 
-#### Task #11 — Переименовать `kpi_portfolio` → `market_ticker`
+#### Task #11 — Переименовать `kpi_portfolio` → `market_ticker` — [x]
 **Файлы:**
 - `src/types/widgets.types.ts` — заменить литерал в `WidgetType`.
 - `src/constants/widgets.registry.ts` — изменить `type: 'kpi_portfolio'` → `'market_ticker'`, `title: 'Тикер активов'`, новые размеры (см. ниже).
@@ -125,7 +125,7 @@ Milestone: `none` — Rationale: roadmap-артефакт в проекте от
 - В `loadWidgets` (или в начале миграции старого ключа) — попытка ОДНОКРАТНО прочитать `v3`, найти `type === 'kpi_portfolio'`, заменить на `'market_ticker'`, clamp размеров по новому реестру, сохранить под `v4`, удалить `v3`.
 - Лог: `console.debug('[FIX] migrating kpi_portfolio -> market_ticker (v3 -> v4)')`.
 
-#### Task #12 — Компонент `MarketTicker.tsx`
+#### Task #12 — Компонент `MarketTicker.tsx` — [x]
 **Файл:** `src/components/dashboard/MarketTicker.tsx` (новый).
 
 - Принимает `WidgetSizeProps` (`gridW`, `gridH`).

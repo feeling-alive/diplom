@@ -16,8 +16,10 @@ import type { DashboardWidget, WidgetType, WidgetSize } from '../types/widgets.t
 const COLS = 4
 const ROW_HEIGHT = 110
 const GRID_MARGIN = 10
-const STORAGE_KEY = 'fintrack_widgets_v3'
+const STORAGE_KEY = 'fintrack_widgets_v4'
 const LEGACY_STORAGE_KEYS = ['fintrack_widgets_v2', 'fintrack_widgets']
+// v3 is migrated (not purged) below: kpi_portfolio -> market_ticker.
+const V3_MIGRATION_KEY = 'fintrack_widgets_v3'
 
 // [FIX] WidthProvider HOC ОБЯЗАТЕЛЕН — без него GridLayout использует дефолт 1200px,
 // координаты drag не совпадают с реальным контейнером → drop кладёт виджет не туда,
@@ -48,6 +50,29 @@ function loadWidgets(): DashboardWidget[] {
       }
     }
   } catch { /* ignore */ }
+
+  // [FIX] one-time v3 -> v4 migration: rename kpi_portfolio to market_ticker.
+  try {
+    if (!localStorage.getItem(STORAGE_KEY) && localStorage.getItem(V3_MIGRATION_KEY)) {
+      const v3raw = localStorage.getItem(V3_MIGRATION_KEY)
+      if (v3raw) {
+        const v3 = JSON.parse(v3raw) as DashboardWidget[]
+        if (Array.isArray(v3)) {
+          const migrated = v3.map((w) => {
+            if ((w.type as unknown) === 'kpi_portfolio') {
+              console.debug('[FIX] migrating kpi_portfolio -> market_ticker (v3 -> v4)')
+              return { ...w, type: 'market_ticker' as WidgetType }
+            }
+            return w
+          })
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated))
+        }
+      }
+      localStorage.removeItem(V3_MIGRATION_KEY)
+    }
+  } catch (err) {
+    console.warn('[Dashboard] v3 -> v4 migration failed:', err)
+  }
 
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
@@ -106,7 +131,7 @@ function findEmptySlot(
 
 function createDefaultWidgets(): DashboardWidget[] {
   const defaults: { type: WidgetType; size: WidgetSize }[] = [
-    { type: 'kpi_portfolio', size: { w: 4, h: 1, label: '4×1' } },
+    { type: 'market_ticker', size: { w: 3, h: 1, label: '3×1' } },
     { type: 'watchlist', size: { w: 2, h: 2, label: '2×2' } },
     { type: 'allocation', size: { w: 1, h: 2, label: '1×2' } },
     { type: 'price_chart', size: { w: 2, h: 2, label: '2×2' } },

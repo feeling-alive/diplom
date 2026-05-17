@@ -14,20 +14,19 @@ import type { WidgetDefinition } from '../types/widgets.types';
 //   обе различаются → свободный resize по обеим осям
 export const WIDGET_REGISTRY: WidgetDefinition[] = [
   {
-    type: 'kpi_portfolio',
-    title: 'KPI Портфеля',
-    description: 'Суммарная стоимость и изменение',
+    type: 'market_ticker',
+    title: 'Тикер активов',
+    description: 'Компактная строка/сетка тикеров с ценой и изменением',
     icon: TrendingUp,
     color: '#e11d48',
     availableSizes: [
-      { w: 1, h: 1, label: '1×1' },
       { w: 2, h: 1, label: '2×1' },
       { w: 3, h: 1, label: '3×1' },
-      { w: 4, h: 1, label: '4×1' },
+      { w: 2, h: 2, label: '2×2' },
+      { w: 3, h: 2, label: '3×2' },
     ],
-    defaultSize: { w: 4, h: 1, label: '4×1' },
-    // Только ширина: всегда тонкая полоса в одну строку, теперь можно сузить до 1.
-    minW: 1, minH: 1, maxW: 4, maxH: 1,
+    defaultSize: { w: 3, h: 1, label: '3×1' },
+    minW: 2, minH: 1, maxW: 3, maxH: 2,
   },
   {
     type: 'watchlist',

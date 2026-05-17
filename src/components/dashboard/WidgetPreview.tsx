@@ -11,7 +11,7 @@ interface Props {
 // ResponsiveContainer (charts, pies) actually render. Pure flex/100% inside
 // a height:auto parent collapses Recharts to 0 px.
 const PREVIEW_HEIGHTS: Record<string, number> = {
-  kpi_portfolio: 110,
+  market_ticker: 110,
   watchlist: 220,
   price_chart: 180,
   allocation: 200,
