@@ -1,5 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+/* [FIX] Global thin custom scrollbar — applies to every scrollable area in the app.
+   Local overrides (.main-scroll, .sidebar-scroll, .picker-scroll) still win where set. */
+*::-webkit-scrollbar { width: 4px; height: 4px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.7); }
+* { scrollbar-width: thin; scrollbar-color: rgba(148, 163, 184, 0.4) transparent; }
+
 :root {
   --accent:      #E11D48;
   --accent-bg:   #FFE5EC;
@@ -203,6 +214,11 @@ ul, li { list-style: none; }
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
+/* [FIX] disable hover translate while a grid item is being dragged — competing
+   transforms on .widget-card caused micro-jitter at drag start. */
+.react-grid-item.react-draggable-dragging .widget-card:hover {
+  transform: scale(1.03);
+}
 
 .dashboard-page {
   width: 100%;
@@ -243,53 +259,47 @@ ul, li { list-style: none; }
    REACT-GRID-LAYOUT — iPhone-style DnD always on
    ============================================ */
 
-/* Resize handles: invisible but functional — user grabs the widget edge directly.
+/* [FIX] Resize handles: 20×20 transparent hit-area at every direction.
    The native cursor change (nwse-resize / ns-resize / ew-resize) signals where to grab. */
 .react-grid-item > .react-resizable-handle {
   background: transparent !important;
   background-image: none !important;
   border: none !important;
   padding: 0;
-  opacity: 1;
+  opacity: 0;
+  width: 20px;
+  height: 20px;
   z-index: 4;
 }
 
-/* Corner hit-areas — overlap a few pixels onto the edge for easy grabbing */
-.react-grid-item > .react-resizable-handle-se {
-  width: 14px; height: 14px; bottom: 0; right: 0; cursor: nwse-resize;
-}
-.react-grid-item > .react-resizable-handle-sw {
-  width: 14px; height: 14px; bottom: 0; left: 0; cursor: nesw-resize;
-}
-.react-grid-item > .react-resizable-handle-ne {
-  width: 14px; height: 14px; top: 0; right: 0; cursor: nesw-resize;
-}
-.react-grid-item > .react-resizable-handle-nw {
-  width: 14px; height: 14px; top: 0; left: 0; cursor: nwse-resize;
-}
-/* Edge hit-areas — span most of the edge for natural side-grabbing */
-.react-grid-item > .react-resizable-handle-s {
-  width: calc(100% - 28px); height: 8px; bottom: 0; left: 14px;
-  cursor: ns-resize;
-}
-.react-grid-item > .react-resizable-handle-e {
-  width: 8px; height: calc(100% - 28px); right: 0; top: 14px;
-  cursor: ew-resize;
-}
+/* Cursor hints per side — sizes already 20×20 from the base rule above */
+.react-grid-item > .react-resizable-handle-se { bottom: 0; right: 0; cursor: nwse-resize; }
+.react-grid-item > .react-resizable-handle-sw { bottom: 0; left: 0; cursor: nesw-resize; }
+.react-grid-item > .react-resizable-handle-ne { top: 0; right: 0; cursor: nesw-resize; }
+.react-grid-item > .react-resizable-handle-nw { top: 0; left: 0; cursor: nwse-resize; }
+.react-grid-item > .react-resizable-handle-s  { bottom: 0; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.react-grid-item > .react-resizable-handle-e  { right: 0; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
 
 /* iPhone-style drag: neighbours glide smoothly, no ghost placeholder */
 .react-grid-item {
   transition: transform 200ms ease, opacity 200ms ease;
 }
 
+/* [FIX] drag-teleport: keep RGL's inline translate(x,y) intact, move scale to the
+   inner .widget-card. Previously `transform: scale(1.03) !important` on .react-grid-item
+   wiped translate(x,y) and the widget snapped back to (0,0) on drag start. */
 .react-grid-item.react-draggable-dragging {
   transition: none !important;
   z-index: 100;
   cursor: grabbing;
   opacity: 0.92;
-  transform: scale(1.03) !important;
+}
+.react-grid-item.react-draggable-dragging > div > .widget-card,
+.react-grid-item.react-draggable-dragging .widget-card {
+  transform: scale(1.03);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18) !important;
   border-radius: 16px;
+  transition: none !important;
 }
 
 /* Hide default placeholder — widget floats under cursor instead */
@@ -305,8 +315,8 @@ ul, li { list-style: none; }
 /* Remove button — visible on widget hover */
 .widget-remove-btn {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 8px;
+  right: 8px;
   width: 18px;
   height: 18px;
   border-radius: 50%;

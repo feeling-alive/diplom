@@ -48,7 +48,7 @@ Milestone: `none` — Rationale: roadmap-артефакт в проекте от
 
 ### Фаза 0 — Критический баг (Блок 1)
 
-#### Task #7 — Починить баг drag-телепорта
+#### Task #7 — Починить баг drag-телепорта — [x]
 **Файлы:** `src/index.css` (главная правка), `src/pages/Dashboard.tsx` (верификация).
 
 - **`src/index.css:285-293`** — заменить правило `.react-grid-item.react-draggable-dragging`: убрать `transform: scale(1.03) !important;`. Перенести scale на ВНУТРЕННИЙ wrapper (`.widget-card` уже корневой блок виджета — можно завести правило `.react-grid-item.react-draggable-dragging .widget-card { transform: scale(1.03); box-shadow: ... }`). Тогда RGL свободно ставит translate на `.react-grid-item`, а scale применяется к содержимому.
@@ -68,7 +68,7 @@ Milestone: `none` — Rationale: roadmap-артефакт в проекте от
 
 ### Фаза 1 — Глобальные стили (Блок 2)
 
-#### Task #8 — Resize handle 20×20, прозрачный
+#### Task #8 — Resize handle 20×20, прозрачный — [x]
 **Файл:** `src/index.css:248-278`.
 
 - `.react-grid-item > .react-resizable-handle` → `opacity: 0; width: 20px; height: 20px;`.
@@ -78,14 +78,14 @@ Milestone: `none` — Rationale: roadmap-артефакт в проекте от
 
 **Блокирует:** Task #7 завершён.
 
-#### Task #9 — Сдвинуть X-кнопку внутрь карточки
+#### Task #9 — Сдвинуть X-кнопку внутрь карточки — [x]
 **Файл:** `src/index.css:306-326`.
 
 - `.widget-remove-btn` → `top: 8px; right: 8px;` (вместо 4/4).
 - Оставить остальные свойства (размер 18px, hover-стили) без изменений.
 - Визуально проверить — X не должна перекрывать заголовок виджета.
 
-#### Task #10 — Глобальный кастомный скроллбар
+#### Task #10 — Глобальный кастомный скроллбар — [x]
 **Файл:** `src/index.css` (добавить в начало, после `:root` или сразу после reset-секции).
 
 ```css
