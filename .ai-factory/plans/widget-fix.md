@@ -139,14 +139,14 @@ Milestone: `none` — Rationale: roadmap-артефакт в проекте от
 
 **Блокирует:** Task #11 завершён.
 
-#### Task #13 — Watchlist: размеры + компактный режим
+#### Task #13 — Watchlist: размеры + компактный режим — [x]
 **Файлы:** `src/constants/widgets.registry.ts`, `src/components/dashboard/WatchlistPanel.tsx`.
 
 - **Реестр:** `availableSizes: [{w:1,h:2},{w:1,h:3},{w:1,h:4},{w:2,h:2},{w:2,h:3},{w:2,h:4}]`, `minW:1, maxW:2, minH:2, maxH:4`, `defaultSize: {w:2,h:2}`.
 - **Компонент:** `gridW===1` → только иконка-круг 22px + цена + change%, без названия и тикера. `gridW===2` → иконка + тикер + цена + change%. Кол-во строк по `gridH` (2→4, 3→8, 4→12).
 - Лог: `console.debug('[WatchlistPanel] gridW=%d gridH=%d compact=%s', gridW, gridH, compact)`.
 
-#### Task #14 — PriceChart: размеры + NaN%-фикс
+#### Task #14 — PriceChart: размеры + NaN%-фикс — [x]
 **Файлы:** `src/constants/widgets.registry.ts`, `src/components/dashboard/PriceChartWidget.tsx`, возможно `src/hooks/useAssetPrice.ts`.
 
 - **Реестр:** `availableSizes: [{w:2,h:2},{w:3,h:2},{w:4,h:2}]`, `minW:2, maxW:4, minH:2, maxH:2`, `defaultSize: {w:3,h:2}`.

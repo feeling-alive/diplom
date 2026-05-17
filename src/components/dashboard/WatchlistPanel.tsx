@@ -8,22 +8,26 @@ interface Props extends WidgetSizeProps {
   assets?: Asset[]
 }
 
+// Сколько строк помещается при данной высоте (в ячейках сетки 110px).
+const ROWS_PER_GRID_H: Record<number, number> = { 2: 4, 3: 8, 4: 12 }
+
 export default function WatchlistPanel({ assets: propAssets, gridW = 2, gridH = 2 }: Props) {
   const { cryptos, isLoading, lastUpdated } = usePrices()
-  const rowsLimit = gridH >= 3 ? 10 : 4
+  const rowsLimit = ROWS_PER_GRID_H[gridH] ?? 4
   const assets = propAssets ?? cryptos.slice(0, rowsLimit)
-  const showName = gridW >= 3
+  // gridW === 1 → компактный режим (только иконка + цена + change%)
+  const compact = gridW <= 1
 
   console.debug(
-    '[WatchlistPanel] gridW=%d gridH=%d rows=%d loading=%s updated=%s',
-    gridW, gridH, assets.length, isLoading,
+    '[WatchlistPanel] gridW=%d gridH=%d rows=%d compact=%s loading=%s updated=%s',
+    gridW, gridH, assets.length, compact, isLoading,
     lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : 'never',
   )
 
   if (assets.length === 0) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
-        <span style={{ fontSize: 13, color: 'var(--muted)' }}>Вотчлист пуст — добавьте активы</span>
+        <span style={{ fontSize: 12, color: 'var(--muted)' }}>Пусто</span>
       </div>
     )
   }
@@ -37,9 +41,11 @@ export default function WatchlistPanel({ assets: propAssets, gridW = 2, gridH = 
       overflow: 'hidden',
       boxSizing: 'border-box',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 8, flexShrink: 0 }}>
-        <span style={{ fontSize: 11, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500 }}>Смотреть всё →</span>
-      </div>
+      {!compact && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 6, flexShrink: 0 }}>
+          <span style={{ fontSize: 11, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500 }}>Все →</span>
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'auto' }}>
         {assets.map((asset, idx) => {
           const isPositive = asset.change24h >= 0
@@ -47,33 +53,69 @@ export default function WatchlistPanel({ assets: propAssets, gridW = 2, gridH = 
           return (
             <motion.div
               key={asset.symbol}
-              whileHover={{ backgroundColor: 'var(--bg)', borderRadius: 8, paddingLeft: 8, marginLeft: -8 }}
+              whileHover={{ backgroundColor: 'var(--bg)' }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 10,
-                padding: '8px 0',
+                gap: compact ? 6 : 10,
+                padding: compact ? '6px 4px' : '8px 0',
                 cursor: 'pointer',
                 borderBottom: isLast ? 'none' : '1px solid var(--border)',
-                transition: 'padding-left 0.15s, margin-left 0.15s',
+                borderRadius: compact ? 6 : 0,
                 flexShrink: 0,
               }}
             >
-              <div style={{ width: 28, height: 28, borderRadius: '50%', background: asset.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+              <div style={{
+                width: compact ? 22 : 28,
+                height: compact ? 22 : 28,
+                borderRadius: '50%',
+                background: asset.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontSize: compact ? 10 : 11,
+                fontWeight: 700,
+                flexShrink: 0,
+              }}>
                 {asset.icon ?? asset.symbol[0]}
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {asset.symbol.split('-')[0]}
+
+              {!compact && (
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {asset.symbol.split('-')[0]}
+                  </div>
                 </div>
-                {showName && (
-                  <div style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</div>
-                )}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{formatPrice(asset.price, asset.type)}</span>
-                <span style={{ background: isPositive ? '#E8F8EF' : 'var(--accent-bg)', color: isPositive ? 'var(--green)' : 'var(--accent)', borderRadius: 'var(--r-pill)', padding: '1px 6px', fontSize: 10, fontWeight: 600 }}>
-                  {isPositive ? '+' : ''}{asset.change24h.toFixed(1)}%
+              )}
+
+              <div style={{
+                display: 'flex',
+                flexDirection: compact ? 'row' : 'column',
+                alignItems: compact ? 'center' : 'flex-end',
+                gap: compact ? 6 : 2,
+                marginLeft: compact ? 'auto' : 0,
+                flexShrink: 0,
+                minWidth: 0,
+              }}>
+                <span style={{
+                  fontSize: compact ? 11 : 12,
+                  fontWeight: 700,
+                  color: 'var(--ink)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {formatPrice(asset.price, asset.type)}
+                </span>
+                <span style={{
+                  background: isPositive ? '#E8F8EF' : 'var(--accent-bg)',
+                  color: isPositive ? 'var(--green)' : 'var(--accent)',
+                  borderRadius: 'var(--r-pill)',
+                  padding: '1px 6px',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {isPositive ? '+' : ''}{Number.isFinite(asset.change24h) ? asset.change24h.toFixed(1) : '0.0'}%
                 </span>
               </div>
             </motion.div>
@@ -83,4 +125,3 @@ export default function WatchlistPanel({ assets: propAssets, gridW = 2, gridH = 
     </div>
   )
 }
-

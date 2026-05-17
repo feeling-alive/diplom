@@ -148,10 +148,11 @@ export default function PriceChartWidget({ gridW = 3, gridH = 2 }: Props) {
               borderRadius: 'var(--r-pill)',
               padding: '2px 6px',
               flexShrink: 0,
+              fontVariantNumeric: 'tabular-nums',
             }}
           >
             {isPositive ? '+' : ''}
-            {change24h.toFixed(1)}%
+            {Number.isFinite(change24h) ? change24h.toFixed(1) : '0.0'}%
           </span>
         </div>
 

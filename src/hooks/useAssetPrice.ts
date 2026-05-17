@@ -59,11 +59,15 @@ export function useAssetPrice(
           const ticker = msg.data?.[0]
           if (ticker) {
             const newPrice = parseFloat(ticker.last)
-            const newChange = parseFloat(ticker.changeRate24h) * 100
-            setPrice(newPrice)
+            const rawChange = parseFloat(ticker.changeRate24h) * 100
+            const newChange = Number.isFinite(rawChange) ? rawChange : 0
+            if (!Number.isFinite(rawChange)) {
+              console.warn('[useAssetPrice] non-finite change24h from OKX for %s, defaulting to 0', symbol)
+            }
+            setPrice(Number.isFinite(newPrice) ? newPrice : 0)
             setChange24h(newChange)
             setIsLoading(false)
-            console.debug('[useAssetPrice] %s WS price=%s', symbol, newPrice)
+            console.debug('[useAssetPrice] %s WS price=%s change=%s', symbol, newPrice, newChange)
           }
         } catch {
           // malformed frame — ignore
@@ -91,10 +95,15 @@ export function useAssetPrice(
           )
           if (!res.ok) throw new Error(`Finnhub ${res.status}`)
           const json = (await res.json()) as { c: number; dp: number }
-          setPrice(json.c)
-          setChange24h(json.dp)
+          const safePrice = Number.isFinite(json.c) ? json.c : 0
+          const safeChange = Number.isFinite(json.dp) ? json.dp : 0
+          if (!Number.isFinite(json.dp)) {
+            console.warn('[useAssetPrice] non-finite dp from Finnhub for %s, defaulting to 0', symbol)
+          }
+          setPrice(safePrice)
+          setChange24h(safeChange)
           setIsLoading(false)
-          console.info('[useAssetPrice] %s Finnhub price=%s', symbol, json.c)
+          console.info('[useAssetPrice] %s Finnhub price=%s change=%s', symbol, safePrice, safeChange)
         } catch (err) {
           console.warn('[useAssetPrice] Finnhub fetch failed for %s:', symbol, err)
         }

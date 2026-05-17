@@ -35,13 +35,15 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     icon: Star,
     color: '#f59e0b',
     availableSizes: [
+      { w: 1, h: 2, label: '1×2' },
+      { w: 1, h: 3, label: '1×3' },
+      { w: 1, h: 4, label: '1×4' },
       { w: 2, h: 2, label: '2×2' },
       { w: 2, h: 3, label: '2×3' },
       { w: 2, h: 4, label: '2×4' },
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
-    // Только высота: список активов растёт вниз, ширина фиксирована.
-    minW: 2, minH: 2, maxW: 2, maxH: 4,
+    minW: 1, minH: 2, maxW: 2, maxH: 4,
   },
   {
     type: 'price_chart',
@@ -50,15 +52,12 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     icon: BarChart2,
     color: '#3b82f6',
     availableSizes: [
-      { w: 1, h: 2, label: '1×2' },
       { w: 2, h: 2, label: '2×2' },
       { w: 3, h: 2, label: '3×2' },
       { w: 4, h: 2, label: '4×2' },
-      { w: 3, h: 3, label: '3×3' },
-      { w: 4, h: 3, label: '4×3' },
     ],
     defaultSize: { w: 3, h: 2, label: '3×2' },
-    minW: 1, minH: 2, maxW: 4, maxH: 4,
+    minW: 2, minH: 2, maxW: 4, maxH: 2,
   },
   {
     type: 'allocation',
