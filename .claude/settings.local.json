@@ -17,7 +17,10 @@
       "Bash(npx tsc *)",
       "Bash(npm test *)",
       "Bash(npm run *)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(cd *)",
+      "Skill(aif-verify)",
+      "Skill(aif-review)"
     ]
   }
 }

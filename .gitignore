@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# Python backend
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
 # AI Factory — installed skills are tooling, not source
 .claude/skills/
 .ai-factory.json
