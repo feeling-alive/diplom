@@ -1,0 +1,9 @@
+# FinTrack backend — FastAPI + Redis proxy/cache for market quotes
+# Install: pip install -r requirements.txt
+
+fastapi>=0.115
+uvicorn[standard]>=0.34
+redis>=5.2
+httpx>=0.28
+python-dotenv>=1.1
+pydantic-settings>=2.7

@@ -36,6 +36,7 @@ FinTrack — настраиваемый финансовый дашборд дл
 - **Виджеты:** описываются в `WIDGET_REGISTRY` (`src/types/widgets.types.ts` + соответствующий объект) — `minW/maxW/minH/maxH` обязательны на каждом элементе layout (иначе react-grid-layout не блокирует ручки ресайза).
 - **Дизайн-система:** строгая палитра 11 цветов (см. `.ai-factory/RULES.md`), типографика Inter, радиусы 8/12/16/24/999, набор теней sm/md/lg.
 - **Прокси:** `vite.config.ts` маршрутизирует `/api/finnhub`, `/api/news`, `/api/forex` на внешние API без раскрытия ключей в браузере.
+- **Бэкенд (с 2026-05-30):** отдельный сервис `backend/` (FastAPI + Redis, Python 3.13) — прокси/кэш котировок (Finnhub/OKX/Frankfurter) под `/api/quotes`, TTL 60/30/300с, graceful degradation. Запуск: `uvicorn app.main:app --port 8000`. Миграция хуков фронта на него пока отложена.
 
 ## Нефункциональные требования
 

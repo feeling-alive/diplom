@@ -5,6 +5,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      // FinTrack backend (FastAPI + Redis) — new cached quote endpoints.
+      // Additive: the legacy /api/finnhub|news|forex|okx rules below still proxy
+      // straight to the external APIs until the frontend hooks are migrated to
+      // /api/quotes (see backend/README.md "Миграция фронта").
+      '/api/quotes': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/api/finnhub': {
         target: 'https://finnhub.io/api/v1',
         changeOrigin: true,
