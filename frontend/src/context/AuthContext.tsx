@@ -17,6 +17,7 @@ interface AuthContextValue {
   isAuthenticated: boolean
   isLoading: boolean
   setUser: (user: AuthUser) => void
+  updateUser: (partial: Partial<AuthUser>) => void
   logout: () => Promise<void>
   refresh: () => Promise<void>
 }
@@ -55,6 +56,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.debug('[useAuth] setUser', next.email)
     setUserState(next)
     mirrorToStorage(next)
+  }, [])
+
+  // Patch a few fields (e.g. username/avatar_url after a profile edit) without a
+  // round-trip to /auth/me. Context-native analogue of the Redux `updateUser`
+  // requested in the spec — keeps the sidebar/header in sync instantly.
+  const updateUser = useCallback((partial: Partial<AuthUser>) => {
+    console.debug('[useAuth] updateUser', partial)
+    setUserState((prev) => {
+      if (!prev) return prev
+      const next = { ...prev, ...partial }
+      mirrorToStorage(next)
+      return next
+    })
   }, [])
 
   const clearUser = useCallback(() => {
@@ -130,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: user !== null,
     isLoading,
     setUser,
+    updateUser,
     logout,
     refresh,
   }

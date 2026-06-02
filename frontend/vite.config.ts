@@ -19,6 +19,20 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      // Profile + subscription API and uploaded avatar static files. Same-origin
+      // via the proxy so the auth cookie is sent with every request.
+      '/users': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/subscription': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/uploads': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/api/finnhub': {
         target: 'https://finnhub.io/api/v1',
         changeOrigin: true,

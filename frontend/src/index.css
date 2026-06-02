@@ -486,3 +486,64 @@ ul, li { list-style: none; }
 }
 
 .react-grid-item { cursor: default; }
+
+/* ============================================
+   PROFILE + SUBSCRIPTION
+   ============================================ */
+
+/* Floating mesh blobs in the profile hero. Animated via CSS (not framer-motion
+   `background`/`transform` props) to avoid the strict-TS TS2590 union blowup. */
+@keyframes profileBlobA {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(30px, -20px) scale(1.08); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes profileBlobB {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(-26px, 18px) scale(1.12); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes profileBlobC {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(18px, 24px) scale(0.94); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+.profile-blob {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(28px);
+  pointer-events: none;
+  will-change: transform;
+}
+.profile-blob--a { animation: profileBlobA 8s ease-in-out infinite; }
+.profile-blob--b { animation: profileBlobB 12s ease-in-out infinite; }
+.profile-blob--c { animation: profileBlobC 6s ease-in-out infinite; }
+
+/* Avatar hover overlay (camera icon appears on hover). */
+.avatar-uploader { position: relative; cursor: pointer; }
+.avatar-uploader .avatar-overlay {
+  position: absolute; inset: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.avatar-uploader:hover .avatar-overlay { opacity: 1; }
+
+/* Shimmer gradient on the premium upgrade button. */
+@keyframes subShimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.sub-shimmer {
+  background: linear-gradient(90deg, var(--accent), #f43f6e, var(--accent));
+  background-size: 200% auto;
+  color: #fff;
+}
+.sub-shimmer:hover { animation: subShimmer 2s linear infinite; }
+
+/* Generic spinner for lucide Loader2 icons. */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.8s linear infinite; }
