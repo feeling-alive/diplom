@@ -26,6 +26,12 @@ FinTrack использует **feature-based модульную архитек�
 - Оркестрация: корневой `docker-compose.yml` (postgres + redis + backend) + `backend/Dockerfile` (python:3.11-slim) + `.dockerignore` (исключает Windows-`.venv`). Host-порт Postgres = 5433 на этой машине (5432 занят нативным PG); внутри сети — `postgres:5432`.
 - Тесты бэкенда: `backend/tests/` (pytest, `asyncio_mode=auto`) — детерминированы, без живой БД (метаданные + sqlite `create_all` + health).
 
+### Модуль аутентификации (Блок B, с 2026-06-02)
+
+- Backend: `backend/app/auth/` — отдельный вертикальный срез (`utils.py` bcrypt+JWT, `schemas.py`, `dependencies.py`, `router.py`). В БД ходит только через `get_db`/модели; подключается в `main.py` как `auth_router` (собственный prefix `/auth`). CORS расширен до `GET,POST` (cookie требует `allow_credentials=True`). Пароли — `bcrypt` напрямую (passlib несовместим с bcrypt 5.x).
+- Frontend: auth-сессия — единственный кросс-срезовый Context (`src/context/AuthContext.tsx`, `useAuth`), мост к API — `src/lib/authApi.ts` (fetch с `credentials:'include'`). Guard `components/layout/RoutesGuard.tsx` потребляет `useAuth`. Решение адаптировано под стек проекта: **Context вместо Redux**, **дизайн-система вместо MUI** (см. RULES). `AuthProvider` зеркалит состояние в legacy localStorage-ключи для компонентов, которые читают их напрямую.
+- Тесты auth: `backend/tests/test_auth.py` + `conftest.py` (sqlite in-memory StaticPool, override `get_db`, httpx ASGITransport — без lifespan/живой БД).
+
 ## Обоснование решения
 
 - **Тип проекта:** React 19 SPA, дашборд + страница актива + auth-секция

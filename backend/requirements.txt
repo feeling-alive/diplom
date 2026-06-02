@@ -13,10 +13,11 @@ sqlalchemy[asyncio]>=2.0
 asyncpg
 alembic
 
-# --- Auth / uploads (для будущих блоков: auth, аватары) ----------------------
-# Добавлены сейчас по требованию промта Блока A; в самом Блоке A не используются.
-passlib[bcrypt]
+# --- Auth / uploads (Блок B: JWT + Google OAuth; аватары — позже) ------------
+# bcrypt напрямую (passlib 1.7.4 несовместим с bcrypt>=4.1/5.x).
+bcrypt
 python-jose[cryptography]
 python-multipart
+email-validator     # требуется для pydantic EmailStr (Блок B)
 aiofiles
 pillow

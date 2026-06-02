@@ -66,6 +66,13 @@ class Settings(BaseSettings):
     # --- Uploads ---------------------------------------------------------------
     uploads_dir: str = "uploads"
 
+    # --- Google OAuth / service URLs (Блок B) ----------------------------------
+    # Empty client id => the /auth/google endpoints return 501 (not configured).
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    backend_url: str = "http://localhost:8000"
+    frontend_url: str = "http://localhost:5173"
+
     # --- CORS ------------------------------------------------------------------
     # Comma-separated origins; the frontend Vite dev server by default.
     cors_origins: str = "http://localhost:5173"
@@ -110,4 +117,11 @@ def log_startup_config() -> None:
         settings.algorithm,
         settings.access_token_expire_minutes,
         settings.uploads_dir,
+    )
+    logger.info(
+        "[config] google_client_id=%s google_client_secret=%s backend_url=%s frontend_url=%s",
+        "present" if settings.google_client_id else "ABSENT",
+        "present" if settings.google_client_secret else "ABSENT",
+        settings.backend_url,
+        settings.frontend_url,
     )

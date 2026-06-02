@@ -12,6 +12,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth.router import router as auth_router
 from app.config import log_startup_config, settings
 from app.database import Base, engine
 from app.routes import crypto, forex, quotes
@@ -56,13 +57,18 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["GET"],
+    # POST added for the auth routes (register/login/logout); cookies require
+    # allow_credentials=True. The frontend normally calls these via the Vite proxy
+    # (same-origin), so CORS mainly matters for direct calls / Swagger.
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
 app.include_router(quotes.router, prefix=API_PREFIX)
 app.include_router(crypto.router, prefix=API_PREFIX)
 app.include_router(forex.router, prefix=API_PREFIX)
+app.include_router(auth_router)  # carries its own /auth prefix
+logger.info("[main] auth routes mounted at /auth")
 
 
 @app.get("/health", tags=["meta"])

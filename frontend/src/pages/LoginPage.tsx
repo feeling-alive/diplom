@@ -1,13 +1,23 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { motion } from 'framer-motion'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, Navigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { apiLogin } from '../lib/authApi'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const [formError, setFormError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
+  const { isAuthenticated, isLoading, setUser } = useAuth()
+
+  // Already logged in → bounce to the dashboard.
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to="/" replace />
+  }
 
   function validateEmail(value: string) {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -36,22 +46,24 @@ export default function LoginPage() {
     return true
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    setFormError('')
     const validEmail = validateEmail(email)
     const validPassword = validatePassword(password)
     if (!validEmail || !validPassword) return
 
-    // Mock-авторизация
+    console.debug('[LoginPage] submit', email)
+    setSubmitting(true)
     try {
-      localStorage.setItem('fintrack_is_authenticated', 'true')
-      localStorage.setItem(
-        'fintrack_user',
-        JSON.stringify({ nickname: 'Пользователь', email }),
-      )
+      const user = await apiLogin(email, password)
+      setUser(user)
       navigate('/')
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn('[LoginPage] login failed', err)
+      setFormError(err instanceof Error ? err.message : 'Не удалось войти')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -165,11 +177,30 @@ export default function LoginPage() {
               )}
             </div>
 
+            {/* Form-level error (design-system alert, no MUI) */}
+            {formError && (
+              <div
+                role="alert"
+                style={{
+                  background: 'var(--accent-bg)',
+                  color: 'var(--red)',
+                  border: '1px solid var(--red)',
+                  borderRadius: 'var(--r-md)',
+                  padding: '10px 14px',
+                  fontSize: 12,
+                  fontWeight: 500,
+                }}
+              >
+                {formError}
+              </div>
+            )}
+
             {/* Submit button */}
             <motion.button
               type="submit"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              disabled={submitting}
+              whileHover={submitting ? undefined : { scale: 1.02 }}
+              whileTap={submitting ? undefined : { scale: 0.98 }}
               style={{
                 marginTop: 8,
                 padding: '12px 0',
@@ -179,11 +210,12 @@ export default function LoginPage() {
                 fontSize: 14,
                 fontWeight: 600,
                 border: 'none',
-                cursor: 'pointer',
+                cursor: submitting ? 'default' : 'pointer',
+                opacity: submitting ? 0.7 : 1,
                 fontFamily: 'var(--font)',
               }}
             >
-              Войти
+              {submitting ? 'Вход…' : 'Войти'}
             </motion.button>
           </form>
 
@@ -223,9 +255,8 @@ export default function LoginPage() {
               fontFamily: 'var(--font)',
             }}
             onClick={() => {
-              localStorage.setItem('fintrack_is_authenticated', 'true')
-              localStorage.setItem('fintrack_user', JSON.stringify({ nickname: 'Пользователь Google', email: 'google@user.com' }))
-              navigate('/')
+              // Full-page navigation to the backend OAuth entry point.
+              window.location.href = '/auth/google'
             }}
           >
             <svg width={18} height={18} viewBox="0 0 24 24" fill="none">

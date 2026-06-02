@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { motion } from 'framer-motion'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, Navigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { apiRegister } from '../lib/authApi'
 
 export default function RegisterPage() {
   const [nickname, setNickname] = useState('')
@@ -11,7 +13,15 @@ export default function RegisterPage() {
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [confirmError, setConfirmError] = useState('')
+  const [formError, setFormError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
+  const { isAuthenticated, isLoading, setUser } = useAuth()
+
+  // Already logged in → bounce to the dashboard.
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to="/" replace />
+  }
 
   function validateNickname(value: string) {
     if (!value) {
@@ -70,24 +80,27 @@ export default function RegisterPage() {
     return true
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    setFormError('')
     const validNick = validateNickname(nickname)
     const validEmail = validateEmail(email)
     const validPass = validatePassword(password)
     const validConfirm = validateConfirm(confirmPassword)
     if (!validNick || !validEmail || !validPass || !validConfirm) return
 
-    // Mock-регистрация
+    console.debug('[RegisterPage] submit', email, nickname)
+    setSubmitting(true)
     try {
-      localStorage.setItem('fintrack_is_authenticated', 'true')
-      localStorage.setItem(
-        'fintrack_user',
-        JSON.stringify({ nickname, email, plan: 'free', registeredAt: new Date().toISOString() }),
-      )
+      // `nickname` is the username field for the backend (3-20 chars).
+      const user = await apiRegister(email, nickname, password)
+      setUser(user)
       navigate('/')
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn('[RegisterPage] register failed', err)
+      setFormError(err instanceof Error ? err.message : 'Не удалось зарегистрироваться')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -300,11 +313,30 @@ export default function RegisterPage() {
               )}
             </div>
 
+            {/* Form-level error (design-system alert, no MUI) */}
+            {formError && (
+              <div
+                role="alert"
+                style={{
+                  background: 'var(--accent-bg)',
+                  color: 'var(--red)',
+                  border: '1px solid var(--red)',
+                  borderRadius: 'var(--r-md)',
+                  padding: '10px 14px',
+                  fontSize: 12,
+                  fontWeight: 500,
+                }}
+              >
+                {formError}
+              </div>
+            )}
+
             {/* Submit */}
             <motion.button
               type="submit"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              disabled={submitting}
+              whileHover={submitting ? undefined : { scale: 1.02 }}
+              whileTap={submitting ? undefined : { scale: 0.98 }}
               style={{
                 marginTop: 8,
                 padding: '12px 0',
@@ -314,11 +346,12 @@ export default function RegisterPage() {
                 fontSize: 14,
                 fontWeight: 600,
                 border: 'none',
-                cursor: 'pointer',
+                cursor: submitting ? 'default' : 'pointer',
+                opacity: submitting ? 0.7 : 1,
                 fontFamily: 'var(--font)',
               }}
             >
-              Зарегистрироваться
+              {submitting ? 'Регистрация…' : 'Зарегистрироваться'}
             </motion.button>
           </form>
 
@@ -358,12 +391,8 @@ export default function RegisterPage() {
               fontFamily: 'var(--font)',
             }}
             onClick={() => {
-              localStorage.setItem('fintrack_is_authenticated', 'true')
-              localStorage.setItem(
-                'fintrack_user',
-                JSON.stringify({ nickname: 'Пользователь Google', email: 'google@user.com', plan: 'free' }),
-              )
-              navigate('/')
+              // Full-page navigation to the backend OAuth entry point.
+              window.location.href = '/auth/google'
             }}
           >
             <svg width={18} height={18} viewBox="0 0 24 24" fill="none">

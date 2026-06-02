@@ -101,6 +101,10 @@ pytest                # детерминированы, живой Postgres НЕ
 | `ALGORITHM` | `HS256` | Алгоритм подписи JWT. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `10080` | Время жизни access-токена, мин (7 дней). |
 | `UPLOADS_DIR` | `uploads` | Каталог загружаемых файлов (аватары). |
+| `GOOGLE_CLIENT_ID` | `""` | OAuth client id. Пусто → `/auth/google` отдаёт 501. |
+| `GOOGLE_CLIENT_SECRET` | `""` | OAuth client secret. |
+| `BACKEND_URL` | `http://localhost:8000` | Публичный URL бэкенда (для `redirect_uri`). |
+| `FRONTEND_URL` | `http://localhost:5173` | URL фронта (редирект после OAuth-логина). |
 | `CORS_ORIGINS` | `http://localhost:5173` | Разрешённые origin (Vite dev). |
 | `STOCK_TTL` / `CRYPTO_TTL` / `FOREX_TTL` | `60` / `30` / `300` | TTL кэша, сек. |
 
@@ -117,6 +121,33 @@ pytest                # детерминированы, живой Postgres НЕ
 Формат котировки: `{symbol, price, change, changePercent, volume}` (у форекса
 дополнительно `from`, `to`, `rate`). Volume у акций всегда `0` — Finnhub `/quote`
 его не отдаёт.
+
+## Аутентификация (Блок B)
+
+JWT доставляется в **HttpOnly-cookie** `access_token` (`samesite=lax`, срок 7 дней),
+поэтому браузер шлёт его автоматически, а JS не имеет к нему доступа. Фронт ходит
+на `/auth/*` через vite-proxy (`/auth → :8000`) — для браузера это same-origin, так
+что cross-site проблем с cookie нет.
+
+| Метод | Путь | Назначение |
+|---|---|---|
+| POST | `/auth/register` | Регистрация (email/username/password). Создаёт User + Subscription(free), ставит cookie. 409 если email/username заняты. |
+| POST | `/auth/login` | Вход по email+password. 401 при неверных данных, 403 если `is_active=False`. |
+| POST | `/auth/logout` | Удаляет cookie. |
+| GET | `/auth/me` | Текущий пользователь (по cookie). 401 без/с невалидной cookie. |
+| GET | `/auth/google` | Редирект на Google OAuth. **501**, если `GOOGLE_CLIENT_ID` пуст. |
+| GET | `/auth/google/callback` | Обмен `code`, линковка/создание User, cookie, редирект на `FRONTEND_URL`. |
+
+- Пароли — `bcrypt` напрямую (passlib 1.7.4 несовместим с bcrypt ≥ 4.1/5.x).
+- Зависимости валидации email: `email-validator` (для `EmailStr`).
+- Тесты: `pytest` (`tests/test_auth.py`) — register/login/401/me/501 на sqlite, без живого Postgres.
+
+### Настройка Google OAuth (опционально)
+
+1. В Google Cloud Console создать OAuth client (тип Web).
+2. Authorized redirect URI: `{BACKEND_URL}/auth/google/callback` (по умолчанию `http://localhost:8000/auth/google/callback`).
+3. Прописать `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` в `backend/.env`.
+4. Без ключей кнопка «Войти через Google» приводит к 501 — это ожидаемо.
 
 ## Миграция фронта (на потом — в этой итерации хуки НЕ меняем)
 

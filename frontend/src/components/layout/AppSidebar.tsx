@@ -1,6 +1,8 @@
+import type React from 'react'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useAuth } from '../../context/AuthContext'
 import {
   LayoutDashboard,
   BarChart2,
@@ -23,6 +25,7 @@ const NAV_ITEMS = [
 
 export default function AppSidebar() {
   const location = useLocation()
+  const { logout } = useAuth()
   const [activeTooltip, setActiveTooltip] = useState<{ label: string; x: number; y: number } | null>(null)
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -44,9 +47,11 @@ export default function AppSidebar() {
     }
   }, [])
 
-  function handleLogout() {
-    localStorage.removeItem('fintrack_is_authenticated')
-    localStorage.removeItem('fintrack_user')
+  async function handleLogout() {
+    console.debug('[AppSidebar] logout')
+    // Server-side logout (clears the HttpOnly cookie) + context/localStorage reset.
+    await logout()
+    // Full reload guarantees a clean unauthenticated app state.
     window.location.href = '/login'
   }
 

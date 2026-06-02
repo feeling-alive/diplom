@@ -13,6 +13,12 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      // Auth API (FastAPI). Proxying keeps requests same-origin (localhost:5173)
+      // so the HttpOnly access_token cookie works without cross-site issues.
+      '/auth': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/api/finnhub': {
         target: 'https://finnhub.io/api/v1',
         changeOrigin: true,
