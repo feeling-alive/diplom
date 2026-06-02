@@ -1,0 +1,22 @@
+# The host venv is built for Windows and must never enter the linux image /
+# bind-mount; it would shadow /app and break the container.
+.venv/
+venv/
+
+# Python caches / build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets — never bake into the image
+.env
+.env.*
+!.env.example
+
+# Local DB / editor noise
+*.sqlite3
+.idea/
+.vscode/

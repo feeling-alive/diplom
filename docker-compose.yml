@@ -1,0 +1,56 @@
+# FinTrack local stack: PostgreSQL + Redis + FastAPI backend.
+#
+#   docker compose up -d postgres redis   # just the datastores (for host-run uvicorn/alembic)
+#   docker compose up --build             # full stack incl. backend
+#
+# The frontend (Vite) is not containerized here — it runs on the host and
+# proxies /api/quotes -> backend:8000.
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_DB: fintrack
+      POSTGRES_USER: fintrack
+      POSTGRES_PASSWORD: fintrack_pass
+    ports:
+      # Host 5433 -> container 5432. Host 5432 is often taken by a native
+      # PostgreSQL install (it is on this dev machine), which makes localhost:5432
+      # ambiguous. Inside the compose network the backend still uses postgres:5432.
+      # For host-run uvicorn/alembic use DATABASE_URL=...@localhost:5433.
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # NOTE: must be CMD-SHELL (the promt.md sketch said CMD-EXEC, which Docker
+      # does not understand). pg_isready exits 0 once the server accepts connections.
+      test: ["CMD-SHELL", "pg_isready -U fintrack"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Inside the compose network the DB/Redis hosts are the service names.
+      - DATABASE_URL=postgresql+asyncpg://fintrack:fintrack_pass@postgres:5432/fintrack
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+      - uploads_data:/app/uploads
+
+volumes:
+  postgres_data:
+  uploads_data:

@@ -16,6 +16,16 @@ FinTrack использует **feature-based модульную архитек�
 - Связь с фронтом: vite-proxy `/api/quotes → :8000` (аддитивно). Миграция хуков фронта на бэкенд — отложена (см. `backend/README.md`).
 - OKX **WebSocket** остаётся на фронте (`useAssetPrice.ts`) — бэкенд использует только OKX REST.
 
+### Слой данных (Блок A, с 2026-06-02)
+
+К горизонтальному слою бэкенда добавлен слой персистентности (PostgreSQL 14 + SQLAlchemy 2.0 async + Alembic):
+
+- `backend/app/database.py` — async engine (`asyncpg`), `AsyncSessionLocal`, declarative `Base`, FastAPI-dependency `get_db`. Единственный канал к БД: роуты получают `AsyncSession` через `get_db`, сами движки/сессии не создают.
+- `backend/app/models.py` — 6 ORM-моделей (User, Subscription, DashboardConfig, ChatSession, Comment, Favorite) в стиле SQLAlchemy 2.0 (`Mapped`/`mapped_column`); UUID-ключи, PG-enum'ы с явным `name=`, JSON-колонки как `JSON().with_variant(JSONB, "postgresql")` для портируемости (sqlite в тестах).
+- `backend/alembic/` — async `env.py` (URL из `settings.database_url`, `target_metadata = Base.metadata`, `run_async_migrations` через `connection.run_sync`, `compare_type=True`). Миграции — единственный owner схемы; `create_all` в lifespan оставлен только как dev-удобство (обёрнут в try/except — недоступная БД не валит сервис).
+- Оркестрация: корневой `docker-compose.yml` (postgres + redis + backend) + `backend/Dockerfile` (python:3.11-slim) + `.dockerignore` (исключает Windows-`.venv`). Host-порт Postgres = 5433 на этой машине (5432 занят нативным PG); внутри сети — `postgres:5432`.
+- Тесты бэкенда: `backend/tests/` (pytest, `asyncio_mode=auto`) — детерминированы, без живой БД (метаданные + sqlite `create_all` + health).
+
 ## Обоснование решения
 
 - **Тип проекта:** React 19 SPA, дашборд + страница актива + auth-секция

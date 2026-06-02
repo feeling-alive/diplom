@@ -7,3 +7,16 @@ redis>=5.2
 httpx>=0.28
 python-dotenv>=1.1
 pydantic-settings>=2.7
+
+# --- Database / ORM / migrations (Блок A) -----------------------------------
+sqlalchemy[asyncio]>=2.0
+asyncpg
+alembic
+
+# --- Auth / uploads (для будущих блоков: auth, аватары) ----------------------
+# Добавлены сейчас по требованию промта Блока A; в самом Блоке A не используются.
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
+aiofiles
+pillow

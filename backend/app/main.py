@@ -13,8 +13,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import log_startup_config, settings
+from app.database import Base, engine
 from app.routes import crypto, forex, quotes
 from app.services.cache import close_client
+
+# Importing models registers all tables on Base.metadata (needed for create_all).
+import app.models  # noqa: E402,F401  (side-effect import: table registration)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,6 +32,18 @@ API_PREFIX = "/api/quotes"
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     log_startup_config()
+    # Dev convenience: create tables from ORM metadata on startup. In a real
+    # deployment Alembic migrations own the schema; this is a no-op when tables
+    # already exist. Wrapped so an unreachable DB degrades gracefully (same
+    # philosophy as the Redis cache) instead of crashing the whole service —
+    # the /api/quotes/* proxy must stay up even without PostgreSQL.
+    logger.info("[main] creating tables via metadata.create_all (dev)")
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("[main] tables ready: %s", list(Base.metadata.tables))
+    except Exception as err:  # noqa: BLE001 — degrade gracefully, never block startup
+        logger.warning("[main] DB init skipped: %s", err)
     logger.info("[main] startup — routes mounted at %s", API_PREFIX)
     yield
     await close_client()

@@ -37,6 +37,7 @@ FinTrack — настраиваемый финансовый дашборд дл
 - **Дизайн-система:** строгая палитра 11 цветов (см. `.ai-factory/RULES.md`), типографика Inter, радиусы 8/12/16/24/999, набор теней sm/md/lg.
 - **Прокси:** `vite.config.ts` маршрутизирует `/api/finnhub`, `/api/news`, `/api/forex` на внешние API без раскрытия ключей в браузере.
 - **Бэкенд (с 2026-05-30):** отдельный сервис `backend/` (FastAPI + Redis, Python 3.13) — прокси/кэш котировок (Finnhub/OKX/Frankfurter) под `/api/quotes`, TTL 60/30/300с, graceful degradation. Запуск: `uvicorn app.main:app --port 8000`. Миграция хуков фронта на него пока отложена.
+- **Персистентность бэкенда (с 2026-06-02, Блок A):** PostgreSQL 14 + SQLAlchemy 2.0 async (`asyncpg`) + миграции Alembic. Слой данных — `backend/app/database.py` (async engine, `get_db`, `Base`) и `backend/app/models.py` (6 моделей: User, Subscription, DashboardConfig, ChatSession, Comment, Favorite). Оркестрация — `docker-compose.yml` в корне (postgres + redis + backend) и `backend/Dockerfile`. На этой машине host-порт Postgres = **5433** (5432 занят нативным PostgreSQL); внутри compose-сети — `postgres:5432`. Конфиг расширен полями `database_url`, `secret_key`, `algorithm`, `access_token_expire_minutes`, `uploads_dir` (auth-поля — задел под будущие блоки).
 
 ## Нефункциональные требования
 

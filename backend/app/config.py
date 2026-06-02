@@ -8,10 +8,32 @@ from the environment and never logged in plaintext.
 from __future__ import annotations
 
 import logging
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("backend.config")
+
+
+def _mask_dsn_password(dsn: str) -> str:
+    """Return a DSN with the password replaced by ``***`` for safe logging.
+
+    ``postgresql+asyncpg://user:secret@host:5432/db`` ->
+    ``postgresql+asyncpg://user:***@host:5432/db``. Falls back to the scheme
+    only if the DSN cannot be parsed, so a secret never leaks into logs.
+    """
+    try:
+        parts = urlsplit(dsn)
+        if parts.password is None:
+            return dsn
+        userinfo = parts.username or ""
+        masked_netloc = f"{userinfo}:***@{parts.hostname or ''}"
+        if parts.port:
+            masked_netloc += f":{parts.port}"
+        return urlunsplit((parts.scheme, masked_netloc, parts.path, parts.query, parts.fragment))
+    except ValueError:
+        scheme = dsn.split("://", 1)[0] if "://" in dsn else "?"
+        return f"{scheme}://***"
 
 
 class Settings(BaseSettings):
@@ -30,6 +52,19 @@ class Settings(BaseSettings):
     # --- Secrets / connections -------------------------------------------------
     finnhub_api_key: str = ""
     redis_url: str = "redis://localhost:6379"
+
+    # --- Database (Блок A) -----------------------------------------------------
+    # asyncpg DSN. Host is ``localhost`` for a host-run uvicorn/alembic; inside
+    # Docker Compose the backend service overrides host to ``postgres`` via env.
+    database_url: str = "postgresql+asyncpg://fintrack:fintrack_pass@localhost:5432/fintrack"
+
+    # --- Auth / JWT (Блок A: значения по умолчанию, использование — позже) ------
+    secret_key: str = "your-secret-key-change-in-production"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24 * 7  # 7 дней
+
+    # --- Uploads ---------------------------------------------------------------
+    uploads_dir: str = "uploads"
 
     # --- CORS ------------------------------------------------------------------
     # Comma-separated origins; the frontend Vite dev server by default.
@@ -54,7 +89,11 @@ settings = Settings()
 
 
 def log_startup_config() -> None:
-    """Log the effective config at startup. The API key is masked to present/ABSENT."""
+    """Log the effective config at startup.
+
+    Secrets are never logged in plaintext: the Finnhub key and ``secret_key`` are
+    reduced to present/ABSENT and the database DSN password is masked.
+    """
     logger.info(
         "[config] redis_url=%s finnhub_key=%s cors=%s ttls(stock/crypto/forex)=%d/%d/%d",
         settings.redis_url,
@@ -63,4 +102,12 @@ def log_startup_config() -> None:
         settings.stock_ttl,
         settings.crypto_ttl,
         settings.forex_ttl,
+    )
+    logger.info(
+        "[config] database_url=%s secret_key=%s algorithm=%s token_ttl_min=%d uploads_dir=%s",
+        _mask_dsn_password(settings.database_url),
+        "present" if settings.secret_key and settings.secret_key != "your-secret-key-change-in-production" else "DEFAULT(insecure)",
+        settings.algorithm,
+        settings.access_token_expire_minutes,
+        settings.uploads_dir,
     )
