@@ -8,6 +8,7 @@ import ChatPage from './pages/ChatPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ProfilePage from './pages/ProfilePage'
+import SettingsPage from './pages/SettingsPage'
 import SubscriptionPage from './pages/SubscriptionPage'
 import AdminPanelPage from './pages/AdminPanelPage'
 import AppSidebar from './components/layout/AppSidebar'
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/news/:id" element={<NewsArticlePage />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/subscription" element={<SubscriptionPage />} />
         <Route path="/admin" element={<AdminPanelPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

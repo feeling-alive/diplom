@@ -6,6 +6,7 @@ import './index.css'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { CurrencyProvider } from './context/CurrencyContext'
+import { SettingsProvider } from './context/SettingsContext'
 
 // Задача 2: котировки кэшируются в QueryClient, который переживает размонтирование
 // компонентов. staleTime 30s → возврат со страницы актива в течение 30с берёт данные
@@ -28,7 +29,9 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <CurrencyProvider>
-            <App />
+            <SettingsProvider>
+              <App />
+            </SettingsProvider>
           </CurrencyProvider>
         </AuthProvider>
       </QueryClientProvider>

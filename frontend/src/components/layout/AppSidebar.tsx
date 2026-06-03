@@ -131,7 +131,7 @@ export default function AppSidebar() {
             className="rail-btn"
             data-testid="rail-settings"
             title="Настройки"
-            onClick={() => goTo('/profile')}
+            onClick={() => goTo('/settings')}
             onMouseEnter={(e) => showTooltip(e, 'Настройки')}
             onMouseLeave={hideTooltip}
           >
@@ -208,7 +208,7 @@ export default function AppSidebar() {
               <div style={{ height: 1, background: 'var(--border)' }} />
 
               <MenuItem icon={<User size={16} />} label="Профиль" onClick={() => goTo('/profile')} />
-              <MenuItem icon={<Settings size={16} />} label="Настройки" onClick={() => goTo('/profile')} />
+              <MenuItem icon={<Settings size={16} />} label="Настройки" onClick={() => goTo('/settings')} />
 
               <div style={{ height: 1, background: 'var(--border)' }} />
 

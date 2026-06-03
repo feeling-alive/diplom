@@ -41,6 +41,19 @@
   --shadow-app: var(--shadow-lg);
 }
 
+/* Тёмная тема (Задача 10) — best-effort через data-theme на <html>: переопределяем
+   нейтральные переменные. Акцент задаётся инлайн из SettingsContext, поэтому здесь
+   не трогается. Полный охват всех компонентов — отдельный follow-up. */
+html[data-theme="dark"] {
+  --ink:    #F1F5F9;
+  --text:   #E2E8F0;
+  --muted:  #94A3B8;
+  --soft:   #475569;
+  --bg:     #0B1120;
+  --white:  #131C2E;
+  --border: #243049;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: 100%; width: 100%; }
 body {
