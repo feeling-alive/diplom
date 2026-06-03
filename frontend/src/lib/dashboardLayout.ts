@@ -5,16 +5,25 @@
 // truth — no duplicated clamp/migration logic.
 
 import { WIDGET_REGISTRY } from '../constants/widgets.registry'
+import type { DashboardEntry, DashboardEnvelope } from './dashboardApi'
 import type { DashboardWidget, WidgetType, WidgetSize } from '../types/widgets.types'
 
 export const COLS = 4
+export const MAX_DASHBOARDS = 5
+export const DEFAULT_DASHBOARD_NAME = 'Основной'
 const STORAGE_KEY = 'fintrack_widgets_v4'
+// Multi-dashboard envelope cache (Задача 7); supersedes the single-array key.
+const ENVELOPE_KEY = 'fintrack_dashboards_v1'
 const LEGACY_STORAGE_KEYS = ['fintrack_widgets_v2', 'fintrack_widgets']
 // v3 is migrated (not purged): kpi_portfolio -> market_ticker.
 const V3_MIGRATION_KEY = 'fintrack_widgets_v3'
 
 export function generateId(): string {
   return 'w_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
+}
+
+export function generateDashboardId(): string {
+  return 'd_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
 }
 
 export function findEmptySlot(
@@ -140,5 +149,67 @@ export function saveLocalWidgets(widgets: DashboardWidget[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(widgets))
   } catch (err) {
     console.warn('[dashboardLayout] saveLocalWidgets failed:', err)
+  }
+}
+
+// --- Multi-dashboard envelope (Задача 7) ------------------------------------
+
+export function makeDashboard(name: string, layout: DashboardWidget[]): DashboardEntry {
+  return { id: generateDashboardId(), name, layout }
+}
+
+export function createDefaultEnvelope(): DashboardEnvelope {
+  const dash = makeDashboard(DEFAULT_DASHBOARD_NAME, createDefaultWidgets())
+  return { dashboards: [dash], activeId: dash.id }
+}
+
+// Coerce any persisted shape (envelope / legacy array / null) into a valid
+// envelope, clamping every dashboard's widgets. Mirrors the backend normalizer.
+export function normalizeToEnvelope(stored: unknown): DashboardEnvelope {
+  if (stored && typeof stored === 'object' && Array.isArray((stored as DashboardEnvelope).dashboards)) {
+    const env = stored as DashboardEnvelope
+    const dashboards = env.dashboards.map((d) => ({
+      ...d,
+      layout: clampWidgets(Array.isArray(d.layout) ? d.layout : []),
+    }))
+    if (dashboards.length === 0) return createDefaultEnvelope()
+    const activeId = dashboards.some((d) => d.id === env.activeId) ? env.activeId : dashboards[0].id
+    return { dashboards, activeId }
+  }
+  if (Array.isArray(stored)) {
+    const dash = makeDashboard(DEFAULT_DASHBOARD_NAME, clampWidgets(stored as DashboardWidget[]))
+    return { dashboards: [dash], activeId: dash.id }
+  }
+  return createDefaultEnvelope()
+}
+
+// Returns the saved envelope, or `null` when nothing is cached. Migrates a legacy
+// single-array key (fintrack_widgets_v4) into an envelope on first read.
+export function loadLocalEnvelope(): DashboardEnvelope | null {
+  try {
+    const raw = localStorage.getItem(ENVELOPE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown
+      return normalizeToEnvelope(parsed)
+    }
+  } catch (err) {
+    console.warn('[dashboardLayout] loadLocalEnvelope failed:', err)
+  }
+  // Migrate the legacy single-dashboard array, if present (respect an empty []).
+  const legacy = loadLocalWidgets()
+  if (legacy !== null) {
+    console.debug('[dashboardLayout] migrating legacy single-array → envelope')
+    const env = normalizeToEnvelope(legacy)
+    saveLocalEnvelope(env)
+    return env
+  }
+  return null
+}
+
+export function saveLocalEnvelope(env: DashboardEnvelope): void {
+  try {
+    localStorage.setItem(ENVELOPE_KEY, JSON.stringify(env))
+  } catch (err) {
+    console.warn('[dashboardLayout] saveLocalEnvelope failed:', err)
   }
 }

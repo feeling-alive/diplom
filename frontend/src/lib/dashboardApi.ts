@@ -3,14 +3,25 @@
 // and go through the Vite proxy (/dashboard -> :8000) → same-origin. Mirrors
 // lib/profileApi.ts.
 //
-// The `layout` payload is treated opaquely on the wire (array of widgets now, or
-// the multi-dashboard envelope later — Задача 7). Callers own the shape.
+// Since Задача 7 the canonical shape is the multi-dashboard envelope. The backend
+// also accepts a bare widget array (wrapped server-side) for backward compat.
 
 import type { DashboardWidget } from '../types/widgets.types'
 
-// What the backend stores/returns under `layout`. A plain widget array today;
-// `unknown`-friendly object envelope is reserved for the multi-dashboard work.
-export type DashboardLayout = DashboardWidget[] | Record<string, unknown> | null
+export interface DashboardEntry {
+  id: string
+  name: string
+  layout: DashboardWidget[]
+}
+
+export interface DashboardEnvelope {
+  dashboards: DashboardEntry[]
+  activeId: string
+}
+
+// What the backend stores/returns under `layout`: the envelope (canonical), or a
+// legacy bare array, or null.
+export type DashboardLayout = DashboardWidget[] | DashboardEnvelope | null
 
 interface DashboardConfigResponse {
   layout: DashboardLayout
@@ -35,7 +46,7 @@ export async function getDashboardConfig(): Promise<DashboardLayout> {
 }
 
 export async function putDashboardConfig(layout: DashboardLayout): Promise<DashboardLayout> {
-  console.debug('[dashboardApi] putDashboardConfig', Array.isArray(layout) ? `${layout.length} widgets` : 'envelope')
+  console.debug('[dashboardApi] putDashboardConfig')
   const res = await fetch('/dashboard/config', {
     method: 'PUT',
     credentials: 'include',

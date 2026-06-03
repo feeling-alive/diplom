@@ -5,6 +5,7 @@ import 'react-resizable/css/styles.css'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import DashboardHeader from '../components/dashboard/DashboardHeader'
+import DashboardTabs from '../components/dashboard/DashboardTabs'
 import WidgetCard from '../components/dashboard/WidgetCard'
 import EmptyDashboard from '../components/dashboard/EmptyDashboard'
 import AddWidgetModal from '../components/dashboard/AddWidgetModal'
@@ -38,7 +39,11 @@ export default function Dashboard() {
   // Источник конфига выбирает хук: авторизован → бэкенд (/dashboard/config) с
   // fallback на localStorage; гость → только localStorage. mutate(fn) пишет в
   // активный источник (PUT дебаунсится).
-  const { widgets, isLoading, mutate: updateWidgets } = useDashboardConfig()
+  const {
+    widgets, isLoading, mutate: updateWidgets,
+    dashboards, activeId, canAddDashboard,
+    switchDashboard, addDashboard, removeDashboard,
+  } = useDashboardConfig()
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [isResizing, setIsResizing] = useState<string | null>(null)
   const [resizeSize, setResizeSize] = useState<{ w: number; h: number } | null>(null)
@@ -180,6 +185,17 @@ export default function Dashboard() {
         onResetLayout={handleResetLayout}
         addButtonRef={addButtonRef}
       />
+
+      {!isLoading && (
+        <DashboardTabs
+          dashboards={dashboards}
+          activeId={activeId}
+          canAdd={canAddDashboard}
+          onSwitch={switchDashboard}
+          onAdd={addDashboard}
+          onRemove={removeDashboard}
+        />
+      )}
 
       <div className="main-scroll">
         <AnimatePresence mode="wait">

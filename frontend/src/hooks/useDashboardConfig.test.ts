@@ -18,7 +18,7 @@ vi.mock('../lib/dashboardApi', () => ({
   putDashboardConfig: (...a: unknown[]) => putDashboardConfig(...a),
 }))
 
-const STORAGE_KEY = 'fintrack_widgets_v4'
+const ENVELOPE_KEY = 'fintrack_dashboards_v1'
 
 describe('useDashboardConfig — выбор источника (Задача 1b)', () => {
   beforeEach(() => {
@@ -31,10 +31,11 @@ describe('useDashboardConfig — выбор источника (Задача 1b)
   it('гость → читает из localStorage, бэкенд не вызывается', async () => {
     const { result } = renderHook(() => useDashboardConfig())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
-    // Первый вход гостя засевает дефолты в localStorage.
+    // Первый вход гостя засевает дефолтный envelope в localStorage.
     expect(result.current.widgets.length).toBe(4)
+    expect(result.current.dashboards.length).toBe(1)
     expect(getDashboardConfig).not.toHaveBeenCalled()
-    expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull()
+    expect(localStorage.getItem(ENVELOPE_KEY)).not.toBeNull()
   })
 
   it('авторизован → читает layout из бэкенда', async () => {
@@ -76,5 +77,52 @@ describe('useDashboardConfig — выбор источника (Задача 1b)
     act(() => { vi.advanceTimersByTime(700) })
     expect(putDashboardConfig).toHaveBeenCalledTimes(1)
     vi.useRealTimers()
+  })
+})
+
+describe('useDashboardConfig — несколько дашбордов (Задача 7b)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    authState = { isAuthenticated: false, isLoading: false }
+  })
+
+  it('add → switch → remove + лимит 5', async () => {
+    const { result } = renderHook(() => useDashboardConfig())
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.dashboards.length).toBe(1)
+
+    // Добавление переключает на новый дашборд (пустой).
+    act(() => result.current.addDashboard('Крипта'))
+    expect(result.current.dashboards.length).toBe(2)
+    expect(result.current.dashboards[1].name).toBe('Крипта')
+    expect(result.current.activeId).toBe(result.current.dashboards[1].id)
+    expect(result.current.widgets.length).toBe(0)
+
+    // Переключение обратно на первый возвращает его виджеты (4 дефолтных).
+    const firstId = result.current.dashboards[0].id
+    act(() => result.current.switchDashboard(firstId))
+    expect(result.current.activeId).toBe(firstId)
+    expect(result.current.widgets.length).toBe(4)
+
+    // Лимит 5: добавляем до предела, затем canAdd=false и +1 игнорируется.
+    act(() => { result.current.addDashboard('a'); result.current.addDashboard('b'); result.current.addDashboard('c') })
+    expect(result.current.dashboards.length).toBe(5)
+    expect(result.current.canAddDashboard).toBe(false)
+    act(() => result.current.addDashboard('лишний'))
+    expect(result.current.dashboards.length).toBe(5)
+
+    // Удаление активного переносит активность на первый из оставшихся.
+    const removeId = result.current.activeId
+    act(() => result.current.removeDashboard(removeId))
+    expect(result.current.dashboards.length).toBe(4)
+    expect(result.current.dashboards.some((d) => d.id === removeId)).toBe(false)
+  })
+
+  it('последний дашборд удалить нельзя', async () => {
+    const { result } = renderHook(() => useDashboardConfig())
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    const onlyId = result.current.dashboards[0].id
+    act(() => result.current.removeDashboard(onlyId))
+    expect(result.current.dashboards.length).toBe(1)
   })
 })

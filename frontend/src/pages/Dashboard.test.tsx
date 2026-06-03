@@ -44,7 +44,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
   )
 }
 
-const STORAGE_KEY = 'fintrack_widgets_v4'
+const ENVELOPE_KEY = 'fintrack_dashboards_v1'
 
 describe('Dashboard', () => {
   beforeEach(() => {
@@ -77,9 +77,12 @@ describe('Dashboard', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     fireEvent.click(document.querySelector('[aria-label="Очистить все виджеты"]')!)
 
-    // Empty state is shown and the cleared layout is persisted as [] (NOT reseeded).
+    // Empty state is shown and the cleared layout is persisted as [] (NOT reseeded):
+    // the active dashboard in the envelope now has an empty widget array.
     expect(screen.getByText('Добавь свой первый виджет')).toBeInTheDocument()
-    expect(localStorage.getItem(STORAGE_KEY)).toBe('[]')
+    const env = JSON.parse(localStorage.getItem(ENVELOPE_KEY)!)
+    const activeDash = env.dashboards.find((d: { id: string }) => d.id === env.activeId)
+    expect(activeDash.layout).toEqual([])
 
     // Remount must respect the cleared state (defaults do NOT come back).
     rerender(<Dashboard />)
