@@ -1,12 +1,15 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { MOCK_PRICES } from '../mock/prices.mock'
-import { ENV, USE_MOCK } from '../lib/env'
+import { USE_MOCK } from '../lib/env'
 
 interface ForexRateResult {
   rate: number
   isLoading: boolean
 }
 
+// [Задача 2] Курс кэшируется в QueryClient по паре валют → повторный заход не
+// перезагружает данные с нуля, пока кэш свеж.
 export function useForexRate(from: string, to: string, useMock = USE_MOCK): ForexRateResult {
   const mockResult = useMemo<ForexRateResult>(() => {
     const symbol = `${from}-${to}`
@@ -15,28 +18,20 @@ export function useForexRate(from: string, to: string, useMock = USE_MOCK): Fore
     return { rate: asset?.price ?? 0, isLoading: false }
   }, [from, to])
 
-  const [rate, setRate] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    if (useMock) return
-
-    const fetchRate = async () => {
-      try {
-        const res = await fetch(`/api/quotes/forex/${from}/${to}`)
-        if (!res.ok) throw new Error(`quotes/forex ${res.status}`)
-        const json = (await res.json()) as { rate: number }
-        setRate(json.rate)
-        setIsLoading(false)
-        console.info('[useForexRate] %s->%s rate=%s', from, to, json.rate)
-      } catch (err) {
-        console.warn('[useForexRate] fetch error:', err)
-      }
-    }
-
-    void fetchRate()
-  }, [from, to, useMock])
+  const query = useQuery({
+    queryKey: ['quote', 'forex', from, to],
+    enabled: !useMock && !!from && !!to,
+    refetchInterval: 60_000,
+    refetchOnMount: false,
+    queryFn: async () => {
+      const res = await fetch(`/api/quotes/forex/${from}/${to}`)
+      if (!res.ok) throw new Error(`quotes/forex ${res.status}`)
+      const json = (await res.json()) as { rate: number }
+      console.info('[useForexRate] %s->%s rate=%s', from, to, json.rate)
+      return json.rate
+    },
+  })
 
   if (useMock) return mockResult
-  return { rate, isLoading }
+  return { rate: query.data ?? 0, isLoading: query.isLoading }
 }

@@ -1,9 +1,17 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import TopMovers from '../TopMovers'
 
 const navigateMock = vi.fn()
+
+// usePrices теперь читает котировки через TanStack Query (Задача 2) → нужен провайдер.
+// placeholderData=снимок отдаёт данные синхронно, поэтому строки рендерятся сразу.
+function renderWithQuery(ui: React.ReactElement) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>)
+}
 
 // Spread props so onClick/onKeyDown/role/tabIndex/aria-label pass through to the div.
 vi.mock('framer-motion', () => ({
@@ -18,7 +26,7 @@ describe('TopMovers — кликабельность лидеров (Задач�
   beforeEach(() => navigateMock.mockClear())
 
   it('клик по муверу ведёт на /asset/<symbol>', () => {
-    render(<TopMovers filter="all" />)
+    renderWithQuery(<TopMovers filter="all" />)
 
     const rows = screen
       .getAllByRole('button')
@@ -32,7 +40,7 @@ describe('TopMovers — кликабельность лидеров (Задач�
   })
 
   it('Enter на муверe тоже навигирует', () => {
-    render(<TopMovers filter="all" />)
+    renderWithQuery(<TopMovers filter="all" />)
     const row = screen
       .getAllByRole('button')
       .find((b) => b.getAttribute('aria-label')?.startsWith('Открыть'))!
