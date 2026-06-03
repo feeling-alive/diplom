@@ -11,15 +11,24 @@ import ProfilePage from './pages/ProfilePage'
 import SubscriptionPage from './pages/SubscriptionPage'
 import AdminPanelPage from './pages/AdminPanelPage'
 import AppSidebar from './components/layout/AppSidebar'
+import CurrencySwitcher from './components/layout/CurrencySwitcher'
 import PrivateRoute from './components/layout/RoutesGuard'
+import { useCurrency } from './context/CurrencyContext'
 
 function ProtectedLayout() {
+  // Subscribe to the active currency here so the entire <Outlet> subtree re-renders
+  // when the user switches — every formatPrice() reflects the new currency at once.
+  useCurrency()
   return (
     <PrivateRoute>
       <div className="app-page">
         <div className="app-layout">
           <AppSidebar />
-          <main style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <main style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+            {/* Floating Liquid-Glass currency switcher, top-right of the content area. */}
+            <div style={{ position: 'absolute', top: 14, right: 18, zIndex: 50 }}>
+              <CurrencySwitcher />
+            </div>
             <Outlet />
           </main>
         </div>

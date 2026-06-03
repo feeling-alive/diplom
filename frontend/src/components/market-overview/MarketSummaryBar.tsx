@@ -2,18 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { usePrices } from '../../hooks/usePrices'
-
-function formatTrillion(n: number): string {
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`
-  if (n >= 1e9)  return `$${(n / 1e9).toFixed(1)}B`
-  return `$${n.toFixed(0)}`
-}
-
-function formatBillion(n: number): string {
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(1)}T`
-  if (n >= 1e9)  return `$${(n / 1e9).toFixed(1)}B`
-  return `$${n.toFixed(0)}`
-}
+import { formatMarketCap, formatVolume } from '../../utils/format'
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } }
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }
@@ -60,8 +49,8 @@ export default function MarketSummaryBar() {
   }
 
   const STATS: StatCard[] = [
-    { key: 'cap', label: 'Капитализация рынка', value: formatTrillion(totalCap), change: '+2.1%', changePositive: true, info: 'Суммарная рыночная капитализация всех активов в списке.' },
-    { key: 'vol', label: 'Объём 24ч', value: formatBillion(totalVol), change: '+4.3%', changePositive: true, info: 'Совокупный торговый объём по всем активам за последние 24 часа.' },
+    { key: 'cap', label: 'Капитализация рынка', value: formatMarketCap(totalCap), change: '+2.1%', changePositive: true, info: 'Суммарная рыночная капитализация всех активов в списке.' },
+    { key: 'vol', label: 'Объём 24ч', value: formatVolume(totalVol), change: '+4.3%', changePositive: true, info: 'Совокупный торговый объём по всем активам за последние 24 часа.' },
     { key: 'dom', label: 'BTC Доминирование', value: `${btcDom}%`, change: '+0.3%', changePositive: true, navTo: '/asset/BTC-USDT' },
     { key: 'count', label: 'Активов в списке', value: String(activeCount), info: 'Количество отслеживаемых активов всех типов (крипто, акции, форекс, индексы).' },
   ]

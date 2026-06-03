@@ -3,17 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, TrendingUp, TrendingDown, Star } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAssetPrice } from '../../hooks/useAssetPrice'
+import { formatPrice } from '../../utils/format'
 import type { Asset } from '../../types/market.types'
 
 interface Props {
   asset: Asset
-}
-
-function formatPrice(price: number, type: Asset['type']): string {
-  if (type === 'forex') return price.toFixed(5)
-  if (price >= 1000) return `$${price.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-  if (price >= 1) return `$${price.toFixed(2)}`
-  return `$${price.toFixed(4)}`
 }
 
 export default function AssetHeader({ asset }: Props) {
