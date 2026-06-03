@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { usePrices } from '../../hooks/usePrices'
 import type { Asset } from '../../types/market.types'
@@ -16,6 +17,13 @@ interface SectionProps {
 }
 
 function MoverSection({ title, items, positive }: SectionProps) {
+  const navigate = useNavigate()
+
+  const openAsset = (symbol: string) => {
+    console.debug('[TopMovers] navigate to asset %s', symbol)
+    navigate('/asset/' + encodeURIComponent(symbol))
+  }
+
   if (items.length === 0) {
     return (
       <div
@@ -48,11 +56,25 @@ function MoverSection({ title, items, positive }: SectionProps) {
           initial={{ opacity: 0, x: positive ? -8 : 8 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: index * 0.05, duration: 0.25 }}
+          whileHover={{ backgroundColor: 'var(--bg)' }}
+          onClick={() => openAsset(asset.symbol)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              openAsset(asset.symbol)
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label={`Открыть ${asset.symbol}`}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            padding: '6px 0',
+            padding: '6px 8px',
+            margin: '0 -8px',
+            borderRadius: 8,
+            cursor: 'pointer',
             borderBottom: index < items.length - 1 ? '1px solid var(--border)' : 'none',
           }}
         >

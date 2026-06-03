@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { usePrices } from '../../hooks/usePrices'
 
 function formatTrillion(n: number): string {
@@ -26,8 +28,20 @@ function SkeletonCard() {
   )
 }
 
+interface StatCard {
+  key: string
+  label: string
+  value: string
+  change?: string
+  changePositive?: boolean
+  navTo?: string
+  info?: string
+}
+
 export default function MarketSummaryBar() {
   const { all, isLoading } = usePrices()
+  const navigate = useNavigate()
+  const [openInfo, setOpenInfo] = useState<string | null>(null)
 
   const totalCap  = all.reduce((s, a) => s + (a.marketCap ?? 0), 0)
   const totalVol  = all.reduce((s, a) => s + a.volume24h, 0)
@@ -45,12 +59,21 @@ export default function MarketSummaryBar() {
     )
   }
 
-  const STATS = [
-    { label: 'Капитализация рынка', value: formatTrillion(totalCap), change: '+2.1%', changePositive: true },
-    { label: 'Объём 24ч',           value: formatBillion(totalVol),  change: '+4.3%', changePositive: true },
-    { label: 'BTC Доминирование',   value: `${btcDom}%`,             change: '+0.3%', changePositive: true },
-    { label: 'Активов в списке',    value: String(activeCount) },
+  const STATS: StatCard[] = [
+    { key: 'cap', label: 'Капитализация рынка', value: formatTrillion(totalCap), change: '+2.1%', changePositive: true, info: 'Суммарная рыночная капитализация всех активов в списке.' },
+    { key: 'vol', label: 'Объём 24ч', value: formatBillion(totalVol), change: '+4.3%', changePositive: true, info: 'Совокупный торговый объём по всем активам за последние 24 часа.' },
+    { key: 'dom', label: 'BTC Доминирование', value: `${btcDom}%`, change: '+0.3%', changePositive: true, navTo: '/asset/BTC-USDT' },
+    { key: 'count', label: 'Активов в списке', value: String(activeCount), info: 'Количество отслеживаемых активов всех типов (крипто, акции, форекс, индексы).' },
   ]
+
+  const handleStatClick = (stat: StatCard) => {
+    console.debug('[MarketSummaryBar] stat clicked %s', stat.label)
+    if (stat.navTo) {
+      navigate(stat.navTo)
+      return
+    }
+    setOpenInfo((cur) => (cur === stat.key ? null : stat.key))
+  }
 
   return (
     <motion.div
@@ -60,7 +83,24 @@ export default function MarketSummaryBar() {
       style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}
     >
       {STATS.map((stat) => (
-        <motion.div key={stat.label} variants={item} className="card" style={{ padding: '14px 16px' }}>
+        <motion.div
+          key={stat.label}
+          variants={item}
+          className="card"
+          onClick={() => handleStatClick(stat)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleStatClick(stat)
+            }
+          }}
+          whileHover={{ y: -2, boxShadow: 'var(--shadow-md)' }}
+          role="button"
+          tabIndex={0}
+          aria-label={stat.label}
+          title={stat.navTo ? 'Открыть BTC' : 'Подробнее'}
+          style={{ padding: '14px 16px', cursor: 'pointer', position: 'relative' }}
+        >
           <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 500, marginBottom: 6 }}>
             {stat.label}
           </div>
@@ -77,6 +117,31 @@ export default function MarketSummaryBar() {
             >
               {stat.change}
             </span>
+          )}
+
+          {openInfo === stat.key && stat.info && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                marginTop: 6,
+                zIndex: 20,
+                background: 'var(--white)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--r-md)',
+                boxShadow: 'var(--shadow-md)',
+                padding: '10px 12px',
+                fontSize: 11,
+                lineHeight: 1.45,
+                color: 'var(--muted)',
+                fontWeight: 500,
+                textAlign: 'left',
+              }}
+            >
+              {stat.info}
+            </div>
           )}
         </motion.div>
       ))}
