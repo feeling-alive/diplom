@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Asset } from '../types/market.types'
 import INITIAL_PRICES from '../data/prices.json'
-import { ENV } from '../lib/env'
 
 export interface PriceMap {
   bySymbol: Record<string, Asset>
@@ -37,27 +36,35 @@ export function usePrices(): PriceMap {
       } catch { /* okx fail */ }
 
       try {
-        const res = await fetch(`${ENV.FRANKFURTER_BASE_URL}/latest?from=USD`)
-        if (res.ok) {
-          const json = await res.json() as { rates: Record<string, number> }
-          for (const [ccy, rate] of Object.entries(json.rates ?? {})) {
-            updates.set(`USD-${ccy}`, { price: rate })
-            updates.set(`${ccy}-USD`, { price: +(1 / rate).toFixed(4) })
+        const forexSymbols: Array<[string, string]> = [
+          ['USD','EUR'],['USD','GBP'],['USD','JPY'],['USD','CHF'],
+          ['USD','CAD'],['USD','AUD'],['USD','CNY'],['USD','RUB'],
+          ['EUR','USD'],['GBP','USD'],
+        ]
+        const forexResults = await Promise.allSettled(
+          forexSymbols.map(async ([from, to]) => {
+            const r = await fetch(`/api/quotes/forex/${from}/${to}`)
+            if (!r.ok) throw new Error(`${r.status}`)
+            const d = await r.json() as { rate: number }
+            return { from, to, rate: d.rate }
+          })
+        )
+        for (const r of forexResults) {
+          if (r.status === 'fulfilled' && r.value) {
+            const { from, to, rate } = r.value
+            updates.set(`${from}-${to}`, { price: rate })
           }
         }
-      } catch { /* frankfurter fail */ }
+      } catch { /* forex fail */ }
 
-      if (ENV.FINNHUB_API_KEY) {
+      {
         const symbols = ['AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA','JPM','V','WMT']
         const results = await Promise.allSettled(
           symbols.map(async (s) => {
-            const r = await fetch(
-              `${ENV.FINNHUB_BASE_URL}/quote?symbol=${s}&token=${ENV.FINNHUB_API_KEY}`,
-              { signal: AbortSignal.timeout(4000) },
-            )
+            const r = await fetch(`/api/quotes/stock/${s}`, { signal: AbortSignal.timeout(4000) })
             if (!r.ok) throw new Error(`${r.status}`)
-            const d = await r.json() as { c: number; dp: number }
-            return { symbol: s, price: d.c, change24h: d.dp }
+            const d = await r.json() as { price: number; changePercent: number }
+            return { symbol: s, price: d.price, change24h: d.changePercent }
           })
         )
         for (const r of results) {

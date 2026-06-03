@@ -86,26 +86,19 @@ export function useAssetPrice(
     }
 
     if (type === 'stock') {
-      if (!ENV.FINNHUB_API_KEY) return
       const fetchQuote = async () => {
         try {
-          const res = await fetch(
-            `${ENV.FINNHUB_BASE_URL}/quote?symbol=${symbol}&token=${ENV.FINNHUB_API_KEY}`,
-            { signal: AbortSignal.timeout(4000) },
-          )
-          if (!res.ok) throw new Error(`Finnhub ${res.status}`)
-          const json = (await res.json()) as { c: number; dp: number }
-          const safePrice = Number.isFinite(json.c) ? json.c : 0
-          const safeChange = Number.isFinite(json.dp) ? json.dp : 0
-          if (!Number.isFinite(json.dp)) {
-            console.warn('[useAssetPrice] non-finite dp from Finnhub for %s, defaulting to 0', symbol)
-          }
+          const res = await fetch(`/api/quotes/stock/${symbol}`, { signal: AbortSignal.timeout(4000) })
+          if (!res.ok) throw new Error(`quotes/stock ${res.status}`)
+          const json = (await res.json()) as { price: number; changePercent: number }
+          const safePrice = Number.isFinite(json.price) ? json.price : 0
+          const safeChange = Number.isFinite(json.changePercent) ? json.changePercent : 0
           setPrice(safePrice)
           setChange24h(safeChange)
           setIsLoading(false)
-          console.info('[useAssetPrice] %s Finnhub price=%s change=%s', symbol, safePrice, safeChange)
+          console.info('[useAssetPrice] %s backend price=%s change=%s', symbol, safePrice, safeChange)
         } catch (err) {
-          console.warn('[useAssetPrice] Finnhub fetch failed for %s:', symbol, err)
+          console.warn('[useAssetPrice] backend fetch failed for %s:', symbol, err)
         }
       }
 
@@ -120,18 +113,14 @@ export function useAssetPrice(
       const [base, quote] = symbol.replace('-', '/').split('/')
       const fetchRate = async () => {
         try {
-          const res = await fetch(
-            `${ENV.FRANKFURTER_BASE_URL}/latest?from=${base}&to=${quote}`,
-          )
-          const json = (await res.json()) as { rates: Record<string, number> }
-          const rate = json.rates[quote ?? '']
-          if (rate !== undefined) {
-            setPrice(rate)
-            setIsLoading(false)
-            console.debug('[useAssetPrice] %s frankfurter rate=%s', symbol, rate)
-          }
+          const res = await fetch(`/api/quotes/forex/${base}/${quote}`)
+          if (!res.ok) throw new Error(`quotes/forex ${res.status}`)
+          const json = (await res.json()) as { rate: number }
+          setPrice(json.rate)
+          setIsLoading(false)
+          console.debug('[useAssetPrice] %s backend rate=%s', symbol, json.rate)
         } catch (err) {
-          console.warn('[useAssetPrice] frankfurter fetch error:', err)
+          console.warn('[useAssetPrice] backend forex fetch error:', err)
         }
       }
 

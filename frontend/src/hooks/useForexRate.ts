@@ -23,14 +23,12 @@ export function useForexRate(from: string, to: string, useMock = USE_MOCK): Fore
 
     const fetchRate = async () => {
       try {
-        const res = await fetch(`${ENV.FRANKFURTER_BASE_URL}/latest?from=${from}&to=${to}`)
-        const json = (await res.json()) as { rates: Record<string, number> }
-        const value = json.rates[to]
-        if (value !== undefined) {
-          setRate(value)
-          setIsLoading(false)
-          console.info('[useForexRate] %s->%s rate=%s', from, to, value)
-        }
+        const res = await fetch(`/api/quotes/forex/${from}/${to}`)
+        if (!res.ok) throw new Error(`quotes/forex ${res.status}`)
+        const json = (await res.json()) as { rate: number }
+        setRate(json.rate)
+        setIsLoading(false)
+        console.info('[useForexRate] %s->%s rate=%s', from, to, json.rate)
       } catch (err) {
         console.warn('[useForexRate] fetch error:', err)
       }

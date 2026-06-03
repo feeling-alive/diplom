@@ -20,19 +20,17 @@ export function useStockPrice(symbol: string, useMock = USE_MOCK): StockPriceRes
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (useMock || !ENV.FINNHUB_API_KEY) return
+    if (useMock) return
 
     const fetchQuote = async () => {
       try {
-        const res = await fetch(
-          `${ENV.FINNHUB_BASE_URL}/quote?symbol=${symbol}&token=${ENV.FINNHUB_API_KEY}`,
-        )
-        if (!res.ok) throw new Error(`Finnhub ${res.status}`)
-        const json = (await res.json()) as { c: number; dp: number }
-        setPrice(json.c)
-        setChange(json.dp)
+        const res = await fetch(`/api/quotes/stock/${symbol}`)
+        if (!res.ok) throw new Error(`quotes/stock ${res.status}`)
+        const json = (await res.json()) as { price: number; changePercent: number }
+        setPrice(json.price)
+        setChange(json.changePercent)
         setIsLoading(false)
-        console.info('[useStockPrice] %s Finnhub price=%s', symbol, json.c)
+        console.info('[useStockPrice] %s backend price=%s', symbol, json.price)
       } catch (err) {
         console.warn('[useStockPrice] fetch failed for %s:', symbol, err)
       }
@@ -43,6 +41,6 @@ export function useStockPrice(symbol: string, useMock = USE_MOCK): StockPriceRes
     return () => clearInterval(id)
   }, [symbol, useMock])
 
-  if (useMock || !ENV.FINNHUB_API_KEY) return mockResult
+  if (useMock) return mockResult
   return { price, change, isLoading }
 }

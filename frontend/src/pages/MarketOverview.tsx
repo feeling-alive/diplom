@@ -7,11 +7,11 @@ import AssetTable from '../components/market-overview/AssetTable'
 type FilterType = 'all' | 'crypto' | 'stock' | 'forex' | 'index'
 
 const FILTER_TABS: { key: FilterType; label: string }[] = [
-  { key: 'all',    label: 'Все' },
+  { key: 'all', label: 'Все' },
   { key: 'crypto', label: 'Крипто' },
-  { key: 'stock',  label: 'Акции' },
-  { key: 'forex',  label: 'Форекс' },
-  { key: 'index',  label: 'Индексы' },
+  { key: 'stock', label: 'Акции' },
+  { key: 'forex', label: 'Форекс' },
+  { key: 'index', label: 'Индексы' },
 ]
 
 const today = new Date().toLocaleDateString('ru-RU', {
