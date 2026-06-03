@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Search, AlignLeft, Plus, RotateCcw } from 'lucide-react'
+import { Search, AlignLeft, Plus, Trash2 } from 'lucide-react'
 
 interface Props {
   onOpenWidgetMenu?: () => void
@@ -66,7 +66,7 @@ export default function DashboardHeader({ onOpenWidgetMenu, onOpenPicker, onRese
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => {
-              if (window.confirm('Сбросить раскладку дашборда к стандартной?')) {
+              if (window.confirm('Очистить все виджеты? Дашборд станет пустым.')) {
                 onResetLayout()
               }
             }}
@@ -83,10 +83,10 @@ export default function DashboardHeader({ onOpenWidgetMenu, onOpenPicker, onRese
               cursor: 'pointer',
               flexShrink: 0,
             }}
-            aria-label="Сбросить раскладку"
-            title="Сбросить раскладку к стандартной"
+            aria-label="Очистить все виджеты"
+            title="Очистить все виджеты"
           >
-            <RotateCcw size={14} strokeWidth={2} />
+            <Trash2 size={14} strokeWidth={2} />
           </motion.button>
         )}
 
@@ -112,26 +112,7 @@ export default function DashboardHeader({ onOpenWidgetMenu, onOpenPicker, onRese
           <AlignLeft size={14} strokeWidth={2} />
         </motion.button>
 
-        {/* Avatar */}
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: '50%',
-            background: 'var(--accent)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: 'pointer',
-            flexShrink: 0,
-          }}
-          title="Профиль"
-        >
-          П
-        </div>
+        {/* [FIX] Дубль аватара профиля удалён — профиль живёт только снизу в сайдбаре (Задача 9) */}
 
         {/* Plus (add widget) */}
         <motion.button

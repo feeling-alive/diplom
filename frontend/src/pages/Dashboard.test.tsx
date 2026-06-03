@@ -1,6 +1,6 @@
 import React from 'react'
-import { render } from '@testing-library/react'
-import { vi, describe, it, expect } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Dashboard from './Dashboard'
@@ -35,7 +35,14 @@ function wrapper({ children }: { children: React.ReactNode }) {
   )
 }
 
+const STORAGE_KEY = 'fintrack_widgets_v4'
+
 describe('Dashboard', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.restoreAllMocks()
+  })
+
   it('renders without crashing', () => {
     render(<Dashboard />, { wrapper })
   })
@@ -46,9 +53,27 @@ describe('Dashboard', () => {
     expect(addBtn).toBeInTheDocument()
   })
 
-  it('has Reset layout button', () => {
+  it('has Clear-all button (Задача 8)', () => {
     render(<Dashboard />, { wrapper })
-    const resetBtn = document.querySelector('[aria-label="Сбросить раскладку"]')
-    expect(resetBtn).toBeInTheDocument()
+    const clearBtn = document.querySelector('[aria-label="Очистить все виджеты"]')
+    expect(clearBtn).toBeInTheDocument()
+  })
+
+  it('clear-all empties the dashboard and persists [] (Задача 8)', () => {
+    // First mount seeds the 4 default widgets.
+    const { rerender } = render(<Dashboard />, { wrapper })
+    expect(document.querySelector('[aria-label="Очистить все виджеты"]')).toBeInTheDocument()
+
+    // Confirm dialog → accept.
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    fireEvent.click(document.querySelector('[aria-label="Очистить все виджеты"]')!)
+
+    // Empty state is shown and the cleared layout is persisted as [] (NOT reseeded).
+    expect(screen.getByText('Добавь свой первый виджет')).toBeInTheDocument()
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('[]')
+
+    // Remount must respect the cleared state (defaults do NOT come back).
+    rerender(<Dashboard />)
+    expect(screen.getByText('Добавь свой первый виджет')).toBeInTheDocument()
   })
 })

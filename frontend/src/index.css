@@ -141,7 +141,10 @@ ul, li { list-style: none; }
    ============================================ */
 .app-rail {
   width: 56px;
-  min-height: 100vh;
+  /* [FIX] было min-height:100vh — выше контейнера (.app-page имеет padding:12px),
+     из-за чего нижняя кнопка профиля уезжала под обрез. height:100% = ровно по layout. */
+  height: 100%;
+  min-height: 0;
   background: var(--white);
   border-right: 1px solid var(--border);
   display: flex;

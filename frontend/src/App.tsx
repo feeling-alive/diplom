@@ -19,7 +19,7 @@ function ProtectedLayout() {
       <div className="app-page">
         <div className="app-layout">
           <AppSidebar />
-          <main style={{ flex: 1, overflow: 'auto' }}>
+          <main style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <Outlet />
           </main>
         </div>

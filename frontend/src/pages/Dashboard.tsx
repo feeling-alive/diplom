@@ -41,7 +41,7 @@ function buildGridLayout(widgets: DashboardWidget[]): LayoutItem[] {
   })
 }
 
-function loadWidgets(): DashboardWidget[] {
+function loadWidgets(): DashboardWidget[] | null {
   try {
     for (const k of LEGACY_STORAGE_KEYS) {
       if (localStorage.getItem(k)) {
@@ -92,7 +92,10 @@ function loadWidgets(): DashboardWidget[] {
       }
     }
   } catch { /* ignore */ }
-  return []
+  // [FIX] null = нет сохранённого конфига (засеять дефолты); [] = пользователь
+  // очистил все виджеты (уважать пустоту, не пересоздавать — иначе «очистить всё»
+  // откатывается к дефолтам при перезагрузке).
+  return null
 }
 
 function saveWidgets(widgets: DashboardWidget[]) {
@@ -153,7 +156,8 @@ function createDefaultWidgets(): DashboardWidget[] {
 export default function Dashboard() {
   const [widgets, setWidgets] = useState<DashboardWidget[]>(() => {
     const saved = loadWidgets()
-    if (saved.length > 0) return saved
+    // saved === null → первый вход (засеять дефолты); saved === [] → очищено (уважать)
+    if (saved !== null) return saved
     const defaults = createDefaultWidgets()
     saveWidgets(defaults)
     return defaults
@@ -194,9 +198,10 @@ export default function Dashboard() {
   }, [updateWidgets])
 
   const handleResetLayout = useCallback(() => {
-    console.debug('[FIX] resetting layout to defaults')
-    const defaults = createDefaultWidgets()
-    updateWidgets(() => defaults)
+    // Задача 8: сброс теперь ОЧИЩАЕТ все виджеты (пустой дашборд), а не восстанавливает
+    // дефолты. EmptyDashboard рендерит CTA «добавить виджет» — пользователь не застревает.
+    console.debug('[Dashboard] clearing all widgets -> empty dashboard')
+    updateWidgets(() => [])
   }, [updateWidgets])
 
   const handleResizeStop = useCallback(

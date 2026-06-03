@@ -15,6 +15,20 @@ vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
+// AppSidebar consumes useAuth() (added in auth Блок B). Mock it so the component can
+// render in isolation without an <AuthProvider> + live /auth/me fetch.
+vi.mock('../../../context/AuthContext', () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    isLoading: false,
+    setUser: vi.fn(),
+    updateUser: vi.fn(),
+    logout: vi.fn(),
+    refresh: vi.fn(),
+  }),
+}))
+
 describe('AppSidebar', () => {
   function renderWithRouter(ui: React.ReactElement) {
     return render(
