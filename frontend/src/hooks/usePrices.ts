@@ -77,6 +77,11 @@ export function usePrices(): PriceMap {
       setPrices((prev) => prev.map((a) => {
         const u = updates.get(a.symbol)
         if (u) return { ...a, ...u }
+        // [FIX Задача 3] Индексы (SPX/DJI/IXIC/DAX/NKY/USOIL/UKOIL) не имеют
+        // бесплатного живого источника — Finnhub free их не отдаёт. Без этого
+        // guard'а к статичному снимку применялся случайный jitter → SPX «дрожал»
+        // вокруг ~5842. Оставляем снимок стабильным.
+        if (a.type === 'index') return a
         const j = 1 + (Math.random() - 0.5) * 0.01
         return { ...a, price: a.price * j }
       }))

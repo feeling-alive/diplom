@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import type { Asset } from '../types/market.types'
 import { MOCK_PRICES } from '../mock/prices.mock'
+import INITIAL_PRICES from '../data/prices.json'
 import { ENV, USE_MOCK } from '../lib/env'
 
 interface AssetPriceResult {
@@ -40,6 +41,20 @@ export function useAssetPrice(
 
   useEffect(() => {
     if (useMock) return
+
+    if (type === 'index') {
+      // [FIX Задача 3] Индексы не отдаются бесплатным Finnhub через /quote — берём
+      // стабильный снимок из data/prices.json, НЕ обращаясь к /api/quotes/stock
+      // (иначе по индексу вернулся бы мусор/0).
+      const snap = (INITIAL_PRICES as Asset[]).find((a) => a.symbol === symbol)
+      if (snap) {
+        setPrice(snap.price)
+        setChange24h(snap.change24h)
+      }
+      setIsLoading(false)
+      console.warn('[useAssetPrice] index %s: бесплатного живого источника нет, снимок=%s', symbol, snap?.price)
+      return
+    }
 
     if (type === 'crypto') {
       const ws = new WebSocket(ENV.OKX_WS_URL)
