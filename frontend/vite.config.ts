@@ -33,6 +33,12 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      // Dashboard layout persistence (GET/PUT /dashboard/config). Same-origin via
+      // the proxy so the auth cookie is sent with every request.
+      '/dashboard': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/api/finnhub': {
         target: 'https://finnhub.io/api/v1',
         changeOrigin: true,

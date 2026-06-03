@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from app.auth.router import router as auth_router
 from app.config import log_startup_config, settings
 from app.database import Base, engine
-from app.routes import crypto, forex, profile, quotes, subscription
+from app.routes import crypto, dashboard, forex, profile, quotes, subscription
 from app.services.cache import close_client
 
 # Importing models registers all tables on Base.metadata (needed for create_all).
@@ -63,7 +63,8 @@ app.add_middleware(
     # allow_credentials=True. The frontend normally calls these via the Vite proxy
     # (same-origin), so CORS mainly matters for direct calls / Swagger.
     # PATCH added for profile updates (PATCH /users/me).
-    allow_methods=["GET", "POST", "PATCH"],
+    # PUT added for dashboard layout persistence (PUT /dashboard/config).
+    allow_methods=["GET", "POST", "PATCH", "PUT"],
     allow_headers=["*"],
 )
 
@@ -73,7 +74,8 @@ app.include_router(forex.router, prefix=API_PREFIX)
 app.include_router(auth_router)  # carries its own /auth prefix
 app.include_router(profile.router)  # carries its own /users prefix
 app.include_router(subscription.router)  # carries its own /subscription prefix
-logger.info("[main] auth/users/subscription routes mounted")
+app.include_router(dashboard.router)  # carries its own /dashboard prefix
+logger.info("[main] auth/users/subscription/dashboard routes mounted")
 
 # Serve uploaded avatars under /uploads. The directory must exist before mount,
 # so create it eagerly (idempotent). Wrapped to degrade gracefully if the

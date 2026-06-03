@@ -26,6 +26,15 @@ vi.mock('react-grid-layout/legacy', () => ({
   WidthProvider: <P extends object>(Comp: React.ComponentType<P>) => Comp,
 }))
 
+// Guest session → useDashboardConfig uses the localStorage source (no backend),
+// so these tests exercise the localStorage seed/clear-all path synchronously.
+vi.mock('../context/AuthContext', () => ({
+  useAuth: () => ({
+    user: null, isAuthenticated: false, isLoading: false,
+    setUser: vi.fn(), updateUser: vi.fn(), logout: vi.fn(), refresh: vi.fn(),
+  }),
+}))
+
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return (
