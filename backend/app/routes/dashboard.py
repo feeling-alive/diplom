@@ -59,23 +59,8 @@ class UpdateDashboardConfigRequest(BaseModel):
 # --- Default layout / envelope ----------------------------------------------
 
 def _build_default_widgets() -> list[dict]:
-    """Seed widgets matching the frontend ``createDefaultWidgets`` (4 widgets)."""
-    specs = [
-        # type,           x, y, w, h
-        ("market_ticker", 0, 0, 3, 1),
-        ("watchlist",     0, 1, 2, 2),
-        ("allocation",    3, 0, 1, 2),
-        ("price_chart",   2, 2, 2, 2),
-    ]
-    return [
-        {
-            "id": "w_" + uuid.uuid4().hex[:12],
-            "type": widget_type,
-            "size": {"w": w, "h": h, "label": f"{w}×{h}"},
-            "x": x, "y": y, "w": w, "h": h,
-        }
-        for widget_type, x, y, w, h in specs
-    ]
+    """New users start with an empty dashboard — they add widgets themselves."""
+    return []
 
 
 def _make_dashboard(name: str, layout: list) -> dict:

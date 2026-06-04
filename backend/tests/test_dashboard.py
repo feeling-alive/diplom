@@ -28,10 +28,8 @@ async def test_get_config_seeds_default_envelope(client: AsyncClient) -> None:
     dash = env["dashboards"][0]
     assert dash["name"] == "Основной"
     assert env["activeId"] == dash["id"]
-    # The seeded dashboard carries the 4 default widgets.
-    assert len(dash["layout"]) == 4
-    types = {w["type"] for w in dash["layout"]}
-    assert {"market_ticker", "watchlist", "allocation", "price_chart"} == types
+    # New users get an empty dashboard — they add widgets themselves.
+    assert len(dash["layout"]) == 0
 
 
 async def test_get_config_unauthorized(client: AsyncClient) -> None:

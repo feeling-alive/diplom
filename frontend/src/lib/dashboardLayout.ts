@@ -75,24 +75,7 @@ export function clampWidgets(widgets: DashboardWidget[]): DashboardWidget[] {
 }
 
 export function createDefaultWidgets(): DashboardWidget[] {
-  const defaults: { type: WidgetType; size: WidgetSize }[] = [
-    { type: 'market_ticker', size: { w: 3, h: 1, label: '3×1' } },
-    { type: 'watchlist', size: { w: 2, h: 2, label: '2×2' } },
-    { type: 'allocation', size: { w: 1, h: 2, label: '1×2' } },
-    { type: 'price_chart', size: { w: 2, h: 2, label: '2×2' } },
-  ]
-  const result: DashboardWidget[] = []
-  for (const d of defaults) {
-    const pos = findEmptySlot(result, COLS, d.size.w, d.size.h)
-    result.push({
-      id: generateId(),
-      type: d.type,
-      size: d.size,
-      x: pos.x, y: pos.y,
-      w: d.size.w, h: d.size.h,
-    })
-  }
-  return result
+  return []
 }
 
 // --- localStorage cache -----------------------------------------------------
