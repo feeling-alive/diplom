@@ -507,34 +507,6 @@ ul, li { list-style: none; }
    PROFILE + SUBSCRIPTION
    ============================================ */
 
-/* Floating mesh blobs in the profile hero. Animated via CSS (not framer-motion
-   `background`/`transform` props) to avoid the strict-TS TS2590 union blowup. */
-@keyframes profileBlobA {
-  0%   { transform: translate(0, 0) scale(1); }
-  50%  { transform: translate(30px, -20px) scale(1.08); }
-  100% { transform: translate(0, 0) scale(1); }
-}
-@keyframes profileBlobB {
-  0%   { transform: translate(0, 0) scale(1); }
-  50%  { transform: translate(-26px, 18px) scale(1.12); }
-  100% { transform: translate(0, 0) scale(1); }
-}
-@keyframes profileBlobC {
-  0%   { transform: translate(0, 0) scale(1); }
-  50%  { transform: translate(18px, 24px) scale(0.94); }
-  100% { transform: translate(0, 0) scale(1); }
-}
-.profile-blob {
-  position: absolute;
-  border-radius: 999px;
-  filter: blur(28px);
-  pointer-events: none;
-  will-change: transform;
-}
-.profile-blob--a { animation: profileBlobA 8s ease-in-out infinite; }
-.profile-blob--b { animation: profileBlobB 12s ease-in-out infinite; }
-.profile-blob--c { animation: profileBlobC 6s ease-in-out infinite; }
-
 /* Avatar hover overlay (camera icon appears on hover). */
 .avatar-uploader { position: relative; cursor: pointer; }
 .avatar-uploader .avatar-overlay {

@@ -90,6 +90,7 @@ export function ProfileEditCard({
   return (
     <div
       style={{
+        flex: 1, height: '100%',
         background: 'var(--white)', borderRadius: 22,
         boxShadow: 'var(--shadow-lg)', padding: 28,
         display: 'flex', flexDirection: 'column', gap: 16,

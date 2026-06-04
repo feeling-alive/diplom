@@ -95,6 +95,7 @@ export default function NewsArticlePage() {
   const description = article.description_ru || article.description
 
   return (
+    <div style={{ overflowY: 'auto', height: '100%' }}>
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
@@ -125,7 +126,7 @@ export default function NewsArticlePage() {
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-        <MarketImpactBadge impact={article.market_impact} />
+        {article.ai_processed !== false && <MarketImpactBadge impact={article.market_impact} />}
         <span style={{ fontSize: 12, color: 'var(--muted)' }}>
           {article.source_name} · {new Date(article.published_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
         </span>
@@ -252,6 +253,7 @@ export default function NewsArticlePage() {
         </div>
       </div>
     </motion.div>
+    </div>
   )
 }
 

@@ -7,26 +7,26 @@ import {
   LayoutDashboard,
   BarChart2,
   Newspaper,
-  TrendingUp,
-  User,
   Settings,
   LogOut,
   Sparkles,
+  Crown,
 } from 'lucide-react'
+import { useSubscription } from '../../hooks/useSubscription'
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Дашборд', path: '/' },
   { icon: BarChart2, label: 'Рынок', path: '/market' },
   { icon: Newspaper, label: 'Новости', path: '/news' },
-  { icon: TrendingUp, label: 'Активы', path: '/assets' },
   { icon: Sparkles, label: 'AI Чат', path: '/chat' },
-  { icon: User, label: 'Профиль', path: '/profile' },
 ]
 
 export default function AppSidebar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { data: subData } = useSubscription()
+  const isPremium = subData?.plan === 'premium'
   const [activeTooltip, setActiveTooltip] = useState<{ label: string; x: number; y: number } | null>(null)
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -86,27 +86,44 @@ export default function AppSidebar() {
 
         {/* Bottom */}
         <div className="rail-bottom">
-          <div
-            data-testid="user-avatar"
-            className="rail-avatar"
-            title="Профиль"
-            onClick={() => navigate('/profile')}
-            onMouseEnter={(e) => showTooltip(e, 'Профиль')}
-            onMouseLeave={hideTooltip}
-            style={
-              avatarUrl
-                ? { padding: 0, overflow: 'hidden', background: 'transparent' }
-                : { background: username ? hashToHsl(username) : 'var(--accent)' }
-            }
-          >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={username}
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              />
-            ) : (
-              initial(username || 'Н')
+          <div style={{ position: 'relative' }}>
+            <div
+              data-testid="user-avatar"
+              className="rail-avatar"
+              title="Профиль"
+              onClick={() => navigate('/profile')}
+              onMouseEnter={(e) => showTooltip(e, 'Профиль')}
+              onMouseLeave={hideTooltip}
+              style={
+                avatarUrl
+                  ? { padding: 0, overflow: 'hidden', background: 'transparent' }
+                  : { background: username ? hashToHsl(username) : 'var(--accent)' }
+              }
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={username}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                initial(username || 'Н')
+              )}
+            </div>
+            {isPremium && (
+              <div
+                title="Premium"
+                style={{
+                  position: 'absolute', top: -6, right: -6,
+                  width: 18, height: 18, borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #FFD25A 0%, #F5A623 100%)',
+                  boxShadow: '0 0 0 2px var(--white), 0 2px 8px rgba(245,166,35,0.6)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  pointerEvents: 'none',
+                }}
+              >
+                <Crown size={10} color="#fff" strokeWidth={2.5} />
+              </div>
             )}
           </div>
           <button

@@ -13,7 +13,11 @@ import SizeIndicator from '../components/dashboard/SizeIndicator'
 import { WIDGET_REGISTRY } from '../constants/widgets.registry'
 import { COLS, generateId, findEmptySlot } from '../lib/dashboardLayout'
 import { useDashboardConfig } from '../hooks/useDashboardConfig'
+import { useSubscription } from '../hooks/useSubscription'
+import { PremiumModal } from '../components/ui/PremiumModal'
 import type { DashboardWidget, WidgetType, WidgetSize } from '../types/widgets.types'
+
+const FREE_DASHBOARD_LIMIT = 2
 
 const ROW_HEIGHT = 110
 const GRID_MARGIN = 10
@@ -40,10 +44,16 @@ export default function Dashboard() {
   // активный источник (PUT дебаунсится).
   const {
     widgets, isLoading, mutate: updateWidgets,
-    dashboards, activeId, canAddDashboard,
+    dashboards, activeId,
     switchDashboard, addDashboard, removeDashboard,
   } = useDashboardConfig()
+  const { data: subData } = useSubscription()
+  const isPremium = subData?.plan === 'premium'
+  const dashboardLimit = isPremium ? 5 : FREE_DASHBOARD_LIMIT
+  const canAddDashboard = dashboards.length < dashboardLimit
+
   const [isPickerOpen, setIsPickerOpen] = useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [isResizing, setIsResizing] = useState<string | null>(null)
   const [resizeSize, setResizeSize] = useState<{ w: number; h: number } | null>(null)
 
@@ -175,7 +185,16 @@ export default function Dashboard() {
     console.debug('[Dashboard] modal drag start — droppingItem set to %dx%d', size.w, size.h)
   }, [])
 
-  console.debug('[Dashboard] render widgets=%d', widgets.length)
+  const handleAddDashboard = useCallback((name: string) => {
+    if (!canAddDashboard) {
+      console.debug('[Dashboard] addDashboard blocked — limit=%d, plan=%s', dashboardLimit, subData?.plan ?? 'unknown')
+      setShowUpgradeModal(true)
+      return
+    }
+    addDashboard(name)
+  }, [canAddDashboard, dashboardLimit, subData?.plan, addDashboard])
+
+  console.debug('[Dashboard] render widgets=%d dashboards=%d isPremium=%s', widgets.length, dashboards.length, isPremium)
 
   return (
     <div className="main-content" style={{ flex: 1 }}>
@@ -187,7 +206,7 @@ export default function Dashboard() {
         activeId={activeId}
         canAddDashboard={canAddDashboard}
         onSwitchDashboard={switchDashboard}
-        onAddDashboard={addDashboard}
+        onAddDashboard={handleAddDashboard}
         onRemoveDashboard={removeDashboard}
       />
 
@@ -263,6 +282,12 @@ export default function Dashboard() {
           />
         )}
       </AnimatePresence>
+
+      <PremiumModal
+        open={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        dashboardLimit={dashboardLimit}
+      />
     </div>
   )
 }

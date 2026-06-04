@@ -1,8 +1,9 @@
-// Profile hero: a full-width banner with a soft brand-coloured mesh gradient and
-// floating blobs (animated via CSS classes, not framer-motion background props),
-// an avatar overlapping the bottom edge, and the user's identity below.
+// Profile hero: a full-width gradient banner with the avatar overlapping
+// the bottom edge and the user's identity (name + email) displayed on the banner.
+// Static gradient — no animated blobs.
 
 import { AvatarUploader } from './AvatarUploader'
+import { useSettings } from '../../context/SettingsContext'
 
 const RU_MONTHS = [
   'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
@@ -29,52 +30,60 @@ export interface ProfileHeroProps {
 }
 
 export function ProfileHero({ user, onUpload }: ProfileHeroProps) {
+  const { theme } = useSettings()
+  const isDark = theme === 'dark'
+  console.debug('[ProfileHero] render username=%s theme=%s', user.username, theme)
+
+  const bannerGradient = isDark
+    ? 'linear-gradient(135deg, #1a1a2e 0%, #2d1b3d 40%, #1e0a14 100%)'
+    : 'linear-gradient(135deg, #fdf2f5 0%, #fce7ed 50%, #f9d0da 100%)'
+
   return (
-    <div style={{ position: 'relative', marginBottom: 64 }}>
-      {/* Banner */}
+    <div style={{ position: 'relative', marginBottom: 56 }}>
+      {/* Banner — theme-aware gradient, no overflow:hidden so avatar can overhang */}
       <div
         style={{
           position: 'relative',
           height: 180,
           borderRadius: 'var(--r-xl)',
-          overflow: 'hidden',
-          background: 'linear-gradient(135deg, var(--accent-bg) 0%, var(--white) 70%)',
+          background: bannerGradient,
           border: '1px solid var(--border)',
         }}
       >
-        <div
-          className="profile-blob profile-blob--a"
-          style={{ width: 180, height: 180, top: -40, left: 40, background: 'rgba(225,29,72,0.28)' }}
-        />
-        <div
-          className="profile-blob profile-blob--b"
-          style={{ width: 140, height: 140, top: 20, right: 80, background: 'rgba(244,63,110,0.22)' }}
-        />
-        <div
-          className="profile-blob profile-blob--c"
-          style={{ width: 120, height: 120, bottom: -30, right: 200, background: 'rgba(255,193,90,0.25)' }}
-        />
-      </div>
-
-      {/* Avatar overlapping the bottom edge */}
-      <div style={{ position: 'absolute', left: 32, bottom: -50 }}>
-        <AvatarUploader username={user.username} avatarUrl={user.avatar_url} onUpload={onUpload} />
-      </div>
-
-      {/* Identity block, offset right of the avatar */}
-      <div style={{ paddingLeft: 148, paddingTop: 10, minHeight: 56 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>{user.username}</span>
-          <span
-            className="badge badge--accent-s"
-            style={{ textTransform: 'capitalize' }}
-          >
-            {user.role}
-          </span>
+        {/* Avatar overlapping the bottom edge */}
+        <div style={{ position: 'absolute', bottom: -40, left: 24 }}>
+          <AvatarUploader
+            username={user.username}
+            avatarUrl={user.avatar_url}
+            onUpload={onUpload}
+            size={80}
+          />
         </div>
-        <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{user.email}</div>
-        <div style={{ fontSize: 11, color: 'var(--soft)', marginTop: 2 }}>
-          {sinceLabel(user.created_at)}
+
+        {/* Identity: name + email on the banner, to the right of the avatar */}
+        <div style={{ position: 'absolute', bottom: 20, left: 120 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 20, fontWeight: 800, color: isDark ? '#fff' : 'var(--ink)' }}>
+              {user.username}
+            </span>
+            <span
+              className="badge badge--accent-s"
+              style={{
+                textTransform: 'capitalize',
+                background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.08)',
+                color: isDark ? '#fff' : 'var(--ink)',
+                borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.12)',
+              }}
+            >
+              {user.role}
+            </span>
+          </div>
+          <div style={{ fontSize: 13, color: isDark ? 'rgba(255,255,255,0.8)' : 'var(--muted)', marginTop: 2 }}>
+            {user.email}
+          </div>
+          <div style={{ fontSize: 11, color: isDark ? 'rgba(255,255,255,0.6)' : 'var(--soft, var(--muted))', marginTop: 2 }}>
+            {sinceLabel(user.created_at)}
+          </div>
         </div>
       </div>
     </div>

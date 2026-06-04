@@ -28,8 +28,6 @@ export default function NewsPage() {
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useNews(query, category)
 
-  console.debug('[NewsPage] category', category, 'query', query)
-
   const sentinelRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!sentinelRef.current) return
@@ -43,20 +41,10 @@ export default function NewsPage() {
 
   const allArticles = data?.pages.flatMap((p) => p.articles) ?? []
 
-  return (
-    <div style={{ padding: 16, height: '100%', boxSizing: 'border-box' }}>
-      <div style={{
-        width: '100%', height: '100%', background: 'var(--white)', borderRadius: 22,
-        boxShadow: 'var(--shadow-lg)', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-      }}>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 24px' }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
-            📰 Новости рынка
-          </h1>
-          <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
-            Актуальные новости с переводом и AI-анализом влияния на рынок
-          </p>
+  console.debug('[NewsPage] render category=%s query=%s articles=%d', category, query, allArticles.length)
 
+  return (
+    <div style={{ padding: '16px 20px 24px', height: '100%', boxSizing: 'border-box', overflowY: 'auto' }}>
           {/* Search */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg)',
@@ -125,8 +113,6 @@ export default function NewsPage() {
               Загрузка...
             </div>
           )}
-        </div>
-      </div>
     </div>
   )
 }

@@ -5,7 +5,7 @@
 
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, Crown, Loader2, X } from 'lucide-react'
+import { Check, Crown, Loader2, Lock, X } from 'lucide-react'
 import type { SubscriptionStatus } from '../../lib/profileApi'
 
 const PREMIUM_PRICE = '990₽'
@@ -39,21 +39,23 @@ function freeFeatures(perDay: number): FeatureRow[] {
   return [
     { label: 'Мониторинг рынков', on: true },
     { label: 'Базовые графики', on: true },
-    { label: 'Новости', on: true },
-    { label: `${perDay} ИИ-запросов в день`, on: true },
-    { label: 'Расширенные индикаторы', on: false },
-    { label: 'Безлимитный ИИ', on: false },
-    { label: 'Приоритетные обновления', on: false },
+    { label: `${perDay} запросов к ИИ в день`, on: true },
+    { label: '2 дашборда', on: true },
   ]
 }
 
 const PREMIUM_FEATURES: FeatureRow[] = [
-  { label: 'Мониторинг рынков', on: true },
-  { label: 'Расширенные графики', on: true },
   { label: 'Безлимитный ИИ', on: true },
-  { label: 'Расширенные индикаторы', on: true },
-  { label: 'Приоритетные обновления', on: true },
-  { label: 'Экспорт данных', on: true },
+  { label: 'Значок Premium в профиле', on: true },
+  { label: 'До 5 кастомных дашбордов (у Free — только 2)', on: true },
+  { label: 'Безлимитные запросы к ИИ', on: true },
+]
+
+// Features that exist only in Premium — shown as locked in the Free tab
+const PREMIUM_ONLY_LABELS = [
+  'Безлимитный ИИ',
+  'Значок Premium в профиле',
+  'До 5 дашбордов',
 ]
 
 function FeatureList({ items }: { items: FeatureRow[] }) {
@@ -77,6 +79,30 @@ function FeatureList({ items }: { items: FeatureRow[] }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+function LockedFeatureList({ items }: { items: string[] }) {
+  return (
+    <div>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0 8px',
+      }}>
+        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', whiteSpace: 'nowrap', letterSpacing: 0.5 }}>
+          ТОЛЬКО В PREMIUM
+        </span>
+        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+      </div>
+      <ul style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: 0 }}>
+        {items.map((label) => (
+          <li key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: 0.5, fontSize: 12, color: 'var(--text)' }}>
+            <Lock size={12} color="var(--muted)" />
+            {label}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
@@ -225,6 +251,7 @@ export function SubscriptionCard({ status, onUpgrade, onCancel, busy = false }: 
               </div>
               <ProgressBar value={usedToday} max={perDay} />
             </div>
+            <LockedFeatureList items={PREMIUM_ONLY_LABELS} />
             <div
               style={{
                 textAlign: 'center', padding: '10px 0', borderRadius: 'var(--r-pill)',

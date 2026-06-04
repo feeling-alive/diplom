@@ -65,13 +65,7 @@ export default function ProfilePage() {
       >
         <ProfileHero user={user} onUpload={handleUpload} />
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-            gap: 20,
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'stretch', gap: 20 }}>
           <ProfileEditCard
             currentUsername={user.username}
             email={user.email}
@@ -83,6 +77,7 @@ export default function ProfilePage() {
 
           <div
             style={{
+              flex: 1, height: '100%',
               background: 'var(--white)', borderRadius: 22,
               boxShadow: 'var(--shadow-lg)', padding: 28,
             }}

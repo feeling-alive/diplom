@@ -94,7 +94,7 @@ export default function NewsCard({ article: a, index = 0 }: Props) {
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
         {/* Top row: impact badge + date */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <MarketImpactBadge impact={a.market_impact} />
+          {a.ai_processed !== false && <MarketImpactBadge impact={a.market_impact} />}
           <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>
             {formatDate(a.published_at)}
           </span>
