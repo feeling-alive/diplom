@@ -77,18 +77,17 @@ export default function DashboardTabs({ dashboards, activeId, canAdd, onSwitch, 
         )
       })}
 
-      {/* Add button — gray pill that expands on hover */}
+      {/* Add button — always clickable; parent decides whether to add or show upgrade modal */}
       <motion.div
-        title={canAdd ? 'Новый дашборд' : 'Достигнут лимит в 5 дашбордов'}
+        title={canAdd ? 'Новый дашборд' : 'Достигнут лимит дашбордов'}
         animate={{ width: 12, background: 'rgba(0,0,0,0.10)' }}
-        whileHover={canAdd ? { width: 22, background: 'rgba(0,0,0,0.20)' } : {}}
+        whileHover={{ width: 22, background: 'rgba(0,0,0,0.20)' }}
         transition={SPRING}
-        onClick={canAdd ? handleAdd : undefined}
+        onClick={handleAdd}
         style={{
           height: 8,
           borderRadius: 999,
-          cursor: canAdd ? 'pointer' : 'not-allowed',
-          opacity: canAdd ? 1 : 0.35,
+          cursor: 'pointer',
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',

@@ -56,7 +56,7 @@ export default function ProfilePage() {
   const user = profile.data
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100%' }}>
+    <div style={{ minHeight: '100%' }}>
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
