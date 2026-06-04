@@ -18,7 +18,7 @@ from app.main import app
 
 
 @pytest_asyncio.fixture
-async def client() -> AsyncClient:
+async def client():
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -36,7 +36,17 @@ async def client() -> AsyncClient:
     app.dependency_overrides[get_db] = override_get_db
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        # Expose session factory on client for fixtures that need direct DB access.
+        ac._test_session = test_session  # type: ignore[attr-defined]
         yield ac
 
     app.dependency_overrides.clear()
     await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def db_session(client: AsyncClient):
+    """Direct DB session sharing the same in-memory DB as the test client."""
+    session_factory = client._test_session  # type: ignore[attr-defined]
+    async with session_factory() as session:
+        yield session

@@ -77,6 +77,12 @@ class Settings(BaseSettings):
     # Comma-separated origins; the frontend Vite dev server by default.
     cors_origins: str = "http://localhost:5173"
 
+    # --- News / AI enrichment --------------------------------------------------
+    news_api_key: str = ""
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "meta-llama/llama-3.3-70b-instruct:free"
+
     # --- Cache TTLs (seconds) --------------------------------------------------
     stock_ttl: int = 60
     crypto_ttl: int = 30

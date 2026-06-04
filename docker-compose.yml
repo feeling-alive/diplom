@@ -14,10 +14,6 @@ services:
       POSTGRES_USER: fintrack
       POSTGRES_PASSWORD: fintrack_pass
     ports:
-      # Host 5433 -> container 5432. Host 5432 is often taken by a native
-      # PostgreSQL install (it is on this dev machine), which makes localhost:5432
-      # ambiguous. Inside the compose network the backend still uses postgres:5432.
-      # For host-run uvicorn/alembic use DATABASE_URL=...@localhost:5433.
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data

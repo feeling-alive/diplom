@@ -1,4 +1,4 @@
-[Back to README](../README.md)
+[Back to README](../README.md) · [Несколько дашбордов →](multi-dashboard.md)
 
 # Система виджетов
 
@@ -95,13 +95,26 @@ draggableHandle=".widget-drag-handle"
 
 ## Персистентность layout
 
-Ключ: `fintrack_widgets_v4` (см. `Dashboard.tsx:19`).
+Раскладка дашборда синхронизируется с бэкендом (PostgreSQL) при наличии сессии. localStorage — офлайн-кэш и хранилище для гостей.
 
-- При загрузке: чистит legacy ключи (`v2`, `fintrack_widgets`), мигрирует `v3` → `v4` с автоматическим переименованием `kpi_portfolio` → `market_ticker`.
-- Любая загруженная сохранёнка clamp'ится по текущему реестру (`minW/maxW/minH/maxH`) — старые «широкие» виджеты после ужатия maxW не воскреснут.
-- Любое изменение раскладки/размера → `saveWidgets(next)` синхронно в `localStorage`.
+**Для авторизованных пользователей:**
 
-При смене схемы реестра — бамп `STORAGE_KEY` (v4 → v5) + добавление старого ключа в `LEGACY_STORAGE_KEYS`.
+1. При загрузке страницы — `GET /dashboard/config` (бэкенд).
+2. При ошибке сети — fallback на `localStorage` (`fintrack_dashboard_v4`).
+3. Любое изменение (DnD, добавление/удаление виджета, смена дашборда) → дебаунсированный `PUT /dashboard/config` (600 мс) + запись в localStorage-кэш.
+
+**Для гостей:** весь envelope хранится только в localStorage.
+
+**Схема ключей localStorage:**
+
+| Ключ | Назначение |
+|------|------------|
+| `fintrack_dashboard_v4` | Envelope `{dashboards, activeId}` (текущая схема) |
+| `fintrack_widgets_v4` | Legacy — одиночный массив виджетов (автомигрируется на чтении) |
+
+При смене схемы реестра — бамп ключа (v4 → v5) + добавление старого ключа в список legacy-ключей для очистки.
+
+Любая загруженная раскладка clamp'ится по текущему реестру (`minW/maxW/minH/maxH`) — старые «широкие» виджеты не воскреснут после ужатия `maxW`.
 
 ## Глобальные стили (общие)
 

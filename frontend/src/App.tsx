@@ -12,7 +12,6 @@ import SettingsPage from './pages/SettingsPage'
 import SubscriptionPage from './pages/SubscriptionPage'
 import AdminPanelPage from './pages/AdminPanelPage'
 import AppSidebar from './components/layout/AppSidebar'
-import CurrencySwitcher from './components/layout/CurrencySwitcher'
 import PrivateRoute from './components/layout/RoutesGuard'
 import { useCurrency } from './context/CurrencyContext'
 
@@ -25,11 +24,7 @@ function ProtectedLayout() {
       <div className="app-page">
         <div className="app-layout">
           <AppSidebar />
-          <main style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            {/* Floating Liquid-Glass currency switcher, top-right of the content area. */}
-            <div style={{ position: 'absolute', top: 14, right: 18, zIndex: 50 }}>
-              <CurrencySwitcher />
-            </div>
+          <main style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <Outlet />
           </main>
         </div>

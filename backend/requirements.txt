@@ -21,3 +21,6 @@ python-multipart
 email-validator     # требуется для pydantic EmailStr (Блок B)
 aiofiles
 pillow
+
+# --- News scheduler / AI enrichment (Блок D) ---------------------------------
+apscheduler>=3.10

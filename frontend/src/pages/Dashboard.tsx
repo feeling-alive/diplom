@@ -5,7 +5,6 @@ import 'react-resizable/css/styles.css'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import DashboardHeader from '../components/dashboard/DashboardHeader'
-import DashboardTabs from '../components/dashboard/DashboardTabs'
 import WidgetCard from '../components/dashboard/WidgetCard'
 import EmptyDashboard from '../components/dashboard/EmptyDashboard'
 import AddWidgetModal from '../components/dashboard/AddWidgetModal'
@@ -184,18 +183,13 @@ export default function Dashboard() {
         onOpenPicker={() => setIsPickerOpen(true)}
         onResetLayout={handleResetLayout}
         addButtonRef={addButtonRef}
+        dashboards={isLoading ? undefined : dashboards}
+        activeId={activeId}
+        canAddDashboard={canAddDashboard}
+        onSwitchDashboard={switchDashboard}
+        onAddDashboard={addDashboard}
+        onRemoveDashboard={removeDashboard}
       />
-
-      {!isLoading && (
-        <DashboardTabs
-          dashboards={dashboards}
-          activeId={activeId}
-          canAdd={canAddDashboard}
-          onSwitch={switchDashboard}
-          onAdd={addDashboard}
-          onRemove={removeDashboard}
-        />
-      )}
 
       <div className="main-scroll">
         <AnimatePresence mode="wait">

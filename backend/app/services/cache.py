@@ -41,7 +41,7 @@ async def get_cached(key: str) -> dict[str, Any] | None:
     """Return the cached JSON object for ``key``, or ``None`` on miss/unavailable."""
     try:
         raw = await get_client().get(key)
-    except (RedisError, OSError) as err:
+    except (RedisError, OSError, RuntimeError) as err:
         logger.warning("[cache] unavailable on GET %s: %s", key, err)
         return None
 
@@ -62,9 +62,9 @@ async def get_cached(key: str) -> dict[str, Any] | None:
 async def set_cached(key: str, data: dict[str, Any], ttl: int) -> None:
     """Store ``data`` under ``key`` with a ``ttl`` (seconds). No-op if Redis is down."""
     try:
-        await get_client().set(key, json.dumps(data), ex=ttl)
+        await get_client().set(key, json.dumps(data, default=str), ex=ttl)
         logger.debug("[cache] SET %s ttl=%d", key, ttl)
-    except (RedisError, OSError) as err:
+    except (RedisError, OSError, RuntimeError) as err:
         logger.warning("[cache] unavailable on SET %s: %s", key, err)
 
 

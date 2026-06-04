@@ -19,6 +19,9 @@ EXPECTED_TABLES = {
     "chat_sessions",
     "comments",
     "favorites",
+    "news_articles",
+    "news_reactions",
+    "news_favorites",
 }
 
 

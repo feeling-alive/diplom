@@ -44,10 +44,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/finnhub/, ''),
       },
+      // /api/news now proxied to our own backend (Блок D).
+      // The backend handles NewsAPI fetching + AI enrichment internally.
       '/api/news': {
-        target: 'https://newsapi.org/v2',
+        target: 'http://localhost:8000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/news/, ''),
       },
       '/api/forex': {
         target: 'https://api.frankfurter.app',

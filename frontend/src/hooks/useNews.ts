@@ -1,70 +1,98 @@
-import { useQuery } from '@tanstack/react-query'
-import type { NewsItem } from '../types/market.types'
-import { MOCK_NEWS } from '../mock/news.mock'
-import { ENV, USE_MOCK } from '../lib/env'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
-interface NewsResult {
-  news: NewsItem[]
-  isLoading: boolean
-  error: Error | null
+export interface NewsArticle {
+  id: string
+  title: string
+  title_ru: string | null
+  description: string | null
+  description_ru: string | null
+  url: string
+  url_to_image: string | null
+  source_name: string
+  published_at: string
+  category: string
+  symbols: string[] | null
+  keywords: string[] | null
+  market_impact: string | null
+  ai_processed: boolean
+  likes_count: number
+  dislikes_count: number
+  comments_count: number
+  is_favorited: boolean
+  user_reaction: string | null
 }
 
-function mockSlice(relatedAsset?: string): NewsItem[] {
-  return relatedAsset
-    ? MOCK_NEWS.filter((item) => item.relatedAssets.includes(relatedAsset))
-    : MOCK_NEWS
+export interface NewsFeedPage {
+  articles: NewsArticle[]
+  total: number
+  page: number
+  has_more: boolean
 }
 
-export function useNews(relatedAsset?: string, useMock = USE_MOCK): NewsResult {
-  const { data, isLoading, error } = useQuery<NewsItem[], Error>({
-    queryKey: ['news', relatedAsset, useMock],
-    queryFn: async () => {
-      if (useMock || !ENV.NEWS_API_KEY) {
-        const list = mockSlice(relatedAsset)
-        console.debug('[useNews] mock relatedAsset=%s count=%d', relatedAsset ?? 'all', list.length)
-        return list
-      }
+async function fetchNewsPage(
+  page: number,
+  query: string,
+  category: string,
+  limit = 20,
+): Promise<NewsFeedPage> {
+  console.debug('[useNews] fetch page', page, 'category', category, 'query', query)
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  if (query) params.set('query', query)
+  if (category && category !== 'all') params.set('category', category)
+  const res = await fetch(`/api/news?${params}`)
+  if (!res.ok) throw new Error(`GET /api/news ${res.status}`)
+  return res.json() as Promise<NewsFeedPage>
+}
 
-      const query = relatedAsset ?? 'finance'
-      try {
-        const res = await fetch(
-          `${ENV.NEWS_API_BASE_URL}/everything?q=${encodeURIComponent(query)}&pageSize=20&sortBy=publishedAt&apiKey=${ENV.NEWS_API_KEY}`,
-        )
-        if (!res.ok) throw new Error(`NewsAPI ${res.status}`)
-        const json = (await res.json()) as {
-          articles: Array<{
-            title: string
-            description: string | null
-            source: { name: string }
-            url: string
-            publishedAt: string
-          }>
-        }
-        console.info('[useNews] NewsAPI count=%d query=%s', json.articles.length, query)
-        return json.articles
-          .filter((a) => a.title && !a.title.includes('[Removed]'))
-          .map((a, i) => ({
-            id: `api-${i}`,
-            title: a.title,
-            summary: a.description ?? '',
-            source: a.source.name,
-            url: a.url,
-            publishedAt: a.publishedAt,
-            sentiment: 'neutral' as const,
-            relatedAssets: relatedAsset ? [relatedAsset] : [],
-          }))
-      } catch (err) {
-        console.warn('[useNews] real fetch failed — falling back to mock:', err)
-        return mockSlice(relatedAsset)
-      }
-    },
+/** Infinite-scroll news feed, backed by our backend. */
+export function useNews(query = '', category = 'all') {
+  return useInfiniteQuery<NewsFeedPage, Error>({
+    queryKey: ['news', query, category],
+    queryFn: ({ pageParam }) => fetchNewsPage(pageParam as number, query, category),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.has_more ? lastPage.page + 1 : undefined),
     staleTime: 5 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
   })
+}
 
-  return {
-    news: data ?? [],
-    isLoading,
-    error: error ?? null,
-  }
+/** Single article by id. */
+export function useNewsArticle(id: string) {
+  return useQuery<NewsArticle, Error>({
+    queryKey: ['news', 'article', id],
+    queryFn: async () => {
+      console.debug('[useNewsArticle] load', id)
+      const res = await fetch(`/api/news/${id}`)
+      if (!res.ok) throw new Error(`GET /api/news/${id} ${res.status}`)
+      return res.json() as Promise<NewsArticle>
+    },
+    staleTime: 2 * 60 * 1000,
+    enabled: !!id,
+  })
+}
+
+/** Favorite news for the current user. */
+export function useNewsFavorites() {
+  return useQuery<NewsFeedPage, Error>({
+    queryKey: ['news', 'favorites'],
+    queryFn: async () => {
+      const res = await fetch('/api/news/favorites')
+      if (!res.ok) throw new Error(`GET /api/news/favorites ${res.status}`)
+      return res.json() as Promise<NewsFeedPage>
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
+/** React to an article (like/dislike toggle). */
+export async function reactToArticle(id: string, type: 'like' | 'dislike'): Promise<void> {
+  await fetch(`/api/news/${id}/react`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type }),
+  })
+}
+
+/** Toggle favorite on an article. */
+export async function toggleFavorite(id: string): Promise<void> {
+  await fetch(`/api/news/${id}/favorite`, { method: 'POST' })
 }

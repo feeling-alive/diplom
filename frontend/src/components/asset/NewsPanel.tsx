@@ -1,28 +1,24 @@
 import { motion } from 'framer-motion'
-import { useNews } from '../../hooks/useNews'
-import type { NewsItem } from '../../types/market.types'
+import { useNews, type NewsArticle } from '../../hooks/useNews'
 
 interface Props {
   symbol: string
   ticker?: string
 }
 
-function sentimentColor(s: NewsItem['sentiment']): string {
-  if (s === 'positive') return 'var(--green)'
-  if (s === 'negative') return 'var(--accent)'
+function impactColor(impact: string | null): string {
+  if (impact === 'positive') return 'var(--green)'
+  if (impact === 'negative') return 'var(--red)'
   return 'var(--muted)'
 }
 
 function timeAgo(iso: string): string {
-  const now = Date.now()
-  const t = new Date(iso).getTime()
-  const diff = Math.max(0, now - t)
-  const mins = Math.floor(diff / 60000)
+  const diff = Math.max(0, Date.now() - new Date(iso).getTime())
+  const mins = Math.floor(diff / 60_000)
   if (mins < 60) return `${mins} мин назад`
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours} ч назад`
-  const days = Math.floor(hours / 24)
-  return `${days} д назад`
+  return `${Math.floor(hours / 24)} д назад`
 }
 
 function NewsSkeleton() {
@@ -42,7 +38,9 @@ function NewsSkeleton() {
 }
 
 export default function NewsPanel({ symbol, ticker }: Props) {
-  const { news, isLoading } = useNews(symbol)
+  // Search by symbol name on our backend.
+  const { data, isLoading } = useNews(symbol, 'all')
+  const news: NewsArticle[] = data?.pages[0]?.articles ?? []
   const label = ticker ?? symbol
 
   console.debug('[NewsPanel] symbol=%s count=%d loading=%s', symbol, news.length, isLoading)
@@ -64,13 +62,7 @@ export default function NewsPanel({ symbol, ticker }: Props) {
         <span style={{ fontSize: 11, color: 'var(--muted)' }}>· {label}</span>
       </div>
 
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        scrollbarWidth: 'thin',
-        scrollbarColor: 'var(--border) transparent',
-      }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'thin', scrollbarColor: 'var(--border) transparent' }}>
         {isLoading ? (
           <NewsSkeleton />
         ) : news.length === 0 ? (
@@ -89,42 +81,22 @@ export default function NewsPanel({ symbol, ticker }: Props) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04, duration: 0.25 }}
                 whileHover={{ y: -1 }}
-                onClick={() => console.debug('[NewsPanel] open news id=%s url=%s', item.id, item.url)}
+                onClick={() => console.debug('[NewsPanel] open article', item.id)}
                 style={{
-                  display: 'flex',
-                  gap: 10,
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  background: 'transparent',
-                  border: '1px solid transparent',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  transition: 'background 0.15s, border-color 0.15s',
-                  cursor: 'pointer',
+                  display: 'flex', gap: 10, padding: '10px 12px', borderRadius: 10,
+                  background: 'transparent', border: '1px solid transparent',
+                  textDecoration: 'none', color: 'inherit', transition: 'background 0.15s, border-color 0.15s', cursor: 'pointer',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--bg)'
-                  e.currentTarget.style.borderColor = 'var(--border)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.borderColor = 'transparent'
-                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent' }}
               >
-                <div style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: sentimentColor(item.sentiment),
-                  marginTop: 6,
-                  flexShrink: 0,
-                }} />
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: impactColor(item.market_impact), marginTop: 6, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>
-                    {item.title}
+                    {item.title_ru || item.title}
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>
-                    {item.source} · {timeAgo(item.publishedAt)}
+                    {item.source_name} · {timeAgo(item.published_at)}
                   </div>
                 </div>
               </motion.a>

@@ -20,7 +20,16 @@
       "Bash(npx vitest *)",
       "Bash(cd *)",
       "Skill(aif-verify)",
-      "Skill(aif-review)"
+      "Skill(aif-review)",
+      "PowerShell($paths = @\\(\"$env:ProgramFiles\\\\Docker\\\\Docker\\\\Docker Desktop.exe\", \"$env:LOCALAPPDATA\\\\Docker\\\\Docker Desktop.exe\"\\); $exe = $paths | Where-Object { Test-Path $_ } | Select-Object -First 1; if \\($exe\\) { Write-Output \"FOUND: $exe\"; Start-Process $exe; Write-Output \"LAUNCHED\" } else { Write-Output \"NOT FOUND\" })",
+      "PowerShell(docker info *)",
+      "PowerShell(cd \"C:\\\\Users\\\\Никита\\\\Desktop\\\\DIPLOM\\\\dashboard-app\"; for \\($i=0; $i -lt 30; $i++\\) { $h = docker inspect --format '{{.State.Health.Status}}' dashboard-app-postgres-1 2>$null; if \\($h -eq 'healthy'\\) { Write-Output \"HEALTHY after $i checks\"; break }; Start-Sleep -Seconds 2 }; docker inspect --format '{{.State.Health.Status}}' dashboard-app-postgres-1)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(foreach \\($p in 24224,10064\\) { try { $proc = Get-Process -Id $p -ErrorAction Stop; Write-Output \\(\"PID {0} = {1} \\({2}\\)\" -f $p, $proc.ProcessName, $proc.Path\\) } catch { Write-Output \"PID $p = <not found>\" } })",
+      "PowerShell(docker exec dashboard-app-postgres-1 *)",
+      "PowerShell(cd \"C:\\\\Users\\\\Никита\\\\Desktop\\\\DIPLOM\\\\dashboard-app\\\\backend\"; $env:DATABASE_URL=\"postgresql+asyncpg://fintrack:fintrack_pass@localhost:5433/fintrack\"; .\\\\.venv\\\\Scripts\\\\python.exe -m alembic revision --autogenerate -m \"initial tables\" 2>&1 | Select-Object -Last 25)",
+      "PowerShell(cd \"C:\\\\Users\\\\Никита\\\\Desktop\\\\DIPLOM\\\\dashboard-app\\\\backend\"; $env:DATABASE_URL=\"postgresql+asyncpg://fintrack:fintrack_pass@localhost:5433/fintrack\"; .\\\\.venv\\\\Scripts\\\\python.exe -m alembic upgrade head 2>&1 | Select-Object -Last 12)",
+      "PowerShell(cd \"C:\\\\Users\\\\Никита\\\\Desktop\\\\DIPLOM\\\\dashboard-app\\\\frontend\"; npx eslint src/context/AuthContext.tsx src/lib/authApi.ts src/pages/LoginPage.tsx src/pages/RegisterPage.tsx src/components/layout/RoutesGuard.tsx src/components/layout/AppSidebar.tsx src/main.tsx 2>&1 | Select-Object -Last 25; Write-Output \"exit=$LASTEXITCODE\")"
     ]
   }
 }

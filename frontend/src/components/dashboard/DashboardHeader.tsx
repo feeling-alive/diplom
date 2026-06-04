@@ -1,14 +1,25 @@
 import { motion } from 'framer-motion'
 import { Search, AlignLeft, Plus, Trash2 } from 'lucide-react'
+import DashboardTabs from './DashboardTabs'
 
 interface Props {
   onOpenWidgetMenu?: () => void
   onOpenPicker?: () => void
   onResetLayout?: () => void
   addButtonRef?: React.RefObject<HTMLButtonElement>
+  // карусель дашбордов
+  dashboards?: { id: string; name: string }[]
+  activeId?: string
+  canAddDashboard?: boolean
+  onSwitchDashboard?: (id: string) => void
+  onAddDashboard?: (name: string) => void
+  onRemoveDashboard?: (id: string) => void
 }
 
-export default function DashboardHeader({ onOpenWidgetMenu, onOpenPicker, onResetLayout, addButtonRef }: Props) {
+export default function DashboardHeader({
+  onOpenWidgetMenu, onOpenPicker, onResetLayout, addButtonRef,
+  dashboards, activeId, canAddDashboard, onSwitchDashboard, onAddDashboard, onRemoveDashboard,
+}: Props) {
   console.debug('[DashboardHeader] render')
 
   const handleAddWidget = onOpenWidgetMenu || onOpenPicker || (() => {})
@@ -16,6 +27,7 @@ export default function DashboardHeader({ onOpenWidgetMenu, onOpenPicker, onRese
   return (
     <header
       style={{
+        position: 'relative',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -57,6 +69,20 @@ export default function DashboardHeader({ onOpenWidgetMenu, onOpenPicker, onRese
           }}
         />
       </div>
+
+      {/* Center — dashboard carousel (absolute so it doesn't push left/right groups) */}
+      {dashboards && activeId !== undefined && (
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+          <DashboardTabs
+            dashboards={dashboards}
+            activeId={activeId}
+            canAdd={canAddDashboard ?? false}
+            onSwitch={onSwitchDashboard ?? (() => {})}
+            onAdd={onAddDashboard ?? (() => {})}
+            onRemove={onRemoveDashboard ?? (() => {})}
+          />
+        </div>
+      )}
 
       {/* Right — actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

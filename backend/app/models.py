@@ -195,4 +195,80 @@ class Favorite(Base):
     user: Mapped["User"] = relationship(back_populates="favorites")
 
 
+class NewsArticle(Base):
+    """Cached financial news article. Populated by the APScheduler fetcher."""
+
+    __tablename__ = "news_articles"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String(1024), nullable=False)
+    title_ru: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    description: Mapped[str | None] = mapped_column(String(4096), nullable=True)
+    description_ru: Mapped[str | None] = mapped_column(String(4096), nullable=True)
+    content: Mapped[str | None] = mapped_column(String(8192), nullable=True)
+    content_ru: Mapped[str | None] = mapped_column(String(8192), nullable=True)
+    url: Mapped[str] = mapped_column(String(2048), unique=True, nullable=False)
+    url_to_image: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    source_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    category: Mapped[str] = mapped_column(String(32), nullable=False, default="general", index=True)
+    symbols: Mapped[list | None] = mapped_column(JSONType, nullable=True)
+    keywords: Mapped[list | None] = mapped_column(JSONType, nullable=True)
+    market_impact: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    language: Mapped[str] = mapped_column(String(8), nullable=False, default="en")
+    ai_processed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    reactions: Mapped[list["NewsReaction"]] = relationship(
+        back_populates="article", cascade="all, delete-orphan"
+    )
+    news_favorites: Mapped[list["NewsFavorite"]] = relationship(
+        back_populates="article", cascade="all, delete-orphan"
+    )
+
+
+class NewsReaction(Base):
+    """Like or dislike on a news article. One reaction per (user, article)."""
+
+    __tablename__ = "news_reactions"
+    __table_args__ = (UniqueConstraint("user_id", "article_id", name="uq_news_reaction"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    article_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("news_articles.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    reaction_type: Mapped[str] = mapped_column(String(16), nullable=False)  # like | dislike
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    article: Mapped["NewsArticle"] = relationship(back_populates="reactions")
+
+
+class NewsFavorite(Base):
+    """User's favorited news article. One row per (user, article)."""
+
+    __tablename__ = "news_favorites"
+    __table_args__ = (UniqueConstraint("user_id", "article_id", name="uq_news_favorite"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    article_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("news_articles.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    article: Mapped["NewsArticle"] = relationship(back_populates="news_favorites")
+
+
 logger.debug("[models] registered %d tables: %s", len(Base.metadata.tables), list(Base.metadata.tables))
+logger.debug("[models] NewsArticle/NewsReaction/NewsFavorite defined")
