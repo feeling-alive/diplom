@@ -88,6 +88,11 @@ class Settings(BaseSettings):
     # fallback immediately (see services/gas.py, services/coingecko.py, ...).
     etherscan_api_key: str = ""
 
+    # --- AI / ML API keys ------------------------------------------------------
+    hf_api_key: str = ""
+    hf_model_id: str = ""
+    groq_api_key: str = ""
+
     # --- Cache TTLs (seconds) --------------------------------------------------
     stock_ttl: int = 60
     crypto_ttl: int = 30
@@ -142,4 +147,10 @@ def log_startup_config() -> None:
         "present" if settings.google_client_secret else "ABSENT",
         settings.backend_url,
         settings.frontend_url,
+    )
+    logger.info(
+        "[config] hf_api_key=%s hf_model_id=%s groq_api_key=%s",
+        "present" if settings.hf_api_key else "ABSENT",
+        settings.hf_model_id or "not set",
+        "present" if settings.groq_api_key else "ABSENT",
     )

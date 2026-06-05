@@ -58,9 +58,10 @@ FinTrack — настраиваемый финансовый дашборд (к�
 │   │   ├── main.py               # FastAPI app, CORS, StaticFiles /uploads, монтаж роутеров
 │   │   ├── config.py             # настройки (SECRET_KEY, DB URL, Google OAuth, CORS)
 │   │   ├── database.py           # async engine, get_db, Base (SQLAlchemy 2.0)
-│   │   ├── models.py             # 6 моделей: User, Subscription, DashboardConfig, ChatSession, Comment, Favorite
+│   │   ├── models.py             # 9 ORM-моделей (User, Subscription, DashboardConfig, ChatSession, Comment, Favorite, NewsArticle, NewsReaction, NewsFavorite)
 │   │   ├── auth/                 # JWT + Google OAuth (utils, schemas, dependencies, router)
-│   │   └── routes/               # profile.py (/users/*), subscription.py (/subscription/*)
+│   │   ├── routes/               # profile.py, subscription.py, quotes.py, crypto.py, forex.py, dashboard.py, news.py, chat.py
+│   │   └── services/             # cache.py, finnhub.py, okx.py, frankfurter.py, candles.py, coingecko.py, fng.py, funding.py, gas.py, patchtst.py, groq_service.py, news_fetcher.py
 │   ├── alembic/                  # миграции БД
 │   ├── tests/                    # pytest (test_profile.py, ...)
 │   ├── Dockerfile                # образ backend
