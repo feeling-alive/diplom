@@ -45,8 +45,9 @@ describe('PriceChartWidget', () => {
     const weekBtn = screen.getByText('1Н')
     fireEvent.click(weekBtn)
     expect(weekBtn).toHaveStyle({ background: 'var(--ink)' })
-    // Previous active should no longer have ink background
+    // Previous active should no longer have ink background. Inactive buttons
+    // render with a transparent background (see PriceChartWidget styles).
     const dayBtn = screen.getByText('1Д')
-    expect(dayBtn).toHaveStyle({ background: 'var(--bg)' })
+    expect(dayBtn).toHaveStyle({ background: 'transparent' })
   })
 })

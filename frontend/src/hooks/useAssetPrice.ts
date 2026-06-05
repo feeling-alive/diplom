@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Asset } from '../types/market.types'
 import { MOCK_PRICES } from '../mock/prices.mock'
 import INITIAL_PRICES from '../data/prices.json'
-import { ENV, USE_MOCK } from '../lib/env'
+import { USE_MOCK } from '../lib/env'
 
 interface AssetPriceResult {
   price: number
@@ -29,6 +29,19 @@ async function fetchQuote(symbol: string, type: Asset['type']): Promise<{ price:
     const json = (await res.json()) as { rate: number }
     console.debug('[useAssetPrice] %s backend rate=%s', symbol, json.rate)
     return { price: json.rate, change24h: 0 }
+  }
+  if (type === 'crypto') {
+    // Backend OKX REST proxy (Redis-cached) — replaces the fragile direct
+    // browser->OKX WebSocket that broke on CORS/blocked networks.
+    const res = await fetch(`/api/quotes/crypto/${encodeURIComponent(symbol)}`, {
+      signal: AbortSignal.timeout(4000),
+    })
+    if (!res.ok) throw new Error(`quotes/crypto ${res.status}`)
+    const json = (await res.json()) as { price: number; changePercent: number }
+    const safePrice = Number.isFinite(json.price) ? json.price : 0
+    const safeChange = Number.isFinite(json.changePercent) ? json.changePercent : 0
+    console.info('[useAssetPrice] %s backend crypto price=%s change=%s', symbol, safePrice, safeChange)
+    return { price: safePrice, change24h: safeChange }
   }
   // stock
   const res = await fetch(`/api/quotes/stock/${symbol}`, { signal: AbortSignal.timeout(4000) })
@@ -60,74 +73,19 @@ export function useAssetPrice(
     }
   }, [symbol])
 
-  // Crypto streams over WebSocket (live ticks) — kept in component state, not cached.
-  const isCrypto = type === 'crypto'
-  const [wsPrice, setWsPrice] = useState(0)
-  const [wsChange, setWsChange] = useState(0)
-  const [wsLoading, setWsLoading] = useState(true)
-  const [isConnected, setIsConnected] = useState(false)
-  const wsRef = useRef<WebSocket | null>(null)
-
-  // Non-crypto (stock/forex/index) quotes go through the cached query.
+  // All non-mock quotes (crypto/stock/forex/index) go through the same cached
+  // query. Crypto polls faster (15s) for a near-live feel; the old direct OKX
+  // WebSocket was removed — it broke whenever the browser couldn't reach
+  // okx.com (CORS / blocked network), leaving prices stuck at 0.
   const query = useQuery({
     queryKey: ['assetPrice', type, symbol],
-    enabled: !useMock && !isCrypto && !!symbol,
-    refetchInterval: type === 'index' ? false : 60_000,
+    enabled: !useMock && !!symbol,
+    refetchInterval: type === 'index' ? false : type === 'crypto' ? 15_000 : 60_000,
     refetchOnMount: false,
     queryFn: () => fetchQuote(symbol, type),
   })
 
-  useEffect(() => {
-    if (useMock || !isCrypto) return
-
-    const ws = new WebSocket(ENV.OKX_WS_URL)
-    wsRef.current = ws
-    setWsLoading(true)
-
-    ws.onopen = () => {
-      setIsConnected(true)
-      ws.send(JSON.stringify({ op: 'subscribe', args: [{ channel: 'tickers', instId: symbol }] }))
-      console.info('[useAssetPrice] WS connected for %s', symbol)
-    }
-
-    ws.onmessage = (event: MessageEvent) => {
-      try {
-        const msg = JSON.parse(event.data as string) as {
-          data?: Array<{ last: string; changeRate24h: string }>
-        }
-        const ticker = msg.data?.[0]
-        if (ticker) {
-          const newPrice = parseFloat(ticker.last)
-          const rawChange = parseFloat(ticker.changeRate24h) * 100
-          const newChange = Number.isFinite(rawChange) ? rawChange : 0
-          if (!Number.isFinite(rawChange)) {
-            console.warn('[useAssetPrice] non-finite change24h from OKX for %s, defaulting to 0', symbol)
-          }
-          setWsPrice(Number.isFinite(newPrice) ? newPrice : 0)
-          setWsChange(newChange)
-          setWsLoading(false)
-          console.debug('[useAssetPrice] %s WS price=%s change=%s', symbol, newPrice, newChange)
-        }
-      } catch {
-        // malformed frame — ignore
-      }
-    }
-
-    ws.onclose = () => {
-      setIsConnected(false)
-      console.debug('[useAssetPrice] WS closed for %s', symbol)
-    }
-
-    return () => {
-      ws.close()
-      wsRef.current = null
-    }
-  }, [symbol, isCrypto, useMock])
-
   if (useMock) return mockResult
-  if (isCrypto) {
-    return { price: wsPrice, change24h: wsChange, isLoading: wsLoading, isConnected }
-  }
   return {
     price: query.data?.price ?? 0,
     change24h: query.data?.change24h ?? 0,

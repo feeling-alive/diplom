@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { MOCK_PRICES } from '../../mock/prices.mock'
+import { useHoldings } from '../../hooks/useHoldings'
 
 function formatCurrency(value: number): string {
   return '$' + value.toLocaleString('en-US', { maximumFractionDigits: 0 })
@@ -11,17 +11,30 @@ type Period = typeof PERIODS[number]
 
 export default function KpiStrip() {
   const [period, setPeriod] = useState<Period>('1Д')
+  const { totalValue, totalCost, totalPnl, pnlPercent, isEmpty } = useHoldings()
 
-  const totalPrice = useMemo(
-    () => MOCK_PRICES.slice(0, 4).reduce((sum, a) => sum + a.price * 10, 0),
-    [],
-  )
-  const prevTotal = totalPrice * 0.997
-  const changePercent = ((totalPrice - prevTotal) / prevTotal) * 100
+  const totalPrice = totalValue
+  const prevTotal = totalCost
+  const changePercent = pnlPercent
   const isPositive = changePercent >= 0
-  const changeDollar = totalPrice - prevTotal
+  const changeDollar = totalPnl
 
-  console.debug('[KpiStrip] period=%s total=%d change=%s%', period, totalPrice, changePercent.toFixed(1))
+  console.debug('[KpiStrip] period=%s total=%.2f change=%s%% empty=%s', period, totalPrice, changePercent.toFixed(1), isEmpty)
+
+  if (isEmpty) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '20px 0 16px' }}
+      >
+        <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>Портфель</span>
+        <span style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>$0</span>
+        <span style={{ fontSize: 12, color: 'var(--muted)' }}>Добавьте активы, чтобы увидеть статистику портфеля</span>
+      </motion.div>
+    )
+  }
 
   return (
     <motion.div
@@ -79,7 +92,7 @@ export default function KpiStrip() {
         </div>
 
         <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-          к пред. {formatCurrency(prevTotal)} · за {period}
+          вложено {formatCurrency(prevTotal)} · P&L за всё время
         </span>
       </div>
 

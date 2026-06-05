@@ -1,10 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
+import { useHoldings } from '../../hooks/useHoldings'
 
-const TARGET_VALUE = 528976.82
-const PREV_VALUE = 501641.73
-const CHANGE_PERCENT = 7.9
-const CHANGE_DOLLAR = 27335.09
 const ANIMATION_DURATION = 1500
 
 function easeOutCubic(t: number): number {
@@ -19,23 +16,31 @@ interface Props {
   targetValue?: number
 }
 
-export default function PortfolioHero({ targetValue = TARGET_VALUE }: Props) {
+export default function PortfolioHero({ targetValue }: Props) {
+  const { totalValue, totalCost, totalPnl, pnlPercent, isEmpty } = useHoldings()
+  const target = targetValue ?? totalValue
+  const changePercent = pnlPercent
+  const changeDollar = totalPnl
+  const prevValue = totalCost
+  const isPositive = changeDollar >= 0
+
   const [displayValue, setDisplayValue] = useState(0)
   const [periodEnabled, setPeriodEnabled] = useState(true)
   const startTimeRef = useRef<number | null>(null)
   const rafRef = useRef<number | null>(null)
 
   useEffect(() => {
+    startTimeRef.current = null
     const animate = (timestamp: number) => {
       if (startTimeRef.current === null) startTimeRef.current = timestamp
       const elapsed = timestamp - startTimeRef.current
       const progress = Math.min(elapsed / ANIMATION_DURATION, 1)
-      setDisplayValue(targetValue * easeOutCubic(progress))
+      setDisplayValue(target * easeOutCubic(progress))
 
       if (progress < 1) {
         rafRef.current = requestAnimationFrame(animate)
       } else {
-        console.debug('[PortfolioHero] countUp complete, value=', targetValue)
+        console.debug('[PortfolioHero] countUp complete, value=%.2f', target)
       }
     }
 
@@ -43,7 +48,19 @@ export default function PortfolioHero({ targetValue = TARGET_VALUE }: Props) {
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
-  }, [targetValue])
+  }, [target])
+
+  if (isEmpty) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '20px 0 16px' }}>
+        <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 400 }}>Стоимость портфеля</span>
+        <span style={{ fontSize: 48, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>$0.00</span>
+        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+          Добавьте активы в портфель, чтобы видеть стоимость и доходность
+        </span>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -83,7 +100,7 @@ export default function PortfolioHero({ targetValue = TARGET_VALUE }: Props) {
               gap: 3,
             }}
           >
-            ↑ {CHANGE_PERCENT}%
+            {isPositive ? '↑' : '↓'} {Math.abs(changePercent).toFixed(1)}%
           </span>
           <span
             style={{
@@ -96,12 +113,12 @@ export default function PortfolioHero({ targetValue = TARGET_VALUE }: Props) {
               fontWeight: 600,
             }}
           >
-            +{formatCurrency(CHANGE_DOLLAR)}
+            {isPositive ? '+' : ''}{formatCurrency(changeDollar)}
           </span>
         </div>
 
         <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-          к пред. {formatCurrency(PREV_VALUE)} · 1 июн – 31 авг 2025
+          вложено {formatCurrency(prevValue)} · P&L за всё время
         </span>
       </div>
 

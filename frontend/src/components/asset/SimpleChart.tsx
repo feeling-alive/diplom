@@ -1,17 +1,21 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useId } from 'react'
 import { motion } from 'framer-motion'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { useOHLCV } from '../../hooks/useOHLCV'
-import type { Timeframe } from '../../types/market.types'
+import type { Timeframe, Asset } from '../../types/market.types'
 
 interface Props {
   symbol: string
   change24h: number
+  assetType?: Asset['type']
 }
 
 const TIMEFRAMES: { key: Timeframe; label: string }[] = [
+  { key: '1m', label: '1м' },
+  { key: '5m', label: '5м' },
+  { key: '15m', label: '15м' },
   { key: '1H', label: '1Ч' },
   { key: '4H', label: '4Ч' },
   { key: '1D', label: '1Д' },
@@ -19,15 +23,32 @@ const TIMEFRAMES: { key: Timeframe; label: string }[] = [
   { key: '1M', label: '1М' },
 ]
 
+// Intraday timeframes show time; daily+ show the date.
+const INTRADAY: Timeframe[] = ['1m', '5m', '15m', '1H', '4H']
+
 function formatTime(ts: number, tf: Timeframe): string {
   const d = new Date(ts)
-  if (tf === '1H' || tf === '4H') {
+  if (INTRADAY.includes(tf)) {
     return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
   }
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 }
 
-function TooltipContent({ active, payload, label, tf }: { active?: boolean; payload?: Array<{ value: number }>; label?: number; tf: Timeframe }) {
+// Currency-aware price label: forex shows 4 decimals (no $), indices a plain
+// number, crypto/stock a $ amount. Used for both Y-axis ticks and the tooltip.
+function formatAxisPrice(value: number, type?: Asset['type']): string {
+  if (type === 'forex') return value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+  if (type === 'index') return value.toLocaleString('en-US', { maximumFractionDigits: 0 })
+  return '$' + value.toLocaleString('en-US', { maximumFractionDigits: value < 1 ? 4 : 0 })
+}
+
+function formatTooltipPrice(value: number, type?: Asset['type']): string {
+  if (type === 'forex') return value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+  if (type === 'index') return value.toLocaleString('en-US', { maximumFractionDigits: 2 })
+  return '$' + value.toLocaleString('en-US', { maximumFractionDigits: value < 1 ? 6 : 2 })
+}
+
+function TooltipContent({ active, payload, label, tf, assetType }: { active?: boolean; payload?: Array<{ value: number }>; label?: number; tf: Timeframe; assetType?: Asset['type'] }) {
   if (!active || !payload?.length) return null
   const value = payload[0].value
   return (
@@ -43,7 +64,7 @@ function TooltipContent({ active, payload, label, tf }: { active?: boolean; payl
         {label !== undefined ? formatTime(label, tf) : ''}
       </div>
       <div style={{ color: 'var(--ink)', fontWeight: 700 }}>
-        ${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+        {formatTooltipPrice(value, assetType)}
       </div>
     </div>
   )
@@ -62,20 +83,24 @@ function ChartSkeleton() {
   )
 }
 
-export default function SimpleChart({ symbol, change24h }: Props) {
+export default function SimpleChart({ symbol, change24h, assetType }: Props) {
   const [tf, setTf] = useState<Timeframe>('1D')
   const { data, isLoading } = useOHLCV(symbol, tf)
 
   const positive = change24h >= 0
   const color = positive ? 'var(--green)' : 'var(--accent)'
   const colorHex = positive ? '#22c55e' : '#E11D48'
+  // Collision-proof gradient id (multiple charts can share a page / same sign).
+  const gradId = `chartFill${useId()}`
 
   const chartData = useMemo(
     () => data.map((p) => ({ time: p.timestamp, close: p.close })),
     [data],
   )
 
-  console.debug('[SimpleChart] symbol=%s tf=%s points=%d positive=%s', symbol, tf, chartData.length, positive)
+  const isEmpty = !isLoading && chartData.length === 0
+
+  console.debug('[SimpleChart] symbol=%s tf=%s points=%d positive=%s empty=%s', symbol, tf, chartData.length, positive, isEmpty)
 
   return (
     <div style={{ width: '100%' }}>
@@ -83,6 +108,7 @@ export default function SimpleChart({ symbol, change24h }: Props) {
       <div style={{
         display: 'flex',
         justifyContent: 'flex-end',
+        flexWrap: 'wrap',
         gap: 4,
         marginBottom: 12,
       }}>
@@ -115,11 +141,23 @@ export default function SimpleChart({ symbol, change24h }: Props) {
       <div style={{ height: 360 }}>
         {isLoading ? (
           <ChartSkeleton />
+        ) : isEmpty ? (
+          <div style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--muted)',
+            fontSize: 13,
+          }}>
+            Нет данных для графика
+          </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
               <defs>
-                <linearGradient id={`chartFill-${positive ? 'up' : 'down'}`} x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={colorHex} stopOpacity={0.35} />
                   <stop offset="100%" stopColor={colorHex} stopOpacity={0} />
                 </linearGradient>
@@ -139,11 +177,11 @@ export default function SimpleChart({ symbol, change24h }: Props) {
                 axisLine={false}
                 tickLine={false}
                 domain={['dataMin', 'dataMax']}
-                tickFormatter={(v: number) => `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
+                tickFormatter={(v: number) => formatAxisPrice(v, assetType)}
                 width={60}
               />
               <Tooltip
-                content={<TooltipContent tf={tf} />}
+                content={<TooltipContent tf={tf} assetType={assetType} />}
                 cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '3 3' }}
               />
               <Area
@@ -151,7 +189,7 @@ export default function SimpleChart({ symbol, change24h }: Props) {
                 dataKey="close"
                 stroke={colorHex}
                 strokeWidth={2}
-                fill={`url(#chartFill-${positive ? 'up' : 'down'})`}
+                fill={`url(#${gradId})`}
                 activeDot={{ r: 4, fill: colorHex, strokeWidth: 2, stroke: '#fff' }}
               />
             </AreaChart>

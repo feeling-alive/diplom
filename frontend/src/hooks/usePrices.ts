@@ -22,12 +22,21 @@ async function fetchAllPrices(): Promise<Asset[]> {
   const updates = new Map<string, Partial<Asset>>()
 
   try {
-    const res = await fetch('https://www.okx.com/api/v5/market/tickers?instType=SPOT&limit=50')
+    // Backend batch proxy (Redis-cached, one upstream OKX call) — replaces the
+    // direct browser->okx.com fetch that failed on CORS/blocked networks and
+    // left crypto prices frozen on the static snapshot.
+    const cryptoSymbols = INITIAL.filter((a) => a.type === 'crypto').map((a) => a.symbol)
+    const res = await fetch(`/api/quotes/cryptos?symbols=${encodeURIComponent(cryptoSymbols.join(','))}`)
     if (res.ok) {
-      const json = await res.json() as { data: Array<{ instId: string; last: string; volCcy24h: string }> }
-      for (const t of json.data ?? []) updates.set(t.instId, { price: parseFloat(t.last), volume24h: Math.round(parseFloat(t.volCcy24h)) })
+      const json = await res.json() as { tickers: Array<{ symbol: string; price: number; changePercent: number; volume: number }> }
+      for (const t of json.tickers ?? []) {
+        updates.set(t.symbol, { price: t.price, change24h: t.changePercent, volume24h: t.volume })
+      }
+      console.debug('[usePrices] crypto via backend: %d tickers', json.tickers?.length ?? 0)
+    } else {
+      console.warn('[usePrices] crypto backend %d — using snapshot', res.status)
     }
-  } catch { /* okx fail */ }
+  } catch (e) { console.warn('[usePrices] crypto backend failed — using snapshot', e) }
 
   try {
     const forexSymbols: Array<[string, string]> = [

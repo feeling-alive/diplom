@@ -6,13 +6,30 @@ import logging
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.services import okx
 
 logger = logging.getLogger("backend.routes.crypto")
 
 router = APIRouter(tags=["crypto"])
+
+
+@router.get("/cryptos")
+async def get_cryptos(
+    symbols: str = Query(..., description="Comma-separated OKX instIds, e.g. BTC-USDT,ETH-USDT"),
+) -> dict[str, Any]:
+    """Batch crypto tickers. One upstream OKX call; per-request CORS-safe proxy
+    so the frontend no longer hits okx.com directly."""
+    parsed = [s.strip() for s in symbols.split(",") if s.strip()]
+    if not parsed:
+        raise HTTPException(status_code=400, detail="No symbols provided")
+    logger.info("[crypto] batch %d symbols", len(parsed))
+    try:
+        return await okx.get_tickers(parsed)
+    except httpx.HTTPError as err:
+        logger.warning("[crypto] okx batch failed: %s", err)
+        raise HTTPException(status_code=502, detail="OKX batch error") from err
 
 
 @router.get("/crypto/{symbol}")

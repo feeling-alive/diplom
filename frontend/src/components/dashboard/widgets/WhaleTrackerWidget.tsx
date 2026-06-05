@@ -13,10 +13,15 @@ type Props = WidgetSizeProps
 
 export default function WhaleTrackerWidget({ gridW = 2, gridH = 2 }: Props) {
   const limit = gridH >= 3 ? 5 : 3
-  console.debug('[WhaleTrackerWidget] gridW=%d gridH=%d', gridW, gridH)
+  console.info('[WhaleTrackerWidget] gridW=%d gridH=%d demo data (no free public whale-alert API)', gridW, gridH)
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+      <span style={{
+        position: 'absolute', top: 0, right: 0, zIndex: 1,
+        fontSize: 8, fontWeight: 700, color: 'var(--muted)',
+        background: 'var(--bg)', borderRadius: 4, padding: '1px 5px',
+      }}>Demo</span>
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         {TXS.slice(0, limit).map((t, i) => (
           <div key={i} style={{

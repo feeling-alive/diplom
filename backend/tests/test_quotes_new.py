@@ -91,12 +91,14 @@ def _no_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.services.fng.get_cached", fake_get_cached)
     monkeypatch.setattr("app.services.funding.get_cached", fake_get_cached)
     monkeypatch.setattr("app.services.gas.get_cached", fake_get_cached)
+    monkeypatch.setattr("app.services.okx.get_cached", fake_get_cached)
     monkeypatch.setattr("app.services.cache.set_cached", fake_set_cached)
     monkeypatch.setattr("app.services.candles.set_cached", fake_set_cached)
     monkeypatch.setattr("app.services.coingecko.set_cached", fake_set_cached)
     monkeypatch.setattr("app.services.fng.set_cached", fake_set_cached)
     monkeypatch.setattr("app.services.funding.set_cached", fake_set_cached)
     monkeypatch.setattr("app.services.gas.set_cached", fake_set_cached)
+    monkeypatch.setattr("app.services.okx.set_cached", fake_set_cached)
 
 
 @pytest.fixture(autouse=True)
@@ -329,3 +331,33 @@ async def test_gas_etherscan_ok_schema(
     assert body["slow"]["gwei"] == 18
     assert body["fast"]["gwei"] == 32
     assert body["baseFee"] == 20
+
+
+# --- /api/quotes/cryptos?symbols= (batch crypto tickers) ---------------------
+
+
+async def test_cryptos_batch_schema(client: AsyncClient) -> None:
+    """One OKX SPOT call is filtered to the requested instIds and normalized."""
+    FakeAsyncClient.responses.append(_FakeResponse({"data": [
+        {"instId": "BTC-USDT", "last": "68045.78", "open24h": "67000.0", "volCcy24h": "123456.7"},
+        {"instId": "ETH-USDT", "last": "3500.0", "open24h": "3400.0", "volCcy24h": "7890.1"},
+        {"instId": "DOGE-USDT", "last": "0.1", "open24h": "0.1", "volCcy24h": "1.0"},  # not requested
+    ]}))
+    with patch("httpx.AsyncClient", FakeAsyncClient):
+        resp = await client.get("/api/quotes/cryptos?symbols=BTC-USDT,ETH-USDT")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    tickers = body["tickers"]
+    # DOGE-USDT was returned by OKX but not requested -> filtered out.
+    assert {t["symbol"] for t in tickers} == {"BTC-USDT", "ETH-USDT"}
+    btc = next(t for t in tickers if t["symbol"] == "BTC-USDT")
+    assert btc["price"] == 68045.78
+    assert btc["changePercent"] == round((68045.78 - 67000.0) / 67000.0 * 100, 4)
+    assert btc["volume"] == round(123456.7)
+    # Only one upstream request for the whole batch.
+    assert len(FakeAsyncClient.calls) == 1
+
+
+async def test_cryptos_empty_symbols_400(client: AsyncClient) -> None:
+    resp = await client.get("/api/quotes/cryptos?symbols=")
+    assert resp.status_code == 400

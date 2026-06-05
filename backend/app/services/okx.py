@@ -18,6 +18,57 @@ from app.utils import safe_float
 logger = logging.getLogger("backend.okx")
 
 _BASE_URL = "https://www.okx.com/api/v5/market/ticker"
+_TICKERS_URL = "https://www.okx.com/api/v5/market/tickers"
+
+
+def _normalize_ticker(ticker: dict[str, Any]) -> dict[str, Any]:
+    """Map one OKX ticker row to the canonical ``{symbol, price, change, ...}`` shape."""
+    inst_id = str(ticker.get("instId", "")).upper()
+    last = safe_float(ticker.get("last"))
+    open_24h = safe_float(ticker.get("open24h"))
+    change = last - open_24h
+    change_pct = (change / open_24h * 100) if open_24h > 0 else 0.0
+    return {
+        "symbol": inst_id,
+        "price": last,
+        "change": round(change, 8),
+        "changePercent": round(change_pct, 4),
+        "volume": round(safe_float(ticker.get("volCcy24h"))),
+    }
+
+
+async def get_tickers(symbols: list[str]) -> dict[str, Any]:
+    """Batch crypto tickers via a single OKX SPOT ``tickers`` call.
+
+    Replaces the frontend's direct browser->OKX fetch (CORS-fragile). One
+    upstream request returns every SPOT pair; we filter to the requested
+    instIds. Returns ``{tickers: [{symbol, price, change, changePercent, volume}]}``.
+    Cache-first under a key derived from the sorted symbol set.
+    """
+    wanted = {s.strip().upper() for s in symbols if s.strip()}
+    key = "cache:crypto:tickers:" + ",".join(sorted(wanted))
+
+    cached = await get_cached(key)
+    if cached is not None:
+        return cached
+
+    logger.info("[okx] batch tickers for %d symbols", len(wanted))
+    async with httpx.AsyncClient(timeout=settings.http_timeout, follow_redirects=True) as client:
+        resp = await client.get(_TICKERS_URL, params={"instType": "SPOT"})
+        resp.raise_for_status()
+        payload: dict[str, Any] = resp.json()
+
+    data = payload.get("data") or []
+    tickers = [
+        _normalize_ticker(row)
+        for row in data
+        if str(row.get("instId", "")).upper() in wanted
+    ]
+    logger.info("[okx] matched %d/%d requested tickers", len(tickers), len(wanted))
+
+    result = {"tickers": tickers}
+    await set_cached(key, result, settings.crypto_ttl)
+    return result
 
 
 async def get_ticker(symbol: str) -> dict[str, Any]:
@@ -46,18 +97,6 @@ async def get_ticker(symbol: str) -> dict[str, Any]:
         logger.warning("[okx] no data for %s (payload code=%s)", symbol, payload.get("code"))
         raise LookupError(f"OKX has no ticker for {symbol}")
 
-    ticker = data[0]
-    last = safe_float(ticker.get("last"))
-    open_24h = safe_float(ticker.get("open24h"))
-    change = last - open_24h
-    change_pct = (change / open_24h * 100) if open_24h > 0 else 0.0
-
-    result = {
-        "symbol": symbol,
-        "price": last,
-        "change": round(change, 8),
-        "changePercent": round(change_pct, 4),
-        "volume": round(safe_float(ticker.get("volCcy24h"))),
-    }
+    result = _normalize_ticker(data[0])
     await set_cached(key, result, settings.crypto_ttl)
     return result

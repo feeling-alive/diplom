@@ -1,72 +1,12 @@
-import { useState, useEffect, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { USE_MOCK } from '../../../lib/env'
+import { useMemo } from 'react'
+import { useFearGreed, fngColor as getColor } from '../../../hooks/useFearGreed'
 import type { WidgetSizeProps } from '../../../types/widgets.types'
 
 type Props = WidgetSizeProps
 
-interface FngData {
-  value: number
-  label: string
-  timestamp: number
-}
-
-interface FngBackendPayload {
-  value: number
-  label: string
-  timestamp: number
-  fetchedAt: number
-  source: 'alternative.me' | 'cache' | 'fallback'
-}
-
-function getLabel(value: number): string {
-  if (value >= 75) return 'Жадность'
-  if (value >= 50) return 'Нейтрально'
-  if (value >= 25) return 'Страх'
-  return 'Крайний страх'
-}
-
-function getColor(value: number): string {
-  if (value >= 75) return '#22c55e'
-  if (value >= 50) return '#f97316'
-  if (value >= 25) return '#f59e0b'
-  return '#ef4444'
-}
-
-async function fetchFng(): Promise<FngData> {
-  const res = await fetch('/api/quotes/fng')
-  if (!res.ok) throw new Error(`quotes/fng ${res.status}`)
-  const json = (await res.json()) as FngBackendPayload
-  console.info('[FearGreedWidget] backend value=%d label=%s source=%s', json.value, json.label, json.source)
-  return { value: json.value, label: getLabel(json.value), timestamp: json.timestamp }
-}
-
-const MOCK_DATA: FngData = { value: 72, label: getLabel(72), timestamp: Math.floor(Date.now() / 1000) }
-
 export default function FearGreedWidget({ gridW = 1, gridH = 2 }: Props) {
-  const [isLocalMock] = useState(USE_MOCK)
-  const [manualMock] = useState<FngData | null>(USE_MOCK ? MOCK_DATA : null)
-
-  const { data, isLoading } = useQuery<FngData, Error>({
-    queryKey: ['fng'],
-    queryFn: fetchFng,
-    enabled: !isLocalMock,
-    staleTime: 60 * 60 * 1000,
-    gcTime: 2 * 60 * 60 * 1000,
-    refetchInterval: 60 * 60 * 1000,
-    retry: 1,
-  })
-
-  // Mock mode: держим статичные данные, не делаем fetch.
-  // Live mode: до получения первого ответа показываем заглушку.
-  const effective = isLocalMock ? manualMock : data ?? null
-  const showLoading = !isLocalMock && isLoading && !effective
-
-  useEffect(() => {
-    if (isLocalMock) {
-      console.info('[FearGreedWidget] mock mode — value=%d', MOCK_DATA.value)
-    }
-  }, [isLocalMock])
+  const { data: effective, isLoading } = useFearGreed()
+  const showLoading = isLoading && !effective
 
   const segments = useMemo(() => {
     const result: { color: string; startAngle: number; endAngle: number }[] = []

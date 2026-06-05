@@ -130,7 +130,7 @@ export default function MainCard({ asset }: Props) {
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
             >
-              <SimpleChart symbol={asset.symbol} change24h={asset.change24h} />
+              <SimpleChart symbol={asset.symbol} change24h={asset.change24h} assetType={asset.type} />
             </motion.div>
           )}
 
