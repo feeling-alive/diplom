@@ -13,11 +13,8 @@ export type WidgetType =
   | 'market_volume'
   | 'trending_coins'
   | 'technical_analysis'
-  | 'economic_calendar'
   | 'heatmap'
-  | 'portfolio_pnl'
   | 'dominance_chart'
-  | 'price_alerts'
   | 'macd_widget'
   | 'rsi_gauge'
   | 'order_book'
@@ -29,9 +26,7 @@ export type WidgetType =
   | 'stock_screener'
   | 'sentiment_meter'
   | 'liquidations'
-  | 'yield_curve'
-  | 'correlation_matrix'
-  | 'ai_signal';
+  | 'correlation_matrix';
 
 export type WidgetSize = {
   w: number;

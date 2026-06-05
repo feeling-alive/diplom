@@ -2,9 +2,9 @@ import {
   TrendingUp, Star, BarChart2, PieChart, Users,
   Newspaper, ArrowUpDown, DollarSign, Gauge,
   Activity, Flame,
-  Calendar, Grid, Wallet, Bell, AlertTriangle,
+  Grid, AlertTriangle,
   Globe, Percent, Fuel, ArrowLeftRight, Anchor,
-  Filter, Smile, LineChart, Sparkles, ListOrdered,
+  Filter, Smile, ListOrdered,
 } from 'lucide-react';
 import type { WidgetDefinition } from '../types/widgets.types';
 
@@ -183,13 +183,6 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     minW: 2, minH: 2, maxW: 3, maxH: 3,
   },
   {
-    type: 'economic_calendar', title: 'Экон. календарь', description: 'Предстоящие события рынка',
-    icon: Calendar, color: '#0891b2',
-    availableSizes: [{ w: 3, h: 2, label: '3×2' }, { w: 4, h: 2, label: '4×2' }, { w: 3, h: 3, label: '3×3' }],
-    defaultSize: { w: 3, h: 2, label: '3×2' },
-    minW: 3, minH: 2, maxW: 4, maxH: 4,
-  },
-  {
     type: 'heatmap', title: 'Тепловая карта', description: 'Размер = капитализация, цвет = % за день',
     icon: Grid, color: '#dc2626',
     availableSizes: [{ w: 3, h: 2, label: '3×2' }, { w: 4, h: 2, label: '4×2' }, { w: 4, h: 3, label: '4×3' }],
@@ -197,25 +190,11 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     minW: 3, minH: 2, maxW: 4, maxH: 4,
   },
   {
-    type: 'portfolio_pnl', title: 'P&L портфеля', description: 'Прибыль/убыток за день/неделю/месяц',
-    icon: Wallet, color: '#16a34a',
-    availableSizes: [{ w: 1, h: 1, label: '1×1' }, { w: 2, h: 1, label: '2×1' }, { w: 3, h: 1, label: '3×1' }, { w: 4, h: 1, label: '4×1' }],
-    defaultSize: { w: 3, h: 1, label: '3×1' },
-    minW: 1, minH: 1, maxW: 4, maxH: 1,
-  },
-  {
     type: 'dominance_chart', title: 'Доминация BTC', description: 'BTC / ETH / Альткоины',
     icon: PieChart, color: '#d97706',
     availableSizes: [{ w: 1, h: 2, label: '1×2' }, { w: 2, h: 2, label: '2×2' }, { w: 3, h: 2, label: '3×2' }],
     defaultSize: { w: 2, h: 2, label: '2×2' },
     minW: 1, minH: 2, maxW: 3, maxH: 3,
-  },
-  {
-    type: 'price_alerts', title: 'Уведомления цен', description: 'Активные ценовые алерты',
-    icon: Bell, color: '#7c3aed',
-    availableSizes: [{ w: 2, h: 2, label: '2×2' }, { w: 2, h: 3, label: '2×3' }],
-    defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 2, minH: 2, maxW: 3, maxH: 4,
   },
   {
     type: 'macd_widget', title: 'MACD', description: 'Сигнальная линия и гистограмма',
@@ -295,24 +274,10 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     minW: 2, minH: 2, maxW: 4, maxH: 3,
   },
   {
-    type: 'yield_curve', title: 'Кривая доходности', description: 'US Treasuries 2Y / 5Y / 10Y / 30Y',
-    icon: LineChart, color: '#1e40af',
-    availableSizes: [{ w: 3, h: 2, label: '3×2' }, { w: 4, h: 2, label: '4×2' }],
-    defaultSize: { w: 3, h: 2, label: '3×2' },
-    minW: 3, minH: 2, maxW: 4, maxH: 3,
-  },
-  {
     type: 'correlation_matrix', title: 'Корреляции', description: 'Матрица связи активов вотч-листа',
     icon: Grid, color: '#065f46',
     availableSizes: [{ w: 3, h: 2, label: '3×2' }, { w: 3, h: 3, label: '3×3' }],
     defaultSize: { w: 3, h: 2, label: '3×2' },
     minW: 2, minH: 2, maxW: 4, maxH: 4,
-  },
-  {
-    type: 'ai_signal', title: 'ИИ сигнал', description: 'Тренд + рекомендация по активу',
-    icon: Sparkles, color: '#7e22ce',
-    availableSizes: [{ w: 1, h: 1, label: '1×1' }, { w: 2, h: 1, label: '2×1' }, { w: 2, h: 2, label: '2×2' }, { w: 3, h: 1, label: '3×1' }],
-    defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 1, minH: 1, maxW: 3, maxH: 3,
   },
 ];

@@ -43,7 +43,7 @@ Phase 1 можно делать параллельно с Phase 2. Phase 3-5 —
 
 ### Phase 1: Реестр — удаление 5 виджетов
 
-- [ ] Task 1.1: Удалить `ai_signal`, `yield_curve`, `price_alerts`, `economic_calendar`, `portfolio_pnl` из реестра
+- [x] Task 1.1: Удалить `ai_signal`, `yield_curve`, `price_alerts`, `economic_calendar`, `portfolio_pnl` из реестра
   - Файлы:
     - `frontend/src/types/widgets.types.ts` — удалить 5 значений из `WidgetType` union (строки 3-34)
     - `frontend/src/constants/widgets.registry.ts` — удалить 5 entries
@@ -52,7 +52,7 @@ Phase 1 можно делать параллельно с Phase 2. Phase 3-5 —
   - Дополнительно: удалить осиротевшие файлы `AiSignalWidget.tsx`, `YieldCurveWidget.tsx`, `PriceAlertsWidget.tsx`, `EconomicCalendarWidget.tsx`, `PortfolioPnlWidget.tsx` (но НЕ делать жёсткий `rm` — оставить до Phase 1.2 для безопасности; `WidgetCard` их не вызовет, и они не попадут в bundle через tree-shaking)
   - Логирование: `console.debug('[registry] removed widget %s', type)` для каждого удаления
 
-- [ ] Task 1.2: Бамп версии localStorage + миграция stale keys
+- [x] Task 1.2: Бамп версии localStorage + миграция stale keys
   - Файл: `frontend/src/lib/dashboardLayout.ts`
   - Действия:
     - Переименовать `ENVELOPE_KEY` с `fintrack_dashboards_v1` на `fintrack_dashboards_v2` (новая схема реестра)

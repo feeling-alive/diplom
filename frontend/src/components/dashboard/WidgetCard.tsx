@@ -14,11 +14,8 @@ import FearGreedWidget from './widgets/FearGreedWidget'
 import MarketVolumeWidget from './widgets/MarketVolumeWidget'
 import TrendingCoinsWidget from './widgets/TrendingCoinsWidget'
 import TechnicalAnalysisWidget from './widgets/TechnicalAnalysisWidget'
-import EconomicCalendarWidget from './widgets/EconomicCalendarWidget'
 import HeatmapWidget from './widgets/HeatmapWidget'
-import PortfolioPnlWidget from './widgets/PortfolioPnlWidget'
 import DominanceChartWidget from './widgets/DominanceChartWidget'
-import PriceAlertsWidget from './widgets/PriceAlertsWidget'
 import MacdWidget from './widgets/MacdWidget'
 import RsiGaugeWidget from './widgets/RsiGaugeWidget'
 import OrderBookWidget from './widgets/OrderBookWidget'
@@ -30,9 +27,7 @@ import WhaleTrackerWidget from './widgets/WhaleTrackerWidget'
 import StockScreenerWidget from './widgets/StockScreenerWidget'
 import SentimentMeterWidget from './widgets/SentimentMeterWidget'
 import LiquidationsWidget from './widgets/LiquidationsWidget'
-import YieldCurveWidget from './widgets/YieldCurveWidget'
 import CorrelationMatrixWidget from './widgets/CorrelationMatrixWidget'
-import AiSignalWidget from './widgets/AiSignalWidget'
 
 export function renderWidgetContent(type: WidgetType, gridW: number, gridH: number) {
   switch (type) {
@@ -48,11 +43,8 @@ export function renderWidgetContent(type: WidgetType, gridW: number, gridH: numb
     case 'market_volume': return <MarketVolumeWidget gridW={gridW} gridH={gridH} />
     case 'trending_coins': return <TrendingCoinsWidget gridW={gridW} gridH={gridH} />
     case 'technical_analysis': return <TechnicalAnalysisWidget gridW={gridW} gridH={gridH} />
-    case 'economic_calendar': return <EconomicCalendarWidget gridW={gridW} gridH={gridH} />
     case 'heatmap': return <HeatmapWidget gridW={gridW} gridH={gridH} />
-    case 'portfolio_pnl': return <PortfolioPnlWidget gridW={gridW} gridH={gridH} />
     case 'dominance_chart': return <DominanceChartWidget gridW={gridW} gridH={gridH} />
-    case 'price_alerts': return <PriceAlertsWidget gridW={gridW} gridH={gridH} />
     case 'macd_widget': return <MacdWidget gridW={gridW} gridH={gridH} />
     case 'rsi_gauge': return <RsiGaugeWidget gridW={gridW} gridH={gridH} />
     case 'order_book': return <OrderBookWidget gridW={gridW} gridH={gridH} />
@@ -64,9 +56,7 @@ export function renderWidgetContent(type: WidgetType, gridW: number, gridH: numb
     case 'stock_screener': return <StockScreenerWidget gridW={gridW} gridH={gridH} />
     case 'sentiment_meter': return <SentimentMeterWidget gridW={gridW} gridH={gridH} />
     case 'liquidations': return <LiquidationsWidget gridW={gridW} gridH={gridH} />
-    case 'yield_curve': return <YieldCurveWidget gridW={gridW} gridH={gridH} />
     case 'correlation_matrix': return <CorrelationMatrixWidget gridW={gridW} gridH={gridH} />
-    case 'ai_signal': return <AiSignalWidget gridW={gridW} gridH={gridH} />
     default: return null
   }
 }

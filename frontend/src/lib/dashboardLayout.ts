@@ -13,8 +13,11 @@ export const MAX_DASHBOARDS = 5
 export const DEFAULT_DASHBOARD_NAME = 'Основной'
 const STORAGE_KEY = 'fintrack_widgets_v4'
 // Multi-dashboard envelope cache (Задача 7); supersedes the single-array key.
-const ENVELOPE_KEY = 'fintrack_dashboards_v1'
-const LEGACY_STORAGE_KEYS = ['fintrack_widgets_v2', 'fintrack_widgets']
+// v2: post-cleanup registry (5 widgets removed: ai_signal, yield_curve, price_alerts,
+// economic_calendar, portfolio_pnl). clampWidgets() drops saved widgets whose type
+// is no longer in WIDGET_REGISTRY, so the bump from v1 is a hard reset — no v1→v2 data migration.
+const ENVELOPE_KEY = 'fintrack_dashboards_v2'
+const LEGACY_STORAGE_KEYS = ['fintrack_widgets_v2', 'fintrack_widgets', 'fintrack_dashboards_v1']
 // v3 is migrated (not purged): kpi_portfolio -> market_ticker.
 const V3_MIGRATION_KEY = 'fintrack_widgets_v3'
 
@@ -61,7 +64,13 @@ export function findEmptySlot(
 // or a backend layout produced by a different widget set.
 export function clampWidgets(widgets: DashboardWidget[]): DashboardWidget[] {
   return widgets
-    .filter((w) => WIDGET_REGISTRY.some((r) => r.type === w.type))
+    .filter((w) => {
+      const known = WIDGET_REGISTRY.some((r) => r.type === w.type)
+      if (!known) {
+        console.info('[dashboardLayout] purging removed widget from layout: %s', w.type)
+      }
+      return known
+    })
     .map((w) => {
       const def = WIDGET_REGISTRY.find((r) => r.type === w.type)
       if (!def) return w
@@ -88,7 +97,7 @@ export function loadLocalWidgets(): DashboardWidget[] | null {
   try {
     for (const k of LEGACY_STORAGE_KEYS) {
       if (localStorage.getItem(k)) {
-        console.debug('[dashboardLayout] purging legacy localStorage key %s', k)
+        console.info('[dashboardLayout] purging legacy localStorage key %s', k)
         localStorage.removeItem(k)
       }
     }
