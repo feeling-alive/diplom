@@ -24,3 +24,11 @@ pillow
 
 # --- News scheduler / AI enrichment (Блок D) ---------------------------------
 apscheduler>=3.10
+
+# --- AI / ML feature scaling (PatchTST preprocessing) ------------------------
+# numpy/joblib/scikit-learn are imported lazily in services/features.py and are
+# only exercised when a fitted scaler.pkl is present in app/ml/. Without the
+# file the inference path sends raw close prices and these stay unused.
+numpy
+joblib
+scikit-learn

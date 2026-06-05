@@ -93,6 +93,28 @@ class Settings(BaseSettings):
     hf_api_key: str = ""
     hf_model_id: str = "nikasq/PatchTST-Time-Series-Classifier"
 
+    # --- AI / ML inference tuning ----------------------------------------------
+    # Candle window (SEQ_LEN) and timeframe fed to the PatchTST classifier.
+    prediction_seq_len: int = 100
+    prediction_timeframe: str = "1H"
+    # Confidence gating: a top UP/DOWN label below the threshold, or with too
+    # small a margin over the runner-up, is downgraded to a low-confidence
+    # SIDEWAYS signal so the model never projects false certainty (a flat ~51%
+    # "боковик" must not read as a confident call).
+    prediction_confidence_threshold: float = 0.55
+    prediction_margin: float = 0.10
+    # Optional joblib scaler applied to the feature window before the HF call.
+    # Path is relative to the backend working dir; absent file => raw close
+    # prices are sent (graceful, behaviour unchanged from before).
+    scaler_path: str = "app/ml/scaler.pkl"
+
+    # --- Chat news context -----------------------------------------------------
+    # Max news articles injected into the asset-chat system prompt.
+    news_context_limit: int = 5
+    # When True, the general (symbol-less) chat also gets a fresh market-news
+    # block. Off by default — keeps the general chat behaviour unchanged.
+    general_news_enabled: bool = False
+
     # --- Cache TTLs (seconds) --------------------------------------------------
     stock_ttl: int = 60
     crypto_ttl: int = 30
@@ -156,4 +178,17 @@ def log_startup_config() -> None:
         "[config] hf_api_key=%s hf_model_id=%s",
         "present" if settings.hf_api_key else "ABSENT",
         settings.hf_model_id or "not set",
+    )
+    logger.info(
+        "[config] prediction seq_len=%d tf=%s threshold=%.2f margin=%.2f scaler=%s",
+        settings.prediction_seq_len,
+        settings.prediction_timeframe,
+        settings.prediction_confidence_threshold,
+        settings.prediction_margin,
+        settings.scaler_path or "none",
+    )
+    logger.info(
+        "[config] news_context_limit=%d general_news_enabled=%s",
+        settings.news_context_limit,
+        settings.general_news_enabled,
     )

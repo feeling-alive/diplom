@@ -1,0 +1,5 @@
+# Model/scaler binaries are not committed — drop scaler.pkl here locally.
+# See README.md for how to generate it.
+*.pkl
+!.gitignore
+!README.md
