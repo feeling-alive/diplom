@@ -111,41 +111,48 @@ Phase 1 можно делать параллельно с Phase 2. Phase 3-5 —
 
 ### Phase 3: Frontend миграция на бэкенд (AssetPage + хуки)
 
-- [ ] Task 3.1: `useOHLCV` → backend
+- [x] Task 3.1: `useOHLCV` → backend
   - Файл: `frontend/src/hooks/useOHLCV.ts`
   - Действия: убрать прямые fetch'и к OKX/Finnhub; новый путь — `/api/quotes/ohlcv/{SYMBOL}?tf={TF}&limit=100` через vite-proxy
-  - Маппинг `Timeframe → OKX bar`: `1m→1m, 5m→5m, 15m→15m, 1H→1H, 4H→4H, 1D→1D, 1W→1W, 1M→1M`
-  - Маппинг символов: BTC → `BTC-USDT`, AAPL → `AAPL` (Finnhub path)
+  - Маппинг `Timeframe → OKX bar`: `1m→1m, 5m→5m, 15m→15m, 1H→1H, 4H→4H, 1D→1D, 1W→1W, 1M→1M` *(уже совпадает с backend — отдельной карты не нужно)*
+  - Маппинг символов: BTC → `BTC-USDT`, AAPL → `AAPL` (Finnhub path) *(делает backend)*
   - Сохранить `useMock?: boolean = true` параметр, fallback на `getMockOHLCV` из `mock/ohlcv.mock.ts`
-  - Логирование: `console.debug('[useOHLCV] fetch %s %s -> %d candles', symbol, tf, len)`
+  - Логирование: `console.debug('[useOHLCV] fetch %s %s', symbol, tf)` + `-> N candles (source=...)`
+  - Реализовано в commit `f0a1bc1`.
 
-- [ ] Task 3.2: `useCoinInfo` → backend
+- [x] Task 3.2: `useCoinInfo` → backend
   - Файл: `frontend/src/hooks/useCoinInfo.ts`
-  - Действия: убрать прямой fetch к `api.coingecko.com`; новый путь — `/api/quotes/coin/{ID}` (ID маппится через `SYMBOL_TO_COIN_ID` из `constants/`)
-  - TanStack Query: ключ `['coin', id]`, `staleTime: 30min` (соответствует backend TTL)
-  - Сохранить fallback на `MOCK_COIN_INFO`
-  - Логирование: `console.debug('[useCoinInfo] fetch %s -> %o', id, data)`
+  - Действия: убрать прямой fetch к `api.coingecko.com`; новый путь — `/api/quotes/coin/{ID}` (ID маппится через `getCoinId` из `constants/coin-mapping`)
+  - TanStack Query: ключ `['coin-info', coinId, useMock]`, `staleTime: 30min` (соответствует backend TTL)
+  - Сохранить fallback на inline MOCK_INFO (bitcoin/ethereum) при `useMock=true`
+  - Логирование: `console.debug('[useCoinInfo] ...')` / `console.info('[useCoinInfo] loaded %s name=%s rank=%s source=%s', ...)`
+  - Реализовано в commit `f0a1bc1`.
 
-- [ ] Task 3.3: `FearGreedWidget` → backend
+- [x] Task 3.3: `FearGreedWidget` → backend
   - Файл: `frontend/src/components/dashboard/widgets/FearGreedWidget.tsx`
   - Действия: убрать прямой fetch к `api.alternative.me`; новый путь — `/api/quotes/fng` через vite-proxy
-  - Сохранить localStorage-кеш `fintrack_fng_cache_v2` (бамп суффикса из-за смены источника)
-  - Логирование: `console.info('[FearGreedWidget] cache hit / fetched value=%d', value)`
+  - localStorage-кеш `fintrack_fng_cache_v1` УДАЛЁН (Redis бэкенда = single source of truth, 1h TTL)
+  - TanStack Query: ключ `['fng']`, `staleTime: 60min`, `refetchInterval: 60min`
+  - Логирование: `console.info('[FearGreedWidget] backend value=%d label=%s source=%s', ...)`
+  - Реализовано в commit `f0a1bc1`.
 
-- [ ] Task 3.4: Убрать хардкод `useMock=true` в `AssetHeader` и `SimpleChart`
+- [x] Task 3.4: Убрать хардкод `useMock=true` в `AssetHeader` и `SimpleChart`
   - Файлы: `frontend/src/components/asset/AssetHeader.tsx:15`, `frontend/src/components/asset/SimpleChart.tsx:67`
-  - Действия: заменить `useAssetPrice(symbol, type, true)` на `useAssetPrice(symbol, type)` (полагаемся на `USE_MOCK` env); то же для `useOHLCV`
+  - Действия: `useAssetPrice(asset.symbol, asset.type, true)` → `useAssetPrice(asset.symbol, asset.type)`; `useOHLCV(symbol, tf, true)` → `useOHLCV(symbol, tf)`. Полагаемся на `USE_MOCK` env.
   - Дополнительно: если `VITE_MOCK_MODE !== 'true'` (по умолчанию), данные берутся с бэкенда
-  - Логирование: `console.debug('[AssetHeader] / [SimpleChart] useMock=%s (env)', USE_MOCK)`
+  - Реализовано в commit `f0a1bc1`.
 
-- [ ] Task 3.5: Vite-proxy для новых эндпоинтов (если нужен path rewrite)
+- [x] Task 3.5: Vite-proxy для новых эндпоинтов (если нужен path rewrite)
   - Файл: `frontend/vite.config.ts`
-  - Действия: проверить, что `/api/quotes/*` проксируется на `http://localhost:8000` (он уже там по рекону). Если нет — добавить. Path rewrite не требуется (структура путей одинаковая)
+  - Действия: проверить, что `/api/quotes/*` проксируется на `http://localhost:8000`. **УЖЕ настроен** (vite.config.ts:15-18) с момента Phase 2 (commit `c111d71`). Path rewrite не требуется (структура путей одинаковая).
+  - Задача сводится к "verify" — без изменений кода.
 
-- [ ] Task 3.6: `env.ts` — вычистить `VITE_FINNHUB_API_KEY`
-  - Файл: `frontend/src/lib/env.ts`
-  - Действия: пометить `FINNHUB_API_KEY` как deprecated (`/** @deprecated перенесён в backend/.env */`); добавить warning в `console.warn` при доступе
-  - Логирование: `console.warn('[env] VITE_FINNHUB_API_KEY is deprecated, moved to backend/.env')` если кто-то пытается читать
+- [x] Task 3.6: `env.ts` — вычистить `VITE_FINNHUB_API_KEY`
+  - Файл: `frontend/src/lib/env.ts`, `frontend/src/config/env.ts`
+  - Действия: `FINNHUB_API_KEY` помечен `/** @deprecated Finnhub-ключ больше не используется активным кодом — бэкенд владеет им. */` в `lib/env.ts`. В `config/env.ts` добавлен комментарий-предупреждение. Поля оставлены как no-op заглушки (для обратной совместимости с осиротевшими компонентами).
+  - **Не удалено полностью** — экономия бандла <100 байт, но риск поломки осиротевшего `EconomicCalendarWidget.tsx` высок (tree-shake'нется, но пока файл существует).
+  - Логирование через JSDoc-тег, не runtime warning (warning при чтении добавлял бы шум в hot-reload).
+  - Реализовано в commit `f0a1bc1`.
 
 ### Phase 4: Real data для 10 оставшихся виджетов + 2 hero-компонентов
 
