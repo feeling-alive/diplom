@@ -75,10 +75,10 @@
 
 ### Фаза 5 — Тесты
 
-- **T12 — Бэкенд-тесты** (`backend/tests/test_symbols.py`, `test_patchtst.py` новые; `test_chat.py` расширить)
+- [x] **T12 — Бэкенд-тесты** (`backend/tests/test_symbols.py`, `test_patchtst.py` новые; `test_chat.py` расширить)
   `base_ticker`; порог→`SIDEWAYS`+`low_confidence`; margin; scaler через мок joblib; отличимость fallback по `source`; news_context по base_ticker + фоллбэк. Мокать httpx. Зелёный pytest. *(зависит от: T4, T5, T6)*
 
-- **T13 — Фронтенд-тесты** (Vitest + RTL, `__tests__/`)
+- [x] **T13 — Фронтенд-тесты** (Vitest + RTL, `__tests__/`)
   `PredictionBadge` low_confidence; `usePrediction` (мок fetch); `AiSignalWidget` real/loading/empty. Зелёный vitest. *(зависит от: T9, T11)*
 
 ---

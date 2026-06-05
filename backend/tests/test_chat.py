@@ -115,6 +115,30 @@ async def test_predict_public_fallback_on_missing_data(
     assert body["source"] == "no_candle_data"
 
 
+async def test_predict_public_exposes_low_confidence(
+    monkeypatch: pytest.MonkeyPatch,
+    client: AsyncClient,
+) -> None:
+    async def fake_low_conf(
+        candles: list[dict[str, Any]], symbol: str = "unknown"
+    ) -> dict[str, Any]:
+        return {
+            "symbol": symbol,
+            "prediction": "SIDEWAYS",
+            "probability": 0.51,
+            "raw_probabilities": {"UP": 0.51, "DOWN": 0.30, "SIDEWAYS": 0.19},
+            "low_confidence": True,
+            "source": "huggingface",
+        }
+
+    monkeypatch.setattr("app.routes.chat.get_prediction", fake_low_conf)
+    resp = await client.get("/api/chat/predict/BTC")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["low_confidence"] is True
+    assert body["raw_probabilities"]["UP"] == 0.51
+
+
 # ---------------------------------------------------------------------------
 # POST /api/chat/message  — requires JWT auth, hybrid AI analysis
 # ---------------------------------------------------------------------------
@@ -204,3 +228,41 @@ async def test_save_with_symbol(client: AsyncClient) -> None:
     assert body["status"] == "ok"
     assert body["symbol"] == "BTC"
     assert body["message_count"] == 2
+
+
+# ---------------------------------------------------------------------------
+# News context binding (base ticker + fallbacks)
+# ---------------------------------------------------------------------------
+
+
+async def test_news_context_matches_by_base_ticker(db_session: AsyncSession) -> None:
+    """A full instrument id (BTC-USDT) should surface BTC-tagged/keyword news.
+
+    On the sqlite test DB the JSONB tag query is skipped and the text fallback
+    matches the base ticker in the title.
+    """
+    from datetime import datetime, timezone
+
+    from app.models import NewsArticle
+    from app.routes.chat import _get_news_context
+
+    db_session.add(
+        NewsArticle(
+            title="BTC rallies past resistance",
+            url="http://news.test/btc-1",
+            source_name="TestWire",
+            published_at=datetime.now(tz=timezone.utc),
+            category="crypto",
+        )
+    )
+    await db_session.commit()
+
+    ctx = await _get_news_context(db_session, "BTC-USDT")
+    assert "BTC rallies" in ctx
+
+
+async def test_news_context_empty_when_no_articles(db_session: AsyncSession) -> None:
+    from app.routes.chat import _get_news_context
+
+    ctx = await _get_news_context(db_session, "BTC-USDT")
+    assert "Нет свежих новостей" in ctx
