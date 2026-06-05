@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AiSignalWidget from '../AiSignalWidget'
 import type { UsePredictionResult } from '../../../../hooks/usePrediction'
 
-const mockUsePrediction = vi.fn<[], UsePredictionResult>()
+const mockUsePrediction = vi.fn<() => UsePredictionResult>()
 
 vi.mock('../../../../hooks/usePrediction', () => ({
   usePrediction: () => mockUsePrediction(),

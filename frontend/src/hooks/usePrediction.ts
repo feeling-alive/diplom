@@ -39,20 +39,22 @@ export function usePrediction(symbol: string, useMock: boolean = true): UsePredi
   useEffect(() => {
     let cancelled = false
 
-    if (useMock) {
-      console.debug('[usePrediction] mock %s', symbol)
-      setState({ data: { ...MOCK_PREDICTION }, isLoading: false, error: null })
-      return
-    }
-
-    if (!symbol) {
-      setState({ data: null, isLoading: false, error: null })
-      return
-    }
-
-    setState((s) => ({ ...s, isLoading: true }))
-
+    // All state updates happen inside the async runner (after the synchronous
+    // effect body) to avoid cascading renders / set-state-in-effect.
     const run = async () => {
+      if (useMock) {
+        console.debug('[usePrediction] mock %s', symbol)
+        if (!cancelled) setState({ data: { ...MOCK_PREDICTION }, isLoading: false, error: null })
+        return
+      }
+
+      if (!symbol) {
+        if (!cancelled) setState({ data: null, isLoading: false, error: null })
+        return
+      }
+
+      if (!cancelled) setState((s) => ({ ...s, isLoading: true }))
+
       try {
         const res = await fetch(`/api/chat/predict/${encodeURIComponent(symbol)}`, {
           credentials: 'include',
@@ -75,7 +77,7 @@ export function usePrediction(symbol: string, useMock: boolean = true): UsePredi
       }
     }
 
-    run()
+    void run()
     return () => {
       cancelled = true
     }
