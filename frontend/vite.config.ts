@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    // cloudflared quick-tunnel выдаёт случайный *.trycloudflare.com при каждом
+    // запуске — разрешаем все хосты, чтобы dev-сервер не блокировал Host-заголовок.
+    allowedHosts: true,
     proxy: {
       // FinTrack backend (FastAPI + Redis) — new cached quote endpoints.
       // Additive: the legacy /api/finnhub|news|forex|okx rules below still proxy

@@ -29,7 +29,14 @@
       "PowerShell(docker exec dashboard-app-postgres-1 *)",
       "PowerShell(cd \"C:\\\\Users\\\\Никита\\\\Desktop\\\\DIPLOM\\\\dashboard-app\\\\backend\"; $env:DATABASE_URL=\"postgresql+asyncpg://fintrack:fintrack_pass@localhost:5433/fintrack\"; .\\\\.venv\\\\Scripts\\\\python.exe -m alembic revision --autogenerate -m \"initial tables\" 2>&1 | Select-Object -Last 25)",
       "PowerShell(cd \"C:\\\\Users\\\\Никита\\\\Desktop\\\\DIPLOM\\\\dashboard-app\\\\backend\"; $env:DATABASE_URL=\"postgresql+asyncpg://fintrack:fintrack_pass@localhost:5433/fintrack\"; .\\\\.venv\\\\Scripts\\\\python.exe -m alembic upgrade head 2>&1 | Select-Object -Last 12)",
-      "PowerShell(cd \"C:\\\\Users\\\\Никита\\\\Desktop\\\\DIPLOM\\\\dashboard-app\\\\frontend\"; npx eslint src/context/AuthContext.tsx src/lib/authApi.ts src/pages/LoginPage.tsx src/pages/RegisterPage.tsx src/components/layout/RoutesGuard.tsx src/components/layout/AppSidebar.tsx src/main.tsx 2>&1 | Select-Object -Last 25; Write-Output \"exit=$LASTEXITCODE\")"
+      "PowerShell(cd \"C:\\\\Users\\\\Никита\\\\Desktop\\\\DIPLOM\\\\dashboard-app\\\\frontend\"; npx eslint src/context/AuthContext.tsx src/lib/authApi.ts src/pages/LoginPage.tsx src/pages/RegisterPage.tsx src/components/layout/RoutesGuard.tsx src/components/layout/AppSidebar.tsx src/main.tsx 2>&1 | Select-Object -Last 25; Write-Output \"exit=$LASTEXITCODE\")",
+      "PowerShell(Get-Command *)",
+      "Bash(ngrok config *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(\"C:/Users/Никита/AppData/Roaming/npm/node_modules/ngrok/bin/ngrok\" http *)",
+      "Bash(curl -s http://localhost:4040/api/tunnels)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(t['public_url']\\) for t in d.get\\('tunnels',[]\\)]\")"
     ]
   }
 }

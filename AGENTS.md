@@ -8,6 +8,7 @@ FinTrack — настраиваемый финансовый дашборд (к�
 
 ## Технологический стек
 
+**Frontend:**
 - **Язык:** TypeScript 6 (strict, `no-explicit-any: error`)
 - **Фреймворк:** React 19 + react-router-dom v7
 - **Сборка:** Vite 8
@@ -19,6 +20,14 @@ FinTrack — настраиваемый финансовый дашборд (к�
 - **AI:** Groq API (`llama-3.3-70b-versatile`)
 - **Тесты:** Vitest 4 + React Testing Library + jsdom
 - **Линтер:** ESLint 10 flat config
+
+**Backend:**
+- **Язык:** Python 3.13
+- **Фреймворк:** FastAPI + Uvicorn
+- **БД:** PostgreSQL 14 + SQLAlchemy 2.0 async (`asyncpg`) + Alembic (миграции)
+- **Кэш:** Redis
+- **Аутентификация:** JWT (bcrypt + python-jose) + Google OAuth
+- **Оркестрация:** Docker Compose (postgres + redis + backend)
 
 ## Структура проекта
 
@@ -44,14 +53,28 @@ FinTrack — настраиваемый финансовый дашборд (к�
 │   ├── main.tsx                  # точка входа, BrowserRouter
 │   ├── index.css                 # глобальные стили, react-grid-layout overrides
 │   └── test-setup.ts             # Vitest setup
+├── backend/                      # FastAPI-бэкенд (Python 3.13)
+│   ├── app/
+│   │   ├── main.py               # FastAPI app, CORS, StaticFiles /uploads, монтаж роутеров
+│   │   ├── config.py             # настройки (SECRET_KEY, DB URL, Google OAuth, CORS)
+│   │   ├── database.py           # async engine, get_db, Base (SQLAlchemy 2.0)
+│   │   ├── models.py             # 6 моделей: User, Subscription, DashboardConfig, ChatSession, Comment, Favorite
+│   │   ├── auth/                 # JWT + Google OAuth (utils, schemas, dependencies, router)
+│   │   └── routes/               # profile.py (/users/*), subscription.py (/subscription/*)
+│   ├── alembic/                  # миграции БД
+│   ├── tests/                    # pytest (test_profile.py, ...)
+│   ├── Dockerfile                # образ backend
+│   └── requirements.txt          # зависимости Python
+├── frontend/                     # Vite-приложение (src/ перемещён сюда при контейнеризации)
 ├── public/                       # статика, отдаваемая как есть
 ├── docs/                         # пользовательская документация (widgets.md, ...)
 ├── .ai-factory/                  # AI-контекст и артефакты (config, rules, plans, sessions)
 ├── .claude/                      # установленные skills и agents (Claude Code)
 ├── .opencode/                    # alt-конфигурация для OpenCode
 ├── cryptocurrency-dashboard/     # эталонный сторонний проект (reference DnD-grid)
+├── docker-compose.yml            # оркестрация: postgres (5433:5432) + redis + backend
 ├── eslint.config.js              # ESLint flat config
-├── vite.config.ts                # Vite + прокси /api/finnhub, /api/news, /api/forex
+├── vite.config.ts                # Vite + прокси /api/*, /auth/*, /users/*, /subscription/*, /uploads → :8000
 ├── tsconfig.json                 # TS strict
 ├── package.json                  # зависимости и скрипты
 └── .env                          # ключи API (gitignored)
@@ -67,7 +90,10 @@ FinTrack — настраиваемый финансовый дашборд (к�
 | `src/pages/AssetPage.tsx` | Страница актива (`/asset/:symbol`), TradingView modal, Recharts area, CoinGecko |
 | `src/types/widgets.types.ts` | `WIDGET_REGISTRY` — единый источник правды по типам виджетов и их размерам |
 | `src/lib/env.ts` | Доступ к `VITE_*` переменным окружения |
-| `vite.config.ts` | Сборка + прокси внешних API |
+| `backend/app/main.py` | FastAPI app, монтирует все роутеры и StaticFiles |
+| `backend/app/models.py` | ORM-модели (User, Subscription, DashboardConfig, ChatSession, ...) |
+| `backend/app/auth/` | JWT-аутентификация + Google OAuth |
+| `vite.config.ts` | Сборка + прокси внешних API и бэкенда |
 | `tsconfig.json` | Конфиг компилятора TypeScript (strict) |
 | `eslint.config.js` | Flat config линтера |
 | `.env` | Ключи API (`VITE_GROQ_API_KEY`, `VITE_FINNHUB_KEY`, `VITE_NEWS_API_KEY`) — не коммитить |
@@ -113,3 +139,6 @@ FinTrack — настраиваемый финансовый дашборд (к�
 - **Каждый data-хук** принимает `useMock?: boolean = true` и возвращает `{ data, isLoading, error }`.
 - **При изменении схемы виджет-реестра** — бамп версии `localStorage` ключа в `Dashboard.tsx`.
 - **Перед изменениями `Dashboard.tsx`** свериться с `cryptocurrency-dashboard/src/components/app/app.tsx` — это эталон для react-grid-layout настроек.
+- **Хэш паролей** — библиотека `bcrypt` напрямую (НЕ passlib — несовместима с bcrypt 5.x).
+- **Порт Postgres** на хосте — **5433** (5432 занят нативным PostgreSQL); внутри compose-сети — `postgres:5432`.
+- **Vite-proxy** маршрутизирует `/api/*`, `/auth/*`, `/users/*`, `/subscription/*`, `/uploads/*` → `http://localhost:8000`.
