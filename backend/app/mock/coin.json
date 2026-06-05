@@ -1,0 +1,44 @@
+{
+  "bitcoin": {
+    "id": "bitcoin",
+    "symbol": "btc",
+    "name": "Bitcoin",
+    "description": {
+      "en": "Bitcoin is a decentralized digital currency, without a central bank or single administrator."
+    },
+    "market_data": {
+      "current_price": {"usd": 68475.30},
+      "market_cap": {"usd": 1349285000000},
+      "total_volume": {"usd": 28456789000},
+      "price_change_percentage_24h": 1.85,
+      "circulating_supply": 19720000,
+      "ath": {"usd": 73750.00},
+      "atl": {"usd": 67.81}
+    },
+    "image": {
+      "large": "https://assets.coingecko.com/coins/images/1/large/bitcoin.png",
+      "small": "https://assets.coingecko.com/coins/images/1/small/bitcoin.png"
+    }
+  },
+  "ethereum": {
+    "id": "ethereum",
+    "symbol": "eth",
+    "name": "Ethereum",
+    "description": {
+      "en": "Ethereum is a decentralized open-source blockchain system with its own cryptocurrency, Ether."
+    },
+    "market_data": {
+      "current_price": {"usd": 3720.45},
+      "market_cap": {"usd": 447300000000},
+      "total_volume": {"usd": 14678900000},
+      "price_change_percentage_24h": -0.42,
+      "circulating_supply": 120200000,
+      "ath": {"usd": 4878.26},
+      "atl": {"usd": 0.43}
+    },
+    "image": {
+      "large": "https://assets.coingecko.com/coins/images/279/large/ethereum.png",
+      "small": "https://assets.coingecko.com/coins/images/279/small/ethereum.png"
+    }
+  }
+}

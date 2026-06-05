@@ -64,7 +64,7 @@ Phase 1 можно делать параллельно с Phase 2. Phase 3-5 —
 
 Бэкенд уже запущен (PID, health=ok). Все новые эндпоинты добавляются как `services/` + роуты под `/api/quotes/*`. Redis уже настроен (`backend/app/cache.py` с TTL и graceful degradation).
 
-- [ ] Task 2.1: `GET /api/quotes/ohlcv/{symbol}?tf=1H&limit=100`
+- [x] Task 2.1: `GET /api/quotes/ohlcv/{symbol}?tf=1H&limit=100`
   - Файлы: `backend/app/services/candles.py` (новый), `backend/app/routes/quotes.py` (расширить)
   - Логика: прокси к `https://www.okx.com/api/v5/market/candles?instId={SYMBOL}&bar={TF}&limit={LIMIT}` для крипто; для стоков — `https://finnhub.io/api/v1/stock/candle?symbol={SYM}&resolution={TF}&from=&to=&token={FINNHUB_KEY}` (ключ только на бэке)
   - Redis: ключ `cache:ohlcv:{SYMBOL}:{TF}:{LIMIT}`, TTL **60s** для крипто, **5min** для стоков (финхуб лимиты строже)
@@ -72,7 +72,7 @@ Phase 1 можно делать параллельно с Phase 2. Phase 3-5 —
   - Ошибки: Finnhub 429 → fallback на mock из `backend/app/mock/candles.json`; OKX network error → 503 + пустой массив
   - Логирование: `console.info('[ohlcv] cache hit %s %s', symbol, tf)` / `'[ohlcv] fetched %d candles from %s', len, source`
 
-- [ ] Task 2.2: `GET /api/quotes/coin/{id}`
+- [x] Task 2.2: `GET /api/quotes/coin/{id}`
   - Файлы: `backend/app/services/coingecko.py` (новый), `backend/app/routes/quotes.py` (расширить)
   - Логика: прокси к `https://api.coingecko.com/api/v3/coins/{id}?localization=false&tickers=false&community_data=false&developer_data=false`
   - Redis: ключ `cache:coin:{ID}`, TTL **30 мин** (статичные данные, лимиты CoinGecko)
@@ -80,7 +80,7 @@ Phase 1 можно делать параллельно с Phase 2. Phase 3-5 —
   - Ошибки: 429 → fallback на `backend/app/mock/coin.json` (1-2 мок-монеты для dev)
   - Логирование: `console.info('[coin] cache hit / fetched %s', id)`
 
-- [ ] Task 2.3: `GET /api/quotes/fng`
+- [x] Task 2.3: `GET /api/quotes/fng`
   - Файлы: `backend/app/services/fng.py` (новый), `backend/app/routes/quotes.py` (расширить)
   - Логика: прокси к `https://api.alternative.me/fng/?limit=1&format=json`
   - Redis: ключ `cache:fng`, TTL **1 час**
@@ -88,14 +88,14 @@ Phase 1 можно делать параллельно с Phase 2. Phase 3-5 —
   - Ошибки: network → fallback `{value: 50, label: 'Neutral', timestamp: now}`
   - Логирование: `console.info('[fng] cache hit / fetched value=%d', value)`
 
-- [ ] Task 2.4: `GET /api/quotes/funding-rate?symbols=BTC-USDT,ETH-USDT`
+- [x] Task 2.4: `GET /api/quotes/funding-rate?symbols=BTC-USDT,ETH-USDT`
   - Файлы: `backend/app/services/funding.py` (новый), `backend/app/routes/quotes.py` (расширить)
   - Логика: для каждого символа — `https://www.okx.com/api/v5/public/funding-rate?instId={SYMBOL}`; батч с `Promise.all`
   - Redis: ключ `cache:funding:{SYMBOL}`, TTL **30s** (фандинг меняется каждые 8ч, но обновление раз в 30s для демо — норм)
   - Response: `{rates: [{symbol, fundingRate, nextFundingTime, interestRate, ...}]}`
   - Логирование: `console.info('[funding] fetched %d rates', rates.length)`
 
-- [ ] Task 2.5: `GET /api/quotes/gas`
+- [x] Task 2.5: `GET /api/quotes/gas`
   - Файлы: `backend/app/services/gas.py` (новый), `backend/app/routes/quotes.py` (расширить)
   - Логика: прокси к `https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey={ETHERSCAN_KEY}` (ключ — `ETHERSCAN_API_KEY` в env бэка)
   - Redis: ключ `cache:gas`, TTL **15s** (газ меняется быстро)
@@ -104,7 +104,7 @@ Phase 1 можно делать параллельно с Phase 2. Phase 3-5 —
   - Логирование: `console.info('[gas] cache hit / fetched slow=%d std=%d fast=%d', ...)`
   - Задача: `ETHERSCAN_API_KEY` нужно добавить в `backend/.env.example` (env.bak документация) — если ключа нет, эндпоинт сразу отдаёт fallback с пометкой
 
-- [ ] Task 2.6: Бэкенд-тесты для 5 новых эндпоинтов
+- [x] Task 2.6: Бэкенд-тесты для 5 новых эндпоинтов
   - Файл: `backend/tests/test_quotes_new.py` (новый)
   - Кейсы: cache hit на 2-й запрос, mock fallback при недоступном upstream, response schema, batch funding-rate, TTL
   - Моки: `httpx` AsyncClient + `aioresponses` (если уже в deps) или `unittest.mock.patch` на httpx

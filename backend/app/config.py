@@ -83,10 +83,22 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = "meta-llama/llama-3.3-70b-instruct:free"
 
+    # --- External API keys (Phase 2) -------------------------------------------
+    # Optional — when absent the corresponding endpoint returns a static
+    # fallback immediately (see services/gas.py, services/coingecko.py, ...).
+    etherscan_api_key: str = ""
+
     # --- Cache TTLs (seconds) --------------------------------------------------
     stock_ttl: int = 60
     crypto_ttl: int = 30
     forex_ttl: int = 300
+    # New Phase 2 quote endpoints (widgets-redis-cleanup plan):
+    ohlcv_crypto_ttl: int = 60      # OKX — frequent updates are fine
+    ohlcv_stock_ttl: int = 300      # Finnhub — tighter free-tier limits
+    coin_ttl: int = 30 * 60         # 30 min — static-ish CoinGecko data
+    fng_ttl: int = 60 * 60          # 1 h — Fear & Greed index cadence
+    funding_ttl: int = 30           # 30 s — funding rate is realtime-ish
+    gas_ttl: int = 15               # 15 s — gas oracle changes fast
 
     # --- External API timeout (seconds) ---------------------------------------
     http_timeout: float = 5.0
