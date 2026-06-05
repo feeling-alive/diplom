@@ -1,33 +1,27 @@
 """AI chat route for asset analysis (prefix ``/api/chat``).
 
-Pipeline:
-  POST /api/chat/message
-    1. Validate JWT (``get_current_user``)
-    2. Fetch OHLCV candles via existing ``candles.get_candles()``
-    3. Check Redis cache for a cached prediction (key ``cache:predict:{symbol}``)
-    4. If cache miss → call Hugging Face PatchTST → store in Redis (TTL 60 s)
-    5. Call Groq (Llama 3.3) with the prediction + user message
-    6. Persist the conversation in ``ChatSession`` (merge by symbol per user)
-    7. Return the AI reply + prediction metadata
+Endpoints:
+  GET  /api/chat/predict/{symbol}  — public, returns PatchTST prediction
+  POST /api/chat/message           — JWT-protected, hybrid AI analysis
 """
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import cast, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.database import get_db
-from app.models import ChatSession, User
+from app.models import ChatSession, NewsArticle, User
 from app.services.cache import get_cached, set_cached
 from app.services.candles import get_candles
-from app.services.groq_service import generate_response
+from app.services.groq_service import get_groq_response
 from app.services.patchtst import get_prediction
 
 logger = logging.getLogger("backend.chat")
@@ -42,10 +36,8 @@ PREDICTION_CACHE_TTL = 60  # seconds
 
 
 class ChatRequest(BaseModel):
-    symbol: str = Field(..., min_length=1, max_length=32, description="Asset ticker")
-    message: str = Field(
-        ..., min_length=1, max_length=2000, description="User question"
-    )
+    message: str = Field(..., min_length=1, max_length=2000, description="User question")
+    symbol: str = Field(default="general", max_length=32, description="Asset ticker or 'general'")
 
 
 class PredictionOut(BaseModel):
@@ -56,33 +48,38 @@ class PredictionOut(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
-    prediction: PredictionOut
+    prediction: PredictionOut | None = None
 
 
-# ---------------------------------------------------------------------------
-# Helper: extract current price from candles
-# ---------------------------------------------------------------------------
+class ChatMessageSaveRequest(BaseModel):
+    symbol: Optional[str] = Field(
+        default=None,
+        description="Asset ticker or 'general' for general chat. None also means general.",
+    )
+    user_message: str = Field(
+        ..., min_length=1, max_length=2000, description="User question"
+    )
+    ai_message: str = Field(
+        ..., min_length=1, max_length=10000, description="AI response from frontend (Groq)"
+    )
 
 
-def _current_price(candles_data: dict[str, Any]) -> float:
-    """Return the close price of the most recent candle, or 0.0."""
-    candle_list = candles_data.get("candles") or []
-    if not candle_list:
-        return 0.0
-    last = candle_list[-1]
-    try:
-        if isinstance(last, dict):
-            return float(last.get("c", 0))
-        if isinstance(last, (list, tuple)) and len(last) > 4:
-            return float(last[4])
-    except (TypeError, ValueError):
-        pass
-    return 0.0
+class SaveMessageResponse(BaseModel):
+    status: str = "ok"
+    symbol: str
+    message_count: int
 
 
 # ---------------------------------------------------------------------------
 # Helper: manage chat session in DB
 # ---------------------------------------------------------------------------
+
+
+def _resolve_symbol(symbol: str | None) -> str:
+    """Normalise symbol: ``None`` or ``"general"`` -> ``"general"``."""
+    if symbol is None or symbol.strip().lower() in ("", "general"):
+        return "general"
+    return symbol.strip().upper()
 
 
 async def _get_or_create_session(
@@ -120,9 +117,113 @@ def _merge_messages(
     return history
 
 
+def _get_last_history(history: list[dict[str, str]] | None, count: int = 6) -> list[dict[str, str]]:
+    """Return the last *count* messages from history, excluding system prompts."""
+    if not history:
+        return []
+    return history[-count:]
+
+
 # ---------------------------------------------------------------------------
-# Route
+# Helpers: fetch & cache prediction
 # ---------------------------------------------------------------------------
+
+
+async def _get_prediction_cached(symbol: str) -> dict[str, Any]:
+    """Return a prediction for *symbol*, checking Redis first."""
+    cache_key = f"cache:predict:{symbol}"
+
+    try:
+        cached = await get_cached(cache_key)
+        if cached is not None:
+            logger.debug("[chat] prediction cache HIT for %s", symbol)
+            return cached
+    except Exception as exc:
+        logger.warning("[chat] cache read error for %s: %s", symbol, exc)
+
+    candles_data = await get_candles(symbol=symbol, timeframe="1H", limit=100)
+    prediction = await get_prediction(
+        candles_data.get("candles") or [], symbol=symbol
+    )
+
+    if prediction.get("source") == "huggingface":
+        try:
+            await set_cached(cache_key, prediction, PREDICTION_CACHE_TTL)
+            logger.debug("[chat] prediction cached for %s ttl=%d", symbol, PREDICTION_CACHE_TTL)
+        except Exception as exc:
+            logger.warning("[chat] cache write error for %s: %s", symbol, exc)
+
+    return prediction
+
+
+# ---------------------------------------------------------------------------
+# Helper: news context
+# ---------------------------------------------------------------------------
+
+
+async def _get_news_context(db: AsyncSession, symbol: str) -> str:
+    """Return a text block with the latest 3-5 news for *symbol*."""
+    result = await db.execute(
+        select(NewsArticle)
+        .where(cast(NewsArticle.symbols, JSONB).contains([symbol]))
+        .order_by(NewsArticle.published_at.desc())
+        .limit(5)
+    )
+    articles = list(result.scalars().all())
+
+    if not articles:
+        logger.debug("[chat] news context for %s: 0 articles", symbol)
+        return "Нет свежих новостей по данному активу."
+
+    lines: list[str] = []
+    for a in articles:
+        title = a.title_ru or a.title
+        desc = a.description_ru or a.description or ""
+        lines.append(f"- {title}. {desc[:200]}")
+
+    logger.debug("[chat] news context for %s: %d articles", symbol, len(articles))
+    return "Свежие новости:\n" + "\n".join(lines)
+
+
+def _to_prediction_out(prediction: dict[str, Any]) -> PredictionOut:
+    return PredictionOut(
+        direction=prediction.get("prediction", "SIDEWAYS"),
+        probability=float(prediction.get("probability", 0.5)),
+        source=prediction.get("source", "fallback"),
+    )
+
+
+def _build_system_prompt(symbol: str, direction: str, probability: float, news_context: str) -> str:
+    return (
+        f"Ты — профессиональный финансовый аналитик. Проанализируй актив {symbol}.\n\n"
+        f"Текущий тренд (технический анализ PatchTST): {direction} "
+        f"(уверенность: {probability:.0%})\n\n"
+        f"{news_context}\n\n"
+        f"Дай краткий (3-5 предложений) взвешенный ответ на русском, "
+        f"объединяя технический анализ и фундаментальные новости. "
+        f"Не давай конкретных инвестиционных рекомендаций."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+
+@router.get("/predict/{symbol}", response_model=PredictionOut)
+async def predict_public(symbol: str) -> PredictionOut:
+    """Public endpoint: return a prediction for *symbol*.
+
+    No authentication required. Fetches OHLCV candles, runs the
+    PatchTST classifier (with Redis cache), and returns the result.
+    """
+    symbol = symbol.strip().upper()
+
+    if not symbol:
+        raise HTTPException(status_code=400, detail="symbol is required")
+
+    prediction = await _get_prediction_cached(symbol)
+    return _to_prediction_out(prediction)
 
 
 @router.post("/message", response_model=ChatResponse)
@@ -131,77 +232,115 @@ async def chat_message(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> ChatResponse:
-    """Process a user message about an asset and return an AI-generated analysis.
+    """Generate a hybrid AI analysis response.
 
-    The request requires a valid JWT cookie. The response includes both
-    the text reply and the raw prediction metadata.
+    Requires a valid JWT. Combines PatchTST technical prediction with
+    recent news and sends to Groq LLM for a weighted analysis.
+    Persists the exchange in the PostgreSQL ``ChatSession`` table.
+
+    If *symbol* is ``"general"`` a simple Groq-only response is returned
+    without technical prediction or news context.
     """
-    symbol = body.symbol.upper().strip()
+    symbol = _resolve_symbol(body.symbol)
+
     logger.info(
-        "[chat] message user=%s symbol=%s msg_len=%d",
+        "[chat] POST /message user=%s symbol=%s msg_len=%d",
         current_user.id,
         symbol,
         len(body.message),
     )
 
-    # --- 1. Fetch candles ----------------------------------------------------
-    candles_data = await get_candles(symbol=symbol, timeframe="1H", limit=100)
-    price = _current_price(candles_data)
-    logger.debug("[chat] candles source=%s price=%.4f", candles_data.get("source"), price)
-
-    # --- 2. Prediction with Redis cache --------------------------------------
-    cache_key = f"cache:predict:{symbol}"
     prediction: dict[str, Any] | None = None
+    is_general = symbol == "general"
 
-    try:
-        cached_pred = await get_cached(cache_key)
-        if cached_pred is not None:
-            prediction = cached_pred
-            logger.debug("[chat] prediction cache HIT for %s", symbol)
-    except Exception as exc:
-        logger.warning("[chat] cache read error for %s: %s", symbol, exc)
-
-    if prediction is None:
-        prediction = await get_prediction(
-            candles_data.get("candles") or [], symbol=symbol
+    if is_general:
+        # General chat — no prediction or news context, plain Groq
+        system_prompt = (
+            "Ты — финансовый AI-ассистент. Отвечай кратко (3-5 предложений), "
+            "на русском языке. Помогай пользователю: объясняй термины, "
+            "анализируй рыночную ситуацию, оценивай риски стратегий. "
+            "Не давай конкретных инвестиционных рекомендаций."
         )
-        if prediction.get("source") == "huggingface":
-            try:
-                await set_cached(cache_key, prediction, PREDICTION_CACHE_TTL)
-                logger.debug("[chat] prediction cached for %s ttl=%d", symbol, PREDICTION_CACHE_TTL)
-            except Exception as exc:
-                logger.warning("[chat] cache write error for %s: %s", symbol, exc)
+    else:
+        # 1. Fetch technical prediction
+        prediction = await _get_prediction_cached(symbol)
+        direction = prediction.get("prediction", "SIDEWAYS")
+        probability = float(prediction.get("probability", 0.5))
+        pred_source = prediction.get("source", "fallback")
+        logger.debug(
+            "[chat] prediction: %s %.2f from=%s",
+            direction, probability, pred_source,
+        )
 
-    # --- 3. Groq response ----------------------------------------------------
-    reply = await generate_response(
-        user_message=body.message,
-        symbol=symbol,
-        current_price=price,
-        prediction=prediction,
+        # 2. Fetch news context
+        news_context = await _get_news_context(db, symbol)
+
+        # 3. Build system prompt with prediction + news
+        system_prompt = _build_system_prompt(symbol, direction, probability, news_context)
+
+    # 4. Load chat history for context
+    session = await _get_or_create_session(db, current_user.id, symbol)
+    history = _get_last_history(session.messages)
+
+    # 5. Call Groq
+    reply = await get_groq_response(system_prompt, body.message, history)
+    logger.debug("[chat] groq reply received len=%d", len(reply))
+
+    # 6. Save to DB
+    session.messages = _merge_messages(session.messages, body.message, reply)
+    await db.commit()
+    await db.refresh(session)
+    msg_count = len(session.messages) if session.messages else 0
+    logger.debug("[chat] session saved user=%s symbol=%s msg_count=%d", current_user.id, symbol, msg_count)
+
+    return ChatResponse(
+        reply=reply,
+        prediction=_to_prediction_out(prediction) if prediction else None,
     )
 
-    # --- 4. Persist to ChatSession -------------------------------------------
+
+# Legacy save endpoint — kept for backward compatibility with ChatPage
+@router.post("/save", response_model=SaveMessageResponse)
+async def save_message(
+    body: ChatMessageSaveRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> SaveMessageResponse:
+    """Save a chat message exchange (legacy).
+
+    Requires a valid JWT. Persists the user message + AI reply pair
+    in the PostgreSQL ``ChatSession`` table.
+    """
+    symbol = _resolve_symbol(body.symbol)
+
+    logger.info(
+        "[chat] save user=%s symbol=%s user_msg_len=%d ai_msg_len=%d",
+        current_user.id,
+        symbol,
+        len(body.user_message),
+        len(body.ai_message),
+    )
+
     try:
         session = await _get_or_create_session(db, current_user.id, symbol)
         session.messages = _merge_messages(
-            session.messages, body.message, reply
+            session.messages, body.user_message, body.ai_message
         )
         await db.commit()
+        await db.refresh(session)
+        msg_count = len(session.messages) if session.messages else 0
         logger.debug(
-            "[chat] session updated user=%s symbol=%s msg_count=%d",
+            "[chat] session saved user=%s symbol=%s msg_count=%d",
             current_user.id,
             symbol,
-            len(session.messages) if session.messages else 0,
+            msg_count,
         )
     except Exception as exc:
-        logger.warning("[chat] DB persist error: %s — response still returned", exc)
+        logger.error("[chat] DB persist error: %s", exc)
+        raise HTTPException(status_code=500, detail="failed to save message") from exc
 
-    # --- 5. Response ---------------------------------------------------------
-    return ChatResponse(
-        reply=reply,
-        prediction=PredictionOut(
-            direction=prediction.get("direction", "SIDEWAYS"),
-            probability=float(prediction.get("probability", 0.5)),
-            source=prediction.get("source", "fallback"),
-        ),
+    return SaveMessageResponse(
+        status="ok",
+        symbol=symbol,
+        message_count=msg_count,
     )

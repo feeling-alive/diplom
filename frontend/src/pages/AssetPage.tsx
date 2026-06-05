@@ -4,7 +4,6 @@ import AssetHeader from '../components/asset/AssetHeader'
 import MainCard from '../components/asset/MainCard'
 import MetricsBar from '../components/asset/MetricsBar'
 import NewsPanel from '../components/asset/NewsPanel'
-import AIPanel from '../components/asset/AIPanel'
 import { usePrices } from '../hooks/usePrices'
 
 export default function AssetPage() {
@@ -85,14 +84,10 @@ export default function AssetPage() {
 
           {/* RIGHT column */}
           <div style={{
-            display: 'grid',
-            gridTemplateRows: '60fr 40fr',
-            gap: 14,
             height: 'calc(420px + 16px + 100px)',
             minHeight: 540,
           }}>
             <NewsPanel symbol={asset.symbol} ticker={asset.symbol} />
-            <AIPanel symbol={asset.symbol} />
           </div>
         </div>
       </motion.div>

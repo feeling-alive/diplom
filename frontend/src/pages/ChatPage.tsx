@@ -3,10 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Sparkles, Lightbulb, Globe, Bot, User, TrendingUp, BookOpen, BarChart3, Shield } from 'lucide-react'
 import { useGroqChat } from '../hooks/useGroqChat'
 
-const SYSTEM_PROMPT = `Ты — финансовый AI-ассистент в приложении FinTrack. Отвечай кратко (3-5 предложений), на русском языке.
-Помогай пользователю: объясняй термины (ETF, фьючерсы, опционы), анализируй рыночную ситуацию, советуй книги/ресурсы, оценивай риски стратегий.
-Не давай конкретных инвестиционных рекомендаций — только образовательную информацию.`
-
 const PLACEHOLDERS = [
   'Спроси про криптовалюты...',
   'Что такое ETF?',
@@ -24,7 +20,7 @@ const SUGGESTED_PROMPTS = [
 ]
 
 export default function ChatPage() {
-  const { messages, loading, error, send, clear } = useGroqChat({ systemPrompt: SYSTEM_PROMPT })
+  const { messages, loading, error, send, clear } = useGroqChat({})
   const [input, setInput] = useState('')
   const [placeholderIndex, setPlaceholderIndex] = useState(0)
   const [displayedPlaceholder, setDisplayedPlaceholder] = useState('')

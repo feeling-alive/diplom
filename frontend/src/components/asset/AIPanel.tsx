@@ -1,4 +1,7 @@
-import { Bot, TrendingUp, Activity, ShieldAlert } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
+import { Bot, TrendingUp, Activity, ShieldAlert, Send, TrendingDown, Minus } from 'lucide-react'
+import { useGroqChat } from '../../hooks/useGroqChat'
 
 interface Props {
   symbol: string
@@ -10,8 +13,42 @@ const SUGGESTIONS = [
   { icon: <ShieldAlert size={12} />,  label: 'Оцени риски входа' },
 ]
 
+function PredictionBadge({ direction, probability }: { direction: string; probability: number }) {
+  const color = direction === 'UP' ? '#16a34a' : direction === 'DOWN' ? '#dc2626' : '#6b7280'
+  const Icon = direction === 'UP' ? TrendingUp : direction === 'DOWN' ? TrendingDown : Minus
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '3px 8px', borderRadius: 6,
+      background: `${color}15`, color, fontSize: 10, fontWeight: 600,
+    }}>
+      <Icon size={12} />
+      {direction === 'UP' ? 'Вверх' : direction === 'DOWN' ? 'Вниз' : 'Боковик'} · {(probability * 100).toFixed(0)}%
+    </div>
+  )
+}
+
 export default function AIPanel({ symbol }: Props) {
+  const [input, setInput] = useState('')
+  const messagesEndRef = useRef<HTMLDivElement>(null!)
+
+  const { messages, loading, error, prediction, send } = useGroqChat({ symbol })
+
   console.debug('[AIPanel] rendered for %s', symbol)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const handleSend = useCallback(() => {
+    if (!input.trim() || loading) return
+    send(input.trim())
+    setInput('')
+  }, [input, loading, send])
+
+  const handlePromptClick = useCallback((text: string) => {
+    send(text)
+  }, [send])
 
   return (
     <div style={{
@@ -25,80 +62,129 @@ export default function AIPanel({ symbol }: Props) {
       boxShadow: 'var(--shadow-sm)',
       overflow: 'hidden',
     }}>
-      <div style={{
-        flex: 1,
-        background: 'var(--bg)',
-        borderRadius: 12,
-        padding: '18px 16px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 14,
-        opacity: 0.6,
-        position: 'relative',
-      }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            borderRadius: 12,
-            background: 'var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <Bot size={20} color="var(--muted)" strokeWidth={1.8} />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>ИИ-ассистент</div>
-            <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1, lineHeight: 1.3 }}>
-              Будет доступен после подключения аналитической модели
-            </div>
-          </div>
-        </div>
-
-        {/* Suggestions */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s.label}
-              disabled
-              style={{
-                padding: '8px 10px',
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: 'var(--white)',
-                color: 'var(--muted)',
-                cursor: 'not-allowed',
-                fontSize: 11,
-                fontWeight: 500,
-                textAlign: 'left',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              {s.icon}
-              {s.label}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ flex: 1 }} />
-
-        {/* Disabled input */}
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
         <div style={{
-          padding: '9px 12px',
-          borderRadius: 10,
-          border: '1px solid var(--border)',
-          background: 'var(--white)',
-          color: 'var(--soft)',
-          fontSize: 11,
-          cursor: 'not-allowed',
+          width: 36, height: 36, borderRadius: 10,
+          background: 'var(--accent-bg)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-          Задайте вопрос об активе...
+          <Bot size={18} color="var(--accent)" strokeWidth={1.8} />
         </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>ИИ-ассистент</div>
+          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
+            Анализ: {symbol}
+          </div>
+        </div>
+        {prediction && (
+          <PredictionBadge direction={prediction.direction} probability={prediction.probability} />
+        )}
+      </div>
+
+      {/* Messages */}
+      <div style={{
+        flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6,
+        marginBottom: 8, scrollbarWidth: 'thin', minHeight: 0,
+      }}>
+        {messages.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+            {SUGGESTIONS.map((s) => (
+              <motion.button
+                key={s.label}
+                whileHover={{ scale: 1.02, borderColor: 'var(--accent)' }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handlePromptClick(s.label)}
+                style={{
+                  padding: '8px 10px', borderRadius: 10,
+                  border: '1px solid var(--border)', background: 'var(--white)',
+                  color: 'var(--ink)', cursor: 'pointer', fontSize: 11,
+                  fontWeight: 500, textAlign: 'left',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  fontFamily: 'var(--font)',
+                }}
+              >
+                {s.icon}
+                {s.label}
+              </motion.button>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
+                  gap: 6, alignItems: 'flex-start',
+                }}
+              >
+                <div style={{
+                  maxWidth: '90%', padding: '6px 10px',
+                  borderRadius: msg.role === 'user' ? '10px 10px 4px 10px' : '10px 10px 10px 4px',
+                  background: msg.role === 'user' ? 'var(--accent)' : 'var(--bg)',
+                  color: msg.role === 'user' ? '#fff' : 'var(--text)',
+                  fontSize: 11, lineHeight: 1.4, whiteSpace: 'pre-wrap',
+                }}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '4px 0' }}>
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--muted)' }} />
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--muted)', opacity: 0.6 }} />
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--muted)', opacity: 0.3 }} />
+                <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 4 }}>Анализирую...</span>
+              </div>
+            )}
+            {error && (
+              <div style={{
+                padding: '6px 10px', borderRadius: 8,
+                background: '#FEF2F2', color: '#991B1B', fontSize: 10,
+              }}>
+                {error}
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div style={{
+        display: 'flex', gap: 6, alignItems: 'flex-end',
+        background: 'var(--bg)', borderRadius: 10,
+        padding: '4px 4px 4px 10px', border: '1px solid var(--border)',
+      }}>
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+          placeholder="Задайте вопрос об активе..."
+          style={{
+            flex: 1, border: 'none', outline: 'none', background: 'transparent',
+            fontSize: 11, color: 'var(--text)', fontFamily: 'var(--font)',
+            padding: '4px 0',
+          }}
+        />
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleSend}
+          disabled={!input.trim() || loading}
+          style={{
+            width: 28, height: 28, borderRadius: 7,
+            background: input.trim() && !loading ? 'var(--accent)' : 'var(--border)',
+            color: '#fff', border: 'none',
+            cursor: input.trim() && !loading ? 'pointer' : 'default',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, transition: 'background 0.2s',
+          }}
+        >
+          <Send size={11} />
+        </motion.button>
       </div>
     </div>
   )

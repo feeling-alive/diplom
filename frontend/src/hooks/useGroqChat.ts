@@ -1,23 +1,35 @@
 import { useState, useCallback, useRef } from 'react'
-import { ENV } from '../lib/env'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
 }
 
-interface UseGroqChatOptions {
-  systemPrompt: string
+export interface PredictionInfo {
+  direction: string
+  probability: number
+  source: string
 }
 
-export function useGroqChat({ systemPrompt }: UseGroqChatOptions) {
+interface UseGroqChatOptions {
+  symbol?: string
+}
+
+interface ChatApiResponse {
+  reply: string
+  prediction?: PredictionInfo
+}
+
+export function useGroqChat({ symbol }: UseGroqChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [prediction, setPrediction] = useState<PredictionInfo | null>(null)
   const messagesRef = useRef<ChatMessage[]>([])
 
   const send = useCallback(async (userMessage: string) => {
-    console.debug('[useGroqChat] send msg=%s', userMessage.slice(0, 60))
+    const currentSymbol = symbol || 'general'
+    console.debug('[useGroqChat] POST /api/chat/message symbol=%s msg=%s', currentSymbol, userMessage.slice(0, 60))
 
     const userMsg: ChatMessage = { role: 'user', content: userMessage }
     const history = [...messagesRef.current, userMsg]
@@ -27,33 +39,29 @@ export function useGroqChat({ systemPrompt }: UseGroqChatOptions) {
     setError(null)
 
     try {
-      const response = await fetch(`${ENV.GROQ_BASE_URL}/chat/completions`, {
+      const response = await fetch('/api/chat/message', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ENV.GROQ_API_KEY}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          model: ENV.GROQ_MODEL,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...history,
-          ],
-          temperature: 0.7,
-          max_tokens: 512,
+          message: userMessage,
+          symbol: currentSymbol,
         }),
       })
 
       if (!response.ok) {
         const errText = await response.text()
-        throw new Error(`Groq ${response.status}: ${errText.slice(0, 200)}`)
+        throw new Error(`Backend ${response.status}: ${errText.slice(0, 200)}`)
       }
 
-      const json = await response.json() as {
-        choices: Array<{ message: { content: string } }>
+      const json: ChatApiResponse = await response.json()
+      const reply = json.reply || '(нет ответа)'
+
+      if (json.prediction) {
+        setPrediction(json.prediction)
       }
-      const reply = json.choices[0]?.message.content ?? '(нет ответа)'
-      console.debug('[useGroqChat] reply=%s', reply.slice(0, 80))
+
+      console.debug('[useGroqChat] reply received len=%d', reply.length)
 
       const updated = [...history, { role: 'assistant' as const, content: reply }]
       messagesRef.current = updated
@@ -65,13 +73,14 @@ export function useGroqChat({ systemPrompt }: UseGroqChatOptions) {
     } finally {
       setLoading(false)
     }
-  }, [systemPrompt])
+  }, [symbol])
 
   const clear = useCallback(() => {
     messagesRef.current = []
     setMessages([])
     setError(null)
+    setPrediction(null)
   }, [])
 
-  return { messages, loading, error, send, clear }
+  return { messages, loading, error, prediction, send, clear }
 }

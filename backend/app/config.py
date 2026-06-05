@@ -89,9 +89,9 @@ class Settings(BaseSettings):
     etherscan_api_key: str = ""
 
     # --- AI / ML API keys ------------------------------------------------------
-    hf_api_key: str = ""
-    hf_model_id: str = ""
     groq_api_key: str = ""
+    hf_api_key: str = ""
+    hf_model_id: str = "nikasq/PatchTST-Time-Series-Classifier"
 
     # --- Cache TTLs (seconds) --------------------------------------------------
     stock_ttl: int = 60
@@ -149,8 +149,11 @@ def log_startup_config() -> None:
         settings.frontend_url,
     )
     logger.info(
-        "[config] hf_api_key=%s hf_model_id=%s groq_api_key=%s",
+        "[config] groq_api_key=%s",
+        "present" if settings.groq_api_key else "ABSENT",
+    )
+    logger.info(
+        "[config] hf_api_key=%s hf_model_id=%s",
         "present" if settings.hf_api_key else "ABSENT",
         settings.hf_model_id or "not set",
-        "present" if settings.groq_api_key else "ABSENT",
     )

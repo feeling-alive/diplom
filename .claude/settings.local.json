@@ -36,7 +36,19 @@
       "Bash(git commit -m ' *)",
       "Bash(\"C:/Users/Никита/AppData/Roaming/npm/node_modules/ngrok/bin/ngrok\" http *)",
       "Bash(curl -s http://localhost:4040/api/tunnels)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(t['public_url']\\) for t in d.get\\('tunnels',[]\\)]\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(t['public_url']\\) for t in d.get\\('tunnels',[]\\)]\")",
+      "Bash(curl -s -m 5 http://localhost:8000/api/quotes/ohlcv/BTC-USDT?tf=1D\\\\&limit=5 -o -)",
+      "Bash(curl -s -m 5 http://localhost:8000/health)",
+      "Bash(curl -s -m 5 -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(curl -s -m 8 \"http://localhost:8000/api/quotes/ohlcv/BTC-USDT?tf=1D&limit=3\")",
+      "Bash(curl -s -m 8 \"http://localhost:8000/api/quotes/fng\")",
+      "Bash(curl -s -m 8 \"http://localhost:8000/api/quotes/coin/bitcoin\")",
+      "Bash(curl -s -m 8 \"http://localhost:8000/api/quotes/funding-rate?symbols=BTC-USDT\")",
+      "Bash(curl -s -m 8 \"http://localhost:8000/api/quotes/gas\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\); const d={...p.dependencies,...p.devDependencies}; ['react','react-dom','recharts','framer-motion','@tanstack/react-query','vite'].forEach\\(k=>console.log\\(k, d[k]||'-'\\)\\)\")",
+      "Bash(curl -s -m 8 \"http://localhost:8000/api/quotes/forex/USD/EUR\")",
+      "Bash(curl -s -m 8 \"http://localhost:8000/api/quotes/stock/AAPL\")",
+      "PowerShell($p = Get-CimInstance Win32_Process -Filter \"ProcessId=26116\"; \"PID: $\\($p.ProcessId\\)\"; \"Parent: $\\($p.ParentProcessId\\)\"; \"Cmd: $\\($p.CommandLine\\)\")"
     ]
   }
 }
