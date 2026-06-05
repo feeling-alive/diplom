@@ -26,17 +26,24 @@ _FUNDING_URL = "https://www.okx.com/api/v5/public/funding-rate"
 
 async def _fetch_one(symbol: str) -> dict[str, Any] | None:
     """Fetch a single funding rate. Returns ``None`` on a 4xx/5xx so the batch
-    aggregator can report it without raising."""
+    aggregator can report it without raising.
+
+    OKX ``/public/funding-rate`` only serves perpetual (SWAP) contracts — a
+    plain spot instId like ``BTC-USDT`` returns 400. We append ``-SWAP`` here
+    so the caller can keep using the same canonical pair names they use
+    elsewhere (``useOHLCV`` etc).
+    """
     symbol = symbol.upper()
+    inst_id = symbol if symbol.endswith("-SWAP") else f"{symbol}-SWAP"
     key = f"cache:funding:{symbol}"
     cached = await get_cached(key)
     if cached is not None:
         return {**cached, "source": "cache"}
 
-    logger.info("[funding] fetch %s", symbol)
+    logger.info("[funding] fetch %s (instId=%s)", symbol, inst_id)
     try:
         async with httpx.AsyncClient(timeout=settings.http_timeout, follow_redirects=True) as client:
-            resp = await client.get(_FUNDING_URL, params={"instId": symbol})
+            resp = await client.get(_FUNDING_URL, params={"instId": inst_id})
             resp.raise_for_status()
             payload: dict[str, Any] = resp.json()
     except httpx.HTTPError as err:

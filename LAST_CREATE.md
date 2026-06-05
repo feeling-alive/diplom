@@ -3,7 +3,77 @@
 **Date:** 2026-06-05
 **Plan:** `.ai-factory/plans/widgets-redis-cleanup.md` (full mode, 7 phases)
 **Scope:** Phases 1-3 (cleanup → backend endpoints → frontend migration)
-**Status:** ✅ Phase 1-3 complete; Phase 4-7 deferred to next session.
+**Status:** ✅ Phase 1-3 complete; ⚠️ **графики Recharts не отображаются — НЕ ДОДЕЛАНО** (см. раздел в конце).
+
+---
+
+## ⚠️ НАДО ДОДЕЛАТЬ: Recharts графики не отображаются
+
+**Симптом:** На `/asset/BTC-USDT` и `/` (Dashboard) нет SVG-объектов от Recharts (`.recharts-responsive-container` count = 0). Чарты должны быть, но их нет.
+
+**Что пытался сделать:**
+
+1. ✅ **Бэкенд rebuild** — Docker-контейнер `dashboard-app-backend-1` был запущен 22 часа назад, ДО моего Phase 2 коммита, поэтому он отдавал только 3 старых эндпоинта (`/api/quotes/crypto|stock|forex`) и возвращал 404 на новые (`/ohlcv`, `/coin`, `/fng`, `/funding-rate`, `/gas`).
+   ```bash
+   docker compose up -d --build backend
+   # После rebuild все 9 эндпоинтов зарегистрированы:
+   # /api/quotes/coin/{coin_id}, /api/quotes/fng, /api/quotes/funding-rate,
+   # /api/quotes/gas, /api/quotes/ohlcv/{symbol}, + 3 старых
+   ```
+   Проверено: `GET /api/quotes/ohlcv/BTC-USDT?tf=1D&limit=100` → 200, 100 свечей от OKX.
+
+2. ✅ **Funding rate bug fix** — OKX `/public/funding-rate` требует `-SWAP` суффикс в `instId` (BTC-USDT-SWAP, не BTC-USDT). Без суффикса 400. Добавил в `backend/app/services/funding.py:39`: `inst_id = symbol if symbol.endswith("-SWAP") else f"{symbol}-SWAP"`. Проверено: `GET /api/quotes/funding-rate?symbols=BTC-USDT,ETH-USDT,SOL-USDT` → 200, 3 ставки.
+
+3. ❌ **Не доделал: real-browser проверка через Playwright** — установил `playwright` (через `npx playwright install chromium`), написал скрипт, который:
+   - регистрирует пользователя;
+   - открывает `/asset/BTC-USDT` и `/`;
+   - считает `.recharts-responsive-container` и `<path>` элементы.
+   
+   **Результат:** 0 recharts-контейнеров на обоих страницах, 1 SVG (видимо, иконка Lucide). Скриншот показал страницу Login (auth-gate сработал, мок-регистрация не сработала). На Dashboard тоже 0 чартов, но скриншот не успел из-за таймаута.
+   
+   Скрипт `frontend/check-chart.mjs` и скриншоты удалены, `playwright` снят (`--no-save`, в `package.json` не попал).
+
+**Что осталось проверить (нужен ручной запуск браузера):**
+
+- [ ] Открыть `http://localhost:5173/asset/BTC-USDT` после логина — есть ли Recharts SVG?
+- [ ] Открыть `http://localhost:5173/` (Dashboard) — есть ли `PriceChartWidget`, `AllocationChart`, `MacdWidget`?
+- [ ] Если 0 SVG — смотреть DevTools Console на ошибки Recharts (`useId` collision, невалидный `dataKey`, `ResponsiveContainer` с 0 height).
+- [ ] Если есть SVG, но 0 path — `chartData` пустой (хук возвращает `[]` при ошибке fetch).
+
+**Гипотезы почему графики не отображаются:**
+
+1. **Auth-gate срабатывает раньше mount чарта** — если на странице нет залогиненного пользователя, она редиректит на `/login`. В Playwright мок-регистрация не сработала (страница осталась на `/register` после submit). Возможно, в реальном браузере пользователь тоже залогинен, и чарты там есть. **Проверить вживую в первую очередь.**
+
+2. **`ResponsiveContainer` с 0 height** — Recharts 3.x требует, чтобы родитель имел измеримую высоту. В `PriceChartWidget.tsx:187` стоит `<div style={{ flex: 1, minHeight: 0, width: '100%' }}>` — ок. В `SimpleChart.tsx:115` — `<div style={{ height: 360 }}>` — ок. Если `react-grid-layout` ячейка имеет 0px высоту (например, из-за несохранённой раскладки), то и `100%` от неё будет 0.
+
+3. **Recharts 3.8.1 + React 19 + `AnimatePresence mode="wait"`** — известная проблема совместимости. `MainCard` оборачивает `SimpleChart` в `motion.div` внутри `AnimatePresence` — может зависать на initial opacity=0.
+
+4. **`useId` collision** — в `SimpleChart` градиент `id` хардкоден `chartFill-up` / `chartFill-down`. Если на странице несколько чартов с тем же id, только один получит градиент. Менее вероятно для PriceChartWidget (там `id="chartGrad"`).
+
+**Что делать дальше:**
+
+1. Запустить dev: `cd frontend && npm run dev` (если не запущен)
+2. Залогиниться в браузере
+3. Проверить Network tab: уходят ли запросы к `/api/quotes/ohlcv/...`? Возвращают ли 200?
+4. Если 200 + данные есть + чарта нет — проблема в Recharts/React (см. гипотезы 2-4)
+5. Если 200 + данные есть + чарт есть — задача решена, последняя регрессия была из-за stale Docker-контейнера
+
+**Изменения с прошлого LAST_CREATE (не закоммичены):**
+
+- `backend/app/services/funding.py` — добавлен `-SWAP` суффикс (нужен коммит)
+
+**Все коммиты текущей сессии:**
+
+```
+fd4b830  chore: sync infrastructure + docs from previous session
+c7bd87b  chore(dashboard): remove 5 unused widgets from registry + bump storage version
+c111d71  feat(backend): add OHLCV/coin/FNG/funding-rate/gas endpoints with Redis cache
+f0a1bc1  refactor(frontend): migrate OHLCV/coin/FNG to backend /api/quotes
+16a7328  docs(ai-factory): mark Phase 3 done + add session report
+d266ec8  docs: move session report to LAST_CREATE.md at repo root
+```
+
+---
 
 ## TL;DR
 
