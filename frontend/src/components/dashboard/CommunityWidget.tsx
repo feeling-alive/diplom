@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Heart, MessageCircle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import type { CommunityPost } from '../../types/market.types'
 import type { WidgetSizeProps } from '../../types/widgets.types'
 import { MOCK_COMMUNITY } from '../../mock/community.mock'
@@ -23,6 +24,7 @@ function truncate(text: string, max = 85): string {
 }
 
 export default function CommunityWidget({ posts: propPosts, gridW = 2, gridH = 2 }: Props) {
+  const navigate = useNavigate()
   // Кол-во постов: 2×2 → 3, 2×3 → 4, 3×2 → 4, 3×3 → 6 (плотные строки, без растяжения отступов)
   const limit = gridH >= 3 ? (gridW >= 3 ? 6 : 4) : (gridW >= 3 ? 4 : 3)
   const posts = propPosts ?? MOCK_COMMUNITY.slice(0, limit)
@@ -62,6 +64,10 @@ export default function CommunityWidget({ posts: propPosts, gridW = 2, gridH = 2
           <motion.div
             key={post.id}
             whileHover={{ backgroundColor: 'var(--bg)', borderRadius: 10 }}
+            onClick={() => {
+              console.debug('[CommunityWidget] navigate to /news/%s', post.id)
+              navigate(`/news/${post.id}`)
+            }}
             style={{
               display: 'flex',
               gap: 8,

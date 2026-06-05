@@ -1,24 +1,17 @@
+import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { MOCK_PRICES } from '../../mock/prices.mock'
+import { usePrices } from '../../hooks/usePrices'
 import type { WidgetSizeProps } from '../../types/widgets.types'
 
-const SLICE_DATA = MOCK_PRICES.slice(0, 5).map((a) => ({
-  name: a.name,
-  symbol: a.symbol,
-  icon: a.icon ?? a.symbol[0],
-  color: a.color,
-  value: a.volume24h,
-}))
+interface TooltipEntry { payload?: { symbol: string; name: string }; name?: string; value?: number }
+interface CustomTooltipProps { active?: boolean; payload?: TooltipEntry[]; total: number }
 
-const total = SLICE_DATA.reduce((s, d) => s + d.value, 0) || 1
-
-interface TooltipEntry { name?: string; value?: number }
-interface CustomTooltipProps { active?: boolean; payload?: TooltipEntry[] }
-
-function CustomTooltip({ active, payload }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, total }: CustomTooltipProps) {
   if (!active || !payload?.length) return null
   const item = payload[0]
-  const pct = ((item?.value ?? 0) / total * 100).toFixed(1)
+  const data = item.payload
+  const pct = ((item.value ?? 0) / total * 100).toFixed(1)
   return (
     <div
       style={{
@@ -30,7 +23,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
         fontSize: 12,
       }}
     >
-      <div style={{ fontWeight: 600, color: 'var(--text)' }}>{item.name}</div>
+      <div style={{ fontWeight: 600, color: 'var(--text)' }}>{data?.name ?? item.name}</div>
       <div style={{ color: 'var(--muted)' }}>{pct}%</div>
     </div>
   )
@@ -44,9 +37,23 @@ function lighten(hex: string, alpha: number): string {
 type Props = WidgetSizeProps
 
 export default function AllocationChart({ gridW = 2, gridH = 2 }: Props) {
-  const showLegend = gridH >= 3
+  const { cryptos } = usePrices()
+  const navigate = useNavigate()
 
-  console.debug('[AllocationChart] gridW=%d gridH=%d slices=%d legend=%s', gridW, gridH, SLICE_DATA.length, showLegend)
+  const data = useMemo(() => {
+    return cryptos.slice(0, 5).map((a) => ({
+      name: a.name,
+      symbol: a.symbol,
+      icon: a.icon ?? a.symbol[0],
+      color: a.color,
+      value: a.volume24h,
+    }))
+  }, [cryptos])
+
+  const total = useMemo(() => data.reduce((s, d) => s + d.value, 0) || 1, [data])
+  const showLegend = true
+
+  console.debug('[AllocationChart] gridW=%d gridH=%d slices=%d legend=%s', gridW, gridH, data.length, showLegend)
 
   return (
     <div
@@ -63,7 +70,7 @@ export default function AllocationChart({ gridW = 2, gridH = 2 }: Props) {
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <defs>
-              {SLICE_DATA.map((entry) => (
+              {data.map((entry) => (
                 <linearGradient
                   key={`grad-${entry.symbol}`}
                   id={`alloc-grad-${entry.symbol}`}
@@ -75,7 +82,7 @@ export default function AllocationChart({ gridW = 2, gridH = 2 }: Props) {
               ))}
             </defs>
             <Pie
-              data={SLICE_DATA}
+              data={data}
               cx="50%"
               cy="50%"
               innerRadius="60%"
@@ -85,8 +92,15 @@ export default function AllocationChart({ gridW = 2, gridH = 2 }: Props) {
               isAnimationActive
               animationDuration={600}
               animationBegin={0}
+              onClick={(e) => {
+                const symbol = e?.payload?.symbol
+                if (symbol) {
+                  navigate(`/asset/${symbol}`)
+                }
+              }}
+              style={{ cursor: 'pointer' }}
             >
-              {SLICE_DATA.map((entry) => (
+              {data.map((entry) => (
                 <Cell
                   key={entry.symbol}
                   fill={`url(#alloc-grad-${entry.symbol})`}
@@ -95,21 +109,24 @@ export default function AllocationChart({ gridW = 2, gridH = 2 }: Props) {
                 />
               ))}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip total={total} />} />
           </PieChart>
         </ResponsiveContainer>
       </div>
 
       {showLegend && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, flexShrink: 0 }}>
-          {SLICE_DATA.map((item) => {
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, flexShrink: 0, overflowY: 'auto' }}>
+          {data.map((item) => {
             const pct = (item.value / total * 100).toFixed(1)
-            const symbolShort = item.symbol.split('-')[0]
             return (
-              <div key={item.symbol} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div 
+                key={item.symbol} 
+                onClick={() => navigate(`/asset/${item.symbol}`)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+              >
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
                 <span style={{ fontSize: 11, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
-                  {symbolShort}
+                  {item.name}
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
               </div>

@@ -112,18 +112,18 @@ export default function PriceChartWidget({ gridW = 3, gridH = 2 }: Props) {
       }}
     >
       {/* Top row: asset selector + price + change */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexShrink: 0, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexShrink: 0, flexWrap: 'wrap' }}>
         <select
           value={selectedSymbolIdx}
           onChange={(e) => setSelectedSymbolIdx(Number(e.target.value))}
           style={{
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: 600,
             color: 'var(--text)',
             border: '1px solid var(--border)',
-            borderRadius: 8,
-            padding: '4px 8px',
-            background: 'var(--white)',
+            borderRadius: 6,
+            padding: '2px 6px',
+            background: 'var(--bg)',
             cursor: 'pointer',
             fontFamily: 'var(--font)',
           }}
@@ -158,20 +158,20 @@ export default function PriceChartWidget({ gridW = 3, gridH = 2 }: Props) {
 
         {/* Timeframe buttons — only when there's vertical room */}
         {showTimeframes && (
-          <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+          <div style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
             {CHART_TFS.map((tf) => (
               <button
                 key={tf}
                 onClick={() => setActiveTF(tf)}
                 style={{
-                  padding: '3px 8px',
-                  fontSize: 11,
-                  fontWeight: 500,
-                  borderRadius: 6,
+                  padding: '2px 5px',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  borderRadius: 4,
                   border: 'none',
                   cursor: 'pointer',
                   fontFamily: 'var(--font)',
-                  background: activeTF === tf ? 'var(--ink)' : 'var(--bg)',
+                  background: activeTF === tf ? 'var(--ink)' : 'transparent',
                   color: activeTF === tf ? '#fff' : 'var(--muted)',
                   transition: 'background 0.15s, color 0.15s',
                 }}
@@ -201,7 +201,7 @@ export default function PriceChartWidget({ gridW = 3, gridH = 2 }: Props) {
         </div>
       ) : (
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: -10 }}>
             <defs>
               <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#E8264A" stopOpacity={0.2} />

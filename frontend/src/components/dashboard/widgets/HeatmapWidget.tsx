@@ -1,20 +1,9 @@
+import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { usePrices } from '../../../hooks/usePrices'
+import { formatPrice } from '../../../utils/format'
 import type { WidgetSizeProps } from '../../../types/widgets.types'
-
-type Cell = { symbol: string; change: number; cap: number }
-const DATA: Cell[] = [
-  { symbol: 'BTC', change: 2.4, cap: 1200 },
-  { symbol: 'ETH', change: -1.2, cap: 420 },
-  { symbol: 'SOL', change: 5.8, cap: 90 },
-  { symbol: 'BNB', change: 0.6, cap: 88 },
-  { symbol: 'XRP', change: -3.1, cap: 60 },
-  { symbol: 'DOGE', change: 8.7, cap: 28 },
-  { symbol: 'ADA', change: -0.8, cap: 22 },
-  { symbol: 'AVAX', change: 4.2, cap: 18 },
-  { symbol: 'DOT', change: -2.4, cap: 12 },
-  { symbol: 'MATIC', change: 1.7, cap: 10 },
-  { symbol: 'LINK', change: 3.5, cap: 9 },
-  { symbol: 'TRX', change: -0.3, cap: 8 },
-]
 
 function bgColor(change: number): string {
   if (change >= 5) return '#16a34a'
@@ -28,9 +17,20 @@ function bgColor(change: number): string {
 type Props = WidgetSizeProps
 
 export default function HeatmapWidget({ gridW = 4, gridH = 2 }: Props) {
-  const total = DATA.reduce((s, c) => s + c.cap, 0)
-  const cols = gridW >= 4 ? 6 : 4
-  console.debug('[HeatmapWidget] gridW=%d gridH=%d cols=%d', gridW, gridH, cols)
+  const { cryptos } = usePrices()
+  const navigate = useNavigate()
+
+  // Показывать 16-24 монет в зависимости от сетки
+  const cols = gridW >= 4 ? 6 : gridW >= 3 ? 5 : 4
+  const limit = gridH >= 3 ? 24 : 16
+  
+  const data = useMemo(() => {
+    return [...cryptos].sort((a, b) => (b.marketCap ?? 0) - (a.marketCap ?? 0)).slice(0, limit)
+  }, [cryptos, limit])
+
+  const total = data.reduce((s, c) => s + (c.marketCap ?? 0), 0)
+
+  console.debug('[HeatmapWidget] gridW=%d gridH=%d cols=%d limit=%d', gridW, gridH, cols, limit)
 
   return (
     <div style={{
@@ -39,21 +39,29 @@ export default function HeatmapWidget({ gridW = 4, gridH = 2 }: Props) {
       gridTemplateColumns: `repeat(${cols}, 1fr)`,
       gap: 3, overflow: 'hidden',
     }}>
-      {DATA.slice(0, cols * (gridH >= 3 ? 3 : 2)).map((c) => {
-        const w = Math.max(0.4, c.cap / total * 8)
+      {data.map((c) => {
+        const w = Math.max(0.4, (c.marketCap ?? 0) / (total || 1) * 8)
         return (
-          <div key={c.symbol} style={{
-            background: bgColor(c.change),
-            borderRadius: 4,
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 700,
-            padding: 4, overflow: 'hidden',
-            opacity: 0.55 + Math.min(w, 1.4) * 0.3,
-          }}>
-            <span style={{ fontSize: 11 }}>{c.symbol}</span>
-            <span style={{ fontSize: 9, opacity: 0.9 }}>{c.change > 0 ? '+' : ''}{c.change.toFixed(1)}%</span>
-          </div>
+          <motion.div 
+            key={c.symbol} 
+            whileHover={{ scale: 1.05, zIndex: 10 }}
+            onClick={() => navigate(`/asset/${c.symbol}`)}
+            title={`${c.name} • ${formatPrice(c.price, c.type)} • ${c.change24h > 0 ? '+' : ''}${c.change24h.toFixed(2)}%`}
+            style={{
+              background: bgColor(c.change24h),
+              borderRadius: 4,
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              color: '#fff', fontWeight: 700,
+              padding: 2, overflow: 'hidden',
+              opacity: 0.7 + Math.min(w, 1.4) * 0.3,
+              cursor: 'pointer',
+              position: 'relative',
+            }}
+          >
+            <span style={{ fontSize: 10 }}>{c.symbol.split('-')[0]}</span>
+            <span style={{ fontSize: 8, opacity: 0.9 }}>{c.change24h > 0 ? '+' : ''}{c.change24h.toFixed(1)}%</span>
+          </motion.div>
         )
       })}
     </div>

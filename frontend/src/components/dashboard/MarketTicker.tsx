@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { usePrices } from '../../hooks/usePrices'
 import { formatPrice, formatChange } from '../../utils/format'
 import type { Asset } from '../../types/market.types'
@@ -34,31 +36,36 @@ function pickTopAssets(all: Asset[], desired: number): Asset[] {
   return out.slice(0, desired)
 }
 
-function AssetCell({ asset }: { asset: Asset }) {
+function AssetCell({ asset, onClick }: { asset: Asset; onClick: () => void }) {
   const positive = asset.change24h >= 0
   return (
-    <div
+    <motion.div
+      onClick={onClick}
+      whileHover={{ scale: 1.02 }}
+      transition={{ duration: 0.15 }}
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
-        padding: 8,
+        gap: 6,
+        padding: '6px 8px',
         minWidth: 0,
         borderRadius: 8,
         background: 'var(--bg)',
+        border: '1px solid var(--border)',
+        cursor: 'pointer',
       }}
     >
       <div
         style={{
-          width: 24,
-          height: 24,
+          width: 22,
+          height: 22,
           borderRadius: '50%',
           background: asset.color,
           color: '#fff',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 700,
           flexShrink: 0,
         }}
@@ -103,12 +110,13 @@ function AssetCell({ asset }: { asset: Asset }) {
       >
         {formatChange(asset.change24h)}
       </span>
-    </div>
+    </motion.div>
   )
 }
 
 export default function MarketTicker({ gridW = 3, gridH = 1 }: Props) {
   const { all } = usePrices()
+  const navigate = useNavigate()
 
   const rows = Math.max(1, gridH)
   const cols = Math.max(2, gridW)
@@ -131,7 +139,10 @@ export default function MarketTicker({ gridW = 3, gridH = 1 }: Props) {
       }}
     >
       {assets.map((a) => (
-        <AssetCell key={a.symbol} asset={a} />
+        <AssetCell key={a.symbol} asset={a} onClick={() => {
+          console.debug('[MarketTicker] navigating to /asset/%s', a.symbol)
+          navigate(`/asset/${a.symbol}`)
+        }} />
       ))}
     </div>
   )

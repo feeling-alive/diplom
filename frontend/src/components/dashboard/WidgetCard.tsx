@@ -90,7 +90,7 @@ export default function WidgetCard({ widget, onRemove }: Props) {
         borderRadius: 12,
         boxShadow: 'var(--shadow-sm)',
         border: '1px solid var(--border)',
-        padding: 10,
+        padding: '12px 14px',
         overflow: 'hidden',
         position: 'relative',
         width: '100%',

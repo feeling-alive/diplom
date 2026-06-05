@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import type { Asset } from '../../types/market.types'
 import type { WidgetSizeProps } from '../../types/widgets.types'
 import { usePrices } from '../../hooks/usePrices'
@@ -13,6 +14,7 @@ const ROWS_PER_GRID_H: Record<number, number> = { 2: 4, 3: 8, 4: 12 }
 
 export default function WatchlistPanel({ assets: propAssets, gridW = 2, gridH = 2 }: Props) {
   const { cryptos, isLoading, lastUpdated } = usePrices()
+  const navigate = useNavigate()
   const rowsLimit = ROWS_PER_GRID_H[gridH] ?? 4
   const assets = propAssets ?? cryptos.slice(0, rowsLimit)
   // gridW === 1 → компактный режим (только иконка + цена + change%)
@@ -53,15 +55,20 @@ export default function WatchlistPanel({ assets: propAssets, gridW = 2, gridH = 
           return (
             <motion.div
               key={asset.symbol}
-              whileHover={{ backgroundColor: 'var(--bg)' }}
+              whileHover={{ backgroundColor: 'var(--bg)', x: 4 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => {
+                console.debug('[WatchlistPanel] navigating to /asset/%s', asset.symbol)
+                navigate(`/asset/${asset.symbol}`)
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: compact ? 6 : 10,
-                padding: compact ? '6px 4px' : '8px 0',
+                padding: compact ? '4px' : '6px 8px',
                 cursor: 'pointer',
                 borderBottom: isLast ? 'none' : '1px solid var(--border)',
-                borderRadius: compact ? 6 : 0,
+                borderRadius: 6,
                 flexShrink: 0,
               }}
             >
@@ -82,8 +89,11 @@ export default function WatchlistPanel({ assets: propAssets, gridW = 2, gridH = 
               </div>
 
               {!compact && (
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {asset.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>
                     {asset.symbol.split('-')[0]}
                   </div>
                 </div>

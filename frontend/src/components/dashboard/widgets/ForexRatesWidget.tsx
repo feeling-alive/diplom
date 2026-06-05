@@ -1,13 +1,15 @@
+import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { useForexRate } from '../../../hooks/useForexRate'
 import type { WidgetSizeProps } from '../../../types/widgets.types'
 
-interface Pair { from: string; to: string; label: string }
+interface Pair { from: string; to: string; label: string; flags: string }
 
 const PAIRS: Pair[] = [
-  { from: 'EUR', to: 'USD', label: 'EUR/USD' },
-  { from: 'GBP', to: 'USD', label: 'GBP/USD' },
-  { from: 'USD', to: 'JPY', label: 'USD/JPY' },
-  { from: 'USD', to: 'CHF', label: 'USD/CHF' },
+  { from: 'EUR', to: 'USD', label: 'EUR/USD', flags: '🇪🇺🇺🇸' },
+  { from: 'GBP', to: 'USD', label: 'GBP/USD', flags: '🇬🇧🇺🇸' },
+  { from: 'USD', to: 'JPY', label: 'USD/JPY', flags: '🇺🇸🇯🇵' },
+  { from: 'USD', to: 'CHF', label: 'USD/CHF', flags: '🇺🇸🇨🇭' },
 ]
 
 // Заглушечные % изменения — пока useForexRate не возвращает change, оставляем константы
@@ -21,106 +23,76 @@ const CHANGES: Record<string, number> = {
 type Props = WidgetSizeProps
 
 export default function ForexRatesWidget({ gridW = 2, gridH = 2 }: Props) {
-  const horizontal = gridH === 1
-  // 2x1 — 2 пары, 3x1 — 3 пары, 2x2 — все 4 пары в сетке 2x2
-  const visiblePairs = horizontal ? PAIRS.slice(0, gridW) : PAIRS
+  const navigate = useNavigate()
+  
+  // Растёт вниз
+  const limit = gridH >= 4 ? 8 : gridH >= 3 ? 6 : 4
+  const visiblePairs = PAIRS.slice(0, limit)
 
-  console.debug('[ForexRatesWidget] gridW=%d gridH=%d layout=%s pairs=%d', gridW, gridH, horizontal ? 'row' : 'grid', visiblePairs.length)
+  console.debug('[ForexRatesWidget] gridW=%d gridH=%d pairs=%d', gridW, gridH, visiblePairs.length)
 
-  if (horizontal) {
-    return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'grid',
-          gridTemplateColumns: `repeat(${visiblePairs.length}, minmax(0, 1fr))`,
-          gap: 8,
-          overflow: 'hidden',
-          boxSizing: 'border-box',
-        }}
-      >
-        {visiblePairs.map((p) => <RowCell key={p.label} pair={p} />)}
-      </div>
-    )
-  }
-
-  // 2x2 — крупные карточки в сетке 2x2
   return (
     <div
       style={{
         width: '100%',
         height: '100%',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-        gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
-        gap: 8,
-        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         boxSizing: 'border-box',
+        paddingRight: 4,
       }}
     >
-      {visiblePairs.map((p) => <CardCell key={p.label} pair={p} />)}
+      {visiblePairs.map((p, idx) => {
+        const isLast = idx === visiblePairs.length - 1
+        return (
+          <ListCell 
+            key={p.label} 
+            pair={p} 
+            isLast={isLast} 
+            onClick={() => {
+              console.debug('[ForexRatesWidget] navigate to /asset/%s', p.from + '-' + p.to)
+              navigate(`/asset/${p.from}-${p.to}`)
+            }} 
+          />
+        )
+      })}
     </div>
   )
 }
 
-function RowCell({ pair }: { pair: Pair }) {
+function ListCell({ pair, isLast, onClick }: { pair: Pair; isLast: boolean; onClick: () => void }) {
   const { rate, isLoading } = useForexRate(pair.from, pair.to)
   const change = CHANGES[pair.label] ?? 0
   const positive = change >= 0
+  
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'flex-start',
-      padding: 8,
-      background: 'var(--bg)',
-      borderRadius: 8,
-      minWidth: 0,
-    }}>
-      <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>{pair.label}</span>
-      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>
-        {isLoading ? '…' : Number.isFinite(rate) ? rate.toFixed(4) : '—'}
-      </span>
-      <span style={{ fontSize: 10, fontWeight: 600, color: positive ? 'var(--green)' : 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>
-        {positive ? '+' : ''}{change.toFixed(2)}%
-      </span>
-    </div>
-  )
-}
-
-function CardCell({ pair }: { pair: Pair }) {
-  const { rate, isLoading } = useForexRate(pair.from, pair.to)
-  const change = CHANGES[pair.label] ?? 0
-  const positive = change >= 0
-  return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      padding: 10,
-      background: 'var(--bg)',
-      borderRadius: 10,
-      minWidth: 0,
-      overflow: 'hidden',
-    }}>
-      <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700 }}>{pair.label}</span>
-      <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {isLoading ? '…' : Number.isFinite(rate) ? rate.toFixed(4) : '—'}
-      </span>
-      <span style={{
-        fontSize: 11,
-        fontWeight: 700,
-        color: positive ? 'var(--green)' : 'var(--accent)',
-        background: positive ? '#E8F8EF' : 'var(--accent-bg)',
-        borderRadius: 999,
-        padding: '2px 8px',
-        alignSelf: 'flex-start',
-        fontVariantNumeric: 'tabular-nums',
-      }}>
-        {positive ? '+' : ''}{change.toFixed(2)}%
-      </span>
-    </div>
+    <motion.div 
+      whileHover={{ backgroundColor: 'var(--bg)', x: 2 }}
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '6px 4px',
+        borderBottom: isLast ? 'none' : '1px solid var(--border)',
+        cursor: 'pointer',
+        borderRadius: 6,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontSize: 14, lineHeight: 1 }}>{pair.flags}</span>
+        <span style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 600 }}>{pair.label}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+          {isLoading ? '…' : Number.isFinite(rate) ? rate.toFixed(4) : '—'}
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: positive ? 'var(--green)' : 'var(--accent)', fontVariantNumeric: 'tabular-nums', width: 44, textAlign: 'right' }}>
+          {positive ? '+' : ''}{change.toFixed(2)}%
+        </span>
+      </div>
+    </motion.div>
   )
 }

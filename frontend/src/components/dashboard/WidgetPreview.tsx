@@ -38,6 +38,7 @@ export default function WidgetPreview({ type, gridW = 2, gridH = 2 }: Props) {
         overflow: 'hidden',
         position: 'relative',
         boxSizing: 'border-box',
+        pointerEvents: 'none',
       }}
     >
       {renderWidgetContent(type, gridW, gridH)}

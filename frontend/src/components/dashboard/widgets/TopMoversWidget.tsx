@@ -41,11 +41,16 @@ export default function TopMoversWidget({ gridW = 2, gridH = 2 }: Props) {
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/asset/' + encodeURIComponent(s.symbol)) } }}
               role="button"
               tabIndex={0}
-              title={`Открыть ${s.symbol}`}
+              title={`Открыть ${s.name}`}
               style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
             >
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.symbol.split('-')[0]}</span>
-              <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600, flexShrink: 0 }}>{formatChange(s.change24h)}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                <span style={{ fontSize: 9, color: 'var(--muted)' }}>{s.symbol.split('-')[0]}</span>
+              </div>
+              <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 2 }}>
+                ▲ {formatChange(s.change24h)}
+              </span>
             </div>
           ))}
         </div>
@@ -61,11 +66,16 @@ export default function TopMoversWidget({ gridW = 2, gridH = 2 }: Props) {
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/asset/' + encodeURIComponent(s.symbol)) } }}
               role="button"
               tabIndex={0}
-              title={`Открыть ${s.symbol}`}
+              title={`Открыть ${s.name}`}
               style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
             >
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.symbol.split('-')[0]}</span>
-              <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600, flexShrink: 0 }}>{formatChange(s.change24h)}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                <span style={{ fontSize: 9, color: 'var(--muted)' }}>{s.symbol.split('-')[0]}</span>
+              </div>
+              <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 2 }}>
+                ▼ {formatChange(s.change24h)}
+              </span>
             </div>
           ))}
         </div>
