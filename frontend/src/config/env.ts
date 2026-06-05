@@ -6,6 +6,8 @@ export const env = {
     baseUrl: import.meta.env.VITE_OKX_BASE_URL ?? 'https://www.okx.com',
     wsUrl: import.meta.env.VITE_OKX_WS_URL ?? 'wss://ws.okx.com:8443/ws/v5/public',
   },
+  // Phase 3: Finnhub-ключ живёт на бэкенде. Поля остаются как no-op заглушки
+  // для обратной совместимости с осиротевшими компонентами.
   finnhub: {
     apiKey: import.meta.env.VITE_FINNHUB_API_KEY ?? '',
     baseUrl: import.meta.env.VITE_FINNHUB_BASE_URL ?? 'https://finnhub.io/api/v1',

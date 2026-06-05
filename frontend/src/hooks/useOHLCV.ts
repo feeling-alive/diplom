@@ -1,74 +1,28 @@
 import { useQuery } from '@tanstack/react-query'
 import type { PricePoint, Timeframe } from '../types/market.types'
 import { getMockOHLCV } from '../mock/ohlcv.mock'
-import { ENV, USE_MOCK } from '../lib/env'
+import { USE_MOCK } from '../lib/env'
 
-// Maps Timeframe to OKX bar parameter string
-const OKX_BAR: Record<Timeframe, string> = {
-  '1m': '1m',
-  '5m': '5m',
-  '15m': '15m',
-  '1H': '1H',
-  '4H': '4H',
-  '1D': '1D',
-  '1W': '1W',
-  '1M': '1M',
-}
+// Phase 3 миграция: useOHLCV ходит в бэкенд /api/quotes/ohlcv/{symbol} через vite-proxy
+// (см. .ai-factory/plans/widgets-redis-cleanup.md, Task 3.1). Vite уже настроен
+// (frontend/vite.config.ts: '/api/quotes' → http://localhost:8000).
+//
+// Symbol routing (crypto vs stock) делает бэкенд: BTC-USDT → OKX, AAPL → Finnhub.
+// Здесь остаётся только маппинг таймфреймов на строковые ключи query-параметра —
+// они совпадают с OKX/Finnhub, отдельной карты не нужно.
 
-// Maps Timeframe to Finnhub resolution
-const FINNHUB_RES: Record<Timeframe, string> = {
-  '1m': '1',
-  '5m': '5',
-  '15m': '15',
-  '1H': '60',
-  '4H': '240',
-  '1D': 'D',
-  '1W': 'W',
-  '1M': 'M',
-}
-
-async function fetchOKXCandles(symbol: string, timeframe: Timeframe): Promise<PricePoint[]> {
-  const bar = OKX_BAR[timeframe]
-  const res = await fetch(
-    `https://www.okx.com/api/v5/market/candles?instId=${symbol}&bar=${bar}&limit=100`,
-  )
-  const json = (await res.json()) as { data: Array<[string, string, string, string, string, string, string]> }
-  // OKX returns [ts, open, high, low, close, vol, volCcy]
-  return json.data.map((row) => ({
-    timestamp: parseInt(row[0], 10),
-    open: parseFloat(row[1]),
-    high: parseFloat(row[2]),
-    low: parseFloat(row[3]),
-    close: parseFloat(row[4]),
-    volume: parseFloat(row[5]),
-  }))
-}
-
-async function fetchFinnhubCandles(symbol: string, timeframe: Timeframe): Promise<PricePoint[]> {
-  const resolution = FINNHUB_RES[timeframe]
-  const to = Math.floor(Date.now() / 1000)
-  const from = to - 100 * 3600
-  const res = await fetch(
-    `${ENV.FINNHUB_BASE_URL}/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}&token=${ENV.FINNHUB_API_KEY}`,
-  )
-  const json = (await res.json()) as {
-    t: number[]
-    o: number[]
-    h: number[]
-    l: number[]
-    c: number[]
-    v: number[]
-    s: string
-  }
-  if (json.s === 'no_data') return []
-  return json.t.map((ts, i) => ({
-    timestamp: ts * 1000,
-    open: json.o[i] ?? 0,
-    high: json.h[i] ?? 0,
-    low: json.l[i] ?? 0,
-    close: json.c[i] ?? 0,
-    volume: json.v[i] ?? 0,
-  }))
+interface OHLCVBackendResponse {
+  symbol: string
+  timeframe: string
+  candles: Array<{
+    t: number       // unix milliseconds (бэкенд нормализует для OKX и Finnhub)
+    o: number
+    h: number
+    l: number
+    c: number
+    v: number
+  }>
+  source: 'okx' | 'finnhub' | 'cache' | 'mock'
 }
 
 interface OHLCVResult {
@@ -82,15 +36,23 @@ export function useOHLCV(symbol: string, timeframe: Timeframe, useMock = USE_MOC
     queryKey: ['ohlcv', symbol, timeframe, useMock],
     queryFn: async () => {
       if (useMock) {
-        console.debug('[useOHLCV]', symbol, timeframe, 'mock mode')
+        console.debug('[useOHLCV] %s %s mock mode', symbol, timeframe)
         return getMockOHLCV(symbol)
       }
-      // Route to correct data source by symbol format
-      const isCrypto = symbol.includes('-')
-      const points = isCrypto
-        ? await fetchOKXCandles(symbol, timeframe)
-        : await fetchFinnhubCandles(symbol, timeframe)
-      console.debug('[useOHLCV]', symbol, timeframe, 'points=', points.length)
+      const url = `/api/quotes/ohlcv/${encodeURIComponent(symbol)}?tf=${timeframe}&limit=100`
+      console.debug('[useOHLCV] fetch %s %s', symbol, timeframe)
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`quotes/ohlcv ${res.status}`)
+      const json = (await res.json()) as OHLCVBackendResponse
+      const points: PricePoint[] = json.candles.map((c) => ({
+        timestamp: c.t,
+        open: c.o,
+        high: c.h,
+        low: c.l,
+        close: c.c,
+        volume: c.v,
+      }))
+      console.debug('[useOHLCV] %s %s -> %d candles (source=%s)', symbol, timeframe, points.length, json.source)
       return points
     },
     staleTime: 5 * 60 * 1000,

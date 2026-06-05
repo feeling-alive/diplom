@@ -12,7 +12,7 @@ interface Props {
 
 export default function AssetHeader({ asset }: Props) {
   const navigate = useNavigate()
-  const { price: livePrice, change24h: liveChange } = useAssetPrice(asset.symbol, asset.type, true)
+  const { price: livePrice, change24h: liveChange } = useAssetPrice(asset.symbol, asset.type)
   const [isStarred, setIsStarred] = useState(false)
 
   const price = livePrice || asset.price

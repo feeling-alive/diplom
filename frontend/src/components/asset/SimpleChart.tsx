@@ -64,7 +64,7 @@ function ChartSkeleton() {
 
 export default function SimpleChart({ symbol, change24h }: Props) {
   const [tf, setTf] = useState<Timeframe>('1D')
-  const { data, isLoading } = useOHLCV(symbol, tf, true)
+  const { data, isLoading } = useOHLCV(symbol, tf)
 
   const positive = change24h >= 0
   const color = positive ? 'var(--green)' : 'var(--accent)'

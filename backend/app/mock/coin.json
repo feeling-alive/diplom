@@ -6,18 +6,30 @@
     "description": {
       "en": "Bitcoin is a decentralized digital currency, without a central bank or single administrator."
     },
+    "links": {
+      "homepage": ["https://bitcoin.org"],
+      "repos_url": {"github": ["https://github.com/bitcoin/bitcoin"]},
+      "twitter_screen_name": "bitcoin"
+    },
+    "genesis_date": "2009-01-03",
+    "hashing_algorithm": "SHA-256",
+    "market_cap_rank": 1,
+    "image": {
+      "large": "https://assets.coingecko.com/coins/images/1/large/bitcoin.png",
+      "small": "https://assets.coingecko.com/coins/images/1/small/bitcoin.png"
+    },
     "market_data": {
       "current_price": {"usd": 68475.30},
       "market_cap": {"usd": 1349285000000},
       "total_volume": {"usd": 28456789000},
       "price_change_percentage_24h": 1.85,
       "circulating_supply": 19720000,
-      "ath": {"usd": 73750.00},
-      "atl": {"usd": 67.81}
-    },
-    "image": {
-      "large": "https://assets.coingecko.com/coins/images/1/large/bitcoin.png",
-      "small": "https://assets.coingecko.com/coins/images/1/small/bitcoin.png"
+      "total_supply": 21000000,
+      "max_supply": 21000000,
+      "ath": {"usd": 73750.00, "date": "2024-03-13T11:10:00.000Z"},
+      "ath_date": {"usd": "2024-03-13T11:10:00.000Z"},
+      "atl": {"usd": 67.81, "date": "2013-07-06T00:00:00.000Z"},
+      "atl_date": {"usd": "2013-07-06T00:00:00.000Z"}
     }
   },
   "ethereum": {
@@ -27,18 +39,30 @@
     "description": {
       "en": "Ethereum is a decentralized open-source blockchain system with its own cryptocurrency, Ether."
     },
+    "links": {
+      "homepage": ["https://www.ethereum.org"],
+      "repos_url": {"github": ["https://github.com/ethereum/go-ethereum"]},
+      "twitter_screen_name": "ethereum"
+    },
+    "genesis_date": "2015-07-30",
+    "hashing_algorithm": "Ethash",
+    "market_cap_rank": 2,
+    "image": {
+      "large": "https://assets.coingecko.com/coins/images/279/large/ethereum.png",
+      "small": "https://assets.coingecko.com/coins/images/279/small/ethereum.png"
+    },
     "market_data": {
       "current_price": {"usd": 3720.45},
       "market_cap": {"usd": 447300000000},
       "total_volume": {"usd": 14678900000},
       "price_change_percentage_24h": -0.42,
       "circulating_supply": 120200000,
-      "ath": {"usd": 4878.26},
-      "atl": {"usd": 0.43}
-    },
-    "image": {
-      "large": "https://assets.coingecko.com/coins/images/279/large/ethereum.png",
-      "small": "https://assets.coingecko.com/coins/images/279/small/ethereum.png"
+      "total_supply": null,
+      "max_supply": null,
+      "ath": {"usd": 4878.26, "date": "2021-11-10T14:24:00.000Z"},
+      "ath_date": {"usd": "2021-11-10T14:24:00.000Z"},
+      "atl": {"usd": 0.43, "date": "2015-10-22T00:00:00.000Z"},
+      "atl_date": {"usd": "2015-10-22T00:00:00.000Z"}
     }
   }
 }

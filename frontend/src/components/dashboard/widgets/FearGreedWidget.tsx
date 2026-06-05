@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { ENV, USE_MOCK } from '../../../lib/env'
+import { useQuery } from '@tanstack/react-query'
+import { USE_MOCK } from '../../../lib/env'
 import type { WidgetSizeProps } from '../../../types/widgets.types'
 
 type Props = WidgetSizeProps
@@ -8,6 +9,14 @@ interface FngData {
   value: number
   label: string
   timestamp: number
+}
+
+interface FngBackendPayload {
+  value: number
+  label: string
+  timestamp: number
+  fetchedAt: number
+  source: 'alternative.me' | 'cache' | 'fallback'
 }
 
 function getLabel(value: number): string {
@@ -24,88 +33,40 @@ function getColor(value: number): string {
   return '#ef4444'
 }
 
-const CACHE_KEY = 'fintrack_fng_cache_v1'
-const CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
-
-interface CacheEntry { value: number; label: string; timestamp: number; cachedAt: number }
-function readCache(): CacheEntry | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const entry = JSON.parse(raw) as CacheEntry
-    if (Date.now() - entry.cachedAt > CACHE_TTL_MS) return null
-    return entry
-  } catch {
-    return null
-  }
+async function fetchFng(): Promise<FngData> {
+  const res = await fetch('/api/quotes/fng')
+  if (!res.ok) throw new Error(`quotes/fng ${res.status}`)
+  const json = (await res.json()) as FngBackendPayload
+  console.info('[FearGreedWidget] backend value=%d label=%s source=%s', json.value, json.label, json.source)
+  return { value: json.value, label: getLabel(json.value), timestamp: json.timestamp }
 }
 
-function writeCache(value: number, label: string, timestamp: number) {
-  try {
-    const entry: CacheEntry = { value, label, timestamp, cachedAt: Date.now() }
-    localStorage.setItem(CACHE_KEY, JSON.stringify(entry))
-  } catch {
-    /* localStorage full / disabled */
-  }
-}
+const MOCK_DATA: FngData = { value: 72, label: getLabel(72), timestamp: Math.floor(Date.now() / 1000) }
 
 export default function FearGreedWidget({ gridW = 1, gridH = 2 }: Props) {
-  const [data, setData] = useState<FngData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLocalMock] = useState(USE_MOCK)
+  const [manualMock] = useState<FngData | null>(USE_MOCK ? MOCK_DATA : null)
+
+  const { data, isLoading } = useQuery<FngData, Error>({
+    queryKey: ['fng'],
+    queryFn: fetchFng,
+    enabled: !isLocalMock,
+    staleTime: 60 * 60 * 1000,
+    gcTime: 2 * 60 * 60 * 1000,
+    refetchInterval: 60 * 60 * 1000,
+    retry: 1,
+  })
+
+  // Mock mode: держим статичные данные, не делаем fetch.
+  // Live mode: до получения первого ответа показываем заглушку.
+  const effective = isLocalMock ? manualMock : data ?? null
+  const showLoading = !isLocalMock && isLoading && !effective
 
   useEffect(() => {
-    const cached = readCache()
-    if (cached) {
-      console.info('[FearGreedWidget] cache hit — value=%d label=%s', cached.value, cached.label)
-      setData({ value: cached.value, label: cached.label, timestamp: cached.timestamp })
-      setIsLoading(false)
-      return
+    if (isLocalMock) {
+      console.info('[FearGreedWidget] mock mode — value=%d', MOCK_DATA.value)
     }
-
-    if (USE_MOCK) {
-      console.info('[FearGreedWidget] using mock data')
-      setData({ value: 72, label: getLabel(72), timestamp: Date.now() / 1000 })
-      setIsLoading(false)
-      return
-    }
-
-    const controller = new AbortController()
-    const fetchFn = async () => {
-      try {
-        console.info('[FearGreedWidget] fetching /api/fng/ from alternative.me')
-        const res = await fetch('https://api.alternative.me/fng/?limit=1', { signal: controller.signal })
-        if (!res.ok) throw new Error(`FNG ${res.status}`)
-        const json = (await res.json()) as { data: Array<{ value: string; value_classification: string; timestamp: string }> }
-        const first = json.data[0]
-        if (!first) throw new Error('Empty FNG response')
-        const value = parseInt(first.value, 10)
-        const label = getLabel(value)
-        const timestamp = parseInt(first.timestamp, 10)
-        setData({ value, label, timestamp })
-        writeCache(value, label, timestamp)
-        console.info('[FearGreedWidget] fetched — value=%d label=%s ts=%d', value, label, timestamp)
-      } catch (err) {
-        if (controller.signal.aborted) return
-        console.warn('[FearGreedWidget] fetch failed, using fallback:', err)
-        setData({ value: 50, label: 'Нейтрально', timestamp: Date.now() / 1000 })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchFn()
-
-    return () => controller.abort()
-  }, [])
-
-  const value = data?.value ?? 0
-  const label = data?.label ?? '—'
-  const color = getColor(value)
-  const updatedAt = data ? new Date(data.timestamp * 1000).toLocaleDateString() : ''
-
-  const showGauge = gridW >= 2 || gridH >= 2
-  const showLabel = gridH >= 2
-
-  console.debug('[FearGreedWidget] gridW=%d gridH=%d value=%d gauge=%s label=%s', gridW, gridH, value, showGauge, showLabel)
+  }, [isLocalMock])
 
   const segments = useMemo(() => {
     const result: { color: string; startAngle: number; endAngle: number }[] = []
@@ -115,7 +76,7 @@ export default function FearGreedWidget({ gridW = 1, gridH = 2 }: Props) {
 
     for (let i = 0; i < 100; i++) {
       const pct = i / 100
-      let segColor = '#22c55e'
+      let segColor: string
       if (pct > 0.75) segColor = '#22c55e'
       else if (pct > 0.5) segColor = '#f59e0b'
       else if (pct > 0.25) segColor = '#f97316'
@@ -130,9 +91,23 @@ export default function FearGreedWidget({ gridW = 1, gridH = 2 }: Props) {
     return result
   }, [])
 
-  if (isLoading && !data) {
-    return <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 11 }}>Загрузка…</div>
+  if (showLoading) {
+    return (
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 11 }}>
+        Загрузка…
+      </div>
+    )
   }
+
+  const value = effective?.value ?? 0
+  const label = effective?.label ?? '—'
+  const color = getColor(value)
+  const updatedAt = effective ? new Date(effective.timestamp * 1000).toLocaleDateString() : ''
+
+  const showGauge = gridW >= 2 || gridH >= 2
+  const showLabel = gridH >= 2
+
+  console.debug('[FearGreedWidget] gridW=%d gridH=%d value=%d gauge=%s label=%s', gridW, gridH, value, showGauge, showLabel)
 
   if (!showGauge) {
     return (

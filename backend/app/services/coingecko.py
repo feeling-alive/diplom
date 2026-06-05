@@ -34,25 +34,43 @@ def _load_mock() -> dict[str, Any]:
 
 
 def _normalize(raw: dict[str, Any]) -> dict[str, Any]:
-    """Trim CoinGecko's enormous payload to the shape the frontend actually uses."""
+    """Trim CoinGecko's enormous payload to the shape the frontend actually uses.
+
+    The frontend's ``CoinInfo`` interface (frontend/src/hooks/useCoinInfo.ts)
+    pulls in: description, links, genesis_date, hashing_algorithm, market_cap_rank,
+    and a handful of market_data fields. We return exactly those — no more — to
+    keep the response bounded.
+    """
     md = raw.get("market_data") or {}
     image = raw.get("image") or {}
+    links = raw.get("links") or {}
+    repos = links.get("repos_url") or {}
+    github_urls = repos.get("github") or []
     return {
         "id": raw.get("id"),
         "symbol": raw.get("symbol"),
         "name": raw.get("name"),
-        "description": {
-            "en": ((raw.get("description") or {}).get("en") or "")[:1000],
-        },
-        "market_data": {
-            "current_price": safe_float((md.get("current_price") or {}).get("usd")),
-            "market_cap": safe_float((md.get("market_cap") or {}).get("usd")),
-            "total_volume": safe_float((md.get("total_volume") or {}).get("usd")),
-            "price_change_percentage_24h": safe_float(md.get("price_change_percentage_24h")),
-            "circulating_supply": safe_float(md.get("circulating_supply")),
-            "ath": safe_float((md.get("ath") or {}).get("usd")),
-            "atl": safe_float((md.get("atl") or {}).get("usd")),
-        },
+        "description": ((raw.get("description") or {}).get("en") or "")[:1000],
+        "homepage": (links.get("homepage") or [None])[0] or None,
+        "github": github_urls[0] if github_urls else None,
+        "twitter": (
+            f"https://twitter.com/{links.get('twitter_screen_name')}"
+            if links.get("twitter_screen_name") else None
+        ),
+        "genesis_date": raw.get("genesis_date"),
+        "hashing_algorithm": raw.get("hashing_algorithm"),
+        "market_cap_rank": raw.get("market_cap_rank"),
+        "ath": safe_float((md.get("ath") or {}).get("usd")),
+        "ath_date": ((md.get("ath_date") or {}).get("usd") or None),
+        "atl": safe_float((md.get("atl") or {}).get("usd")),
+        "atl_date": ((md.get("atl_date") or {}).get("usd") or None),
+        "total_supply": safe_float(md.get("total_supply")),
+        "circulating_supply": safe_float(md.get("circulating_supply")),
+        "max_supply": safe_float(md.get("max_supply")),
+        "current_price_usd": safe_float((md.get("current_price") or {}).get("usd")),
+        "market_cap_usd": safe_float((md.get("market_cap") or {}).get("usd")),
+        "total_volume_usd": safe_float((md.get("total_volume") or {}).get("usd")),
+        "price_change_percentage_24h": safe_float(md.get("price_change_percentage_24h")),
         "image": {
             "large": image.get("large"),
             "small": image.get("small"),

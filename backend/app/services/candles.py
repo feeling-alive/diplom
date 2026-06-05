@@ -86,9 +86,15 @@ async def _fetch_okx(symbol: str, timeframe: str, limit: int) -> list[dict[str, 
     for row in rows:  # OKX returns newest first; oldest first is friendlier
         if not isinstance(row, list) or len(row) < 6:
             continue
+        # OKX returns [ts, o, h, l, c, vol, volCcy] where ts is unix ms (string).
+        # Normalize to an integer — the frontend expects ``PricePoint.timestamp`` in ms.
+        try:
+            ts_ms = int(row[0])
+        except (TypeError, ValueError):
+            continue
         out.append(
             {
-                "t": row[0],
+                "t": ts_ms,
                 "o": safe_float(row[1]),
                 "h": safe_float(row[2]),
                 "l": safe_float(row[3]),
@@ -137,9 +143,11 @@ async def _fetch_finnhub(symbol: str, timeframe: str, limit: int) -> list[dict[s
     out: list[dict[str, Any]] = []
     ts: list[int] = payload.get("t") or []
     for i, t in enumerate(ts):
+        # Finnhub returns unix seconds; promote to ms so the frontend gets a
+        # uniform ``PricePoint.timestamp`` shape from both providers.
         out.append(
             {
-                "t": t,  # unix seconds, frontend divides by 1000
+                "t": int(t) * 1000,
                 "o": safe_float((payload.get("o") or [])[i] if i < len(payload.get("o") or []) else 0),
                 "h": safe_float((payload.get("h") or [])[i] if i < len(payload.get("h") or []) else 0),
                 "l": safe_float((payload.get("l") or [])[i] if i < len(payload.get("l") or []) else 0),

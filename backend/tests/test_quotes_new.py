@@ -127,7 +127,9 @@ async def test_ohlcv_crypto_okx_schema(client: AsyncClient) -> None:
     assert body["timeframe"] == "1H"
     assert body["source"] == "okx"
     candle = body["candles"][0]
-    assert {"t", "o", "h", "l", "c", "v"} <= set(candle.keys())
+    # Service normalizes the timestamp to an integer of unix milliseconds.
+    assert candle["t"] == 1700000000000
+    assert isinstance(candle["t"], int)
 
 
 async def test_ohlcv_upstream_failure_returns_mock(client: AsyncClient) -> None:
@@ -153,6 +155,14 @@ async def test_coin_coingecko_schema(client: AsyncClient) -> None:
         "name": "Bitcoin",
         "description": {"en": "X" * 2000},  # exercise the 1000-char truncation
         "image": {"large": "https://x/lg.png", "small": "https://x/sm.png"},
+        "links": {
+            "homepage": ["https://bitcoin.org"],
+            "repos_url": {"github": ["https://github.com/bitcoin/bitcoin"]},
+            "twitter_screen_name": "bitcoin",
+        },
+        "genesis_date": "2009-01-03",
+        "hashing_algorithm": "SHA-256",
+        "market_cap_rank": 1,
         "market_data": {
             "current_price": {"usd": 68000.0},
             "market_cap": {"usd": 1.3e12},
@@ -170,8 +180,18 @@ async def test_coin_coingecko_schema(client: AsyncClient) -> None:
     body = resp.json()
     assert body["id"] == "bitcoin"
     assert body["source"] == "coingecko"
-    assert len(body["description"]["en"]) <= 1000
-    assert body["market_data"]["current_price"] == 68000.0
+    # New normalized shape: description is a flat string, market_data is flat too.
+    assert isinstance(body["description"], str)
+    assert len(body["description"]) <= 1000
+    assert body["current_price_usd"] == 68000.0
+    assert body["homepage"] == "https://bitcoin.org"
+    assert body["github"] == "https://github.com/bitcoin/bitcoin"
+    assert body["twitter"] == "https://twitter.com/bitcoin"
+    # Trim-guard: the response must not leak the giant CoinGecko payload.
+    assert "tickers" not in body
+    assert "community_data" not in body
+    assert "market_data" not in body
+    assert "links" not in body
 
 
 async def test_coin_failure_returns_mock(client: AsyncClient) -> None:
@@ -184,7 +204,7 @@ async def test_coin_failure_returns_mock(client: AsyncClient) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["source"] == "mock"
-    # The mock fixture is per-coin; unknown coin falls back to bitcoin.
+    # The mock fixture has per-coin entries; ethereum exists in coin.json.
     assert body["id"] == "ethereum"
 
 
