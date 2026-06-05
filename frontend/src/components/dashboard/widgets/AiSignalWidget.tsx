@@ -1,19 +1,20 @@
-import { Sparkles } from 'lucide-react'
+import { Sparkles, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import type { WidgetSizeProps } from '../../../types/widgets.types'
+import { usePrediction } from '../../../hooks/usePrediction'
 
-type Props = WidgetSizeProps
+type Props = WidgetSizeProps & { symbol?: string }
 
-const SIGNAL = {
-  symbol: 'BTC',
-  trend: 'Восходящий',
-  recommendation: 'Покупать на откатах',
-  confidence: 78,
-  color: '#7e22ce',
-}
+const DEFAULT_SYMBOL = 'BTC-USDT'
+const ACCENT = '#7e22ce'
 
-export default function AiSignalWidget({ gridW = 2, gridH = 2 }: Props) {
-  console.debug('[AiSignalWidget] gridW=%d gridH=%d', gridW, gridH)
+export default function AiSignalWidget({ gridW = 2, gridH = 2, symbol = DEFAULT_SYMBOL }: Props) {
+  // Live PatchTST signal from our backend (useMock=false). Falls back to a
+  // neutral mock inside the hook when the backend is unreachable.
+  const { data, isLoading } = usePrediction(symbol, false)
+  console.debug('[AiSignalWidget] symbol=%s gridW=%d gridH=%d data=%o', symbol, gridW, gridH, data)
+
   const showDetails = gridH >= 2
+  const base = symbol.split('-')[0]
 
   return (
     <div style={{
@@ -27,17 +28,53 @@ export default function AiSignalWidget({ gridW = 2, gridH = 2 }: Props) {
           background: '#f3e8ff', display: 'flex',
           alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-          <Sparkles size={12} color={SIGNAL.color} strokeWidth={2.5} />
+          <Sparkles size={12} color={ACCENT} strokeWidth={2.5} />
         </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>{SIGNAL.symbol}</span>
-        <span style={{
-          marginLeft: 'auto',
-          padding: '2px 6px', borderRadius: 999,
-          background: '#f3e8ff', color: SIGNAL.color,
-          fontSize: 9, fontWeight: 700,
-        }}>AI {SIGNAL.confidence}%</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>{base}</span>
+        {data && (
+          <span style={{
+            marginLeft: 'auto',
+            padding: '2px 6px', borderRadius: 999,
+            background: '#f3e8ff', color: ACCENT,
+            fontSize: 9, fontWeight: 700,
+          }}>AI {Math.round(data.probability * 100)}%</span>
+        )}
       </div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: SIGNAL.color }}>{SIGNAL.trend}</div>
+
+      {isLoading ? (
+        <div style={{ fontSize: 11, color: 'var(--muted)' }}>Анализирую...</div>
+      ) : !data ? (
+        <div style={{ fontSize: 11, color: 'var(--muted)' }}>Нет данных</div>
+      ) : (
+        <AiSignalBody data={data} showDetails={showDetails} />
+      )}
+    </div>
+  )
+}
+
+function AiSignalBody({
+  data,
+  showDetails,
+}: {
+  data: { direction: string; probability: number; low_confidence: boolean }
+  showDetails: boolean
+}) {
+  const isWeak = data.low_confidence || data.direction === 'SIDEWAYS'
+  const trend = isWeak ? 'Боковик' : data.direction === 'UP' ? 'Восходящий' : 'Нисходящий'
+  const trendColor = isWeak ? '#6b7280' : data.direction === 'UP' ? '#16a34a' : '#dc2626'
+  const Icon = isWeak ? Minus : data.direction === 'UP' ? TrendingUp : TrendingDown
+  const pct = Math.round(data.probability * 100)
+
+  const detail = isWeak
+    ? 'Сигнал слабый — модель не уверена в направлении. Дождитесь подтверждения.'
+    : `Модель прогнозирует ${trend.toLowerCase()} тренд с уверенностью ${pct}%.`
+
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: trendColor }}>
+        <Icon size={12} strokeWidth={2.5} />
+        {trend}
+      </div>
       {showDetails && (
         <div style={{
           fontSize: 10, color: 'var(--text)',
@@ -45,9 +82,9 @@ export default function AiSignalWidget({ gridW = 2, gridH = 2 }: Props) {
           background: 'var(--bg)', lineHeight: 1.35, flex: 1, minHeight: 0,
           overflow: 'auto',
         }}>
-          {SIGNAL.recommendation}. Подтверждено MA-50 и RSI&nbsp;14. Стоп ниже последнего минимума.
+          {detail}
         </div>
       )}
-    </div>
+    </>
   )
 }

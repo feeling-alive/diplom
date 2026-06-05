@@ -61,16 +61,16 @@
 
 ### Фаза 4 — Фронтенд: предсказание в UI
 
-- **T8 — Хук usePrediction** (`frontend/src/hooks/usePrediction.ts`, новый)
+- [x] **T8 — Хук usePrediction** (`frontend/src/hooks/usePrediction.ts`, новый)
   `GET /api/chat/predict/{symbol}`, `usePrediction(symbol, useMock=true)`, `{data,isLoading,error}`, тип `+ low_confidence`. *(зависит от: —)*
 
-- **T9 — low_confidence в бейдже и типах чата** (`frontend/src/hooks/useGroqChat.ts`, `frontend/src/components/asset/AIPanel.tsx`)
+- [x] **T9 — low_confidence в бейдже и типах чата** (`frontend/src/hooks/useGroqChat.ts`, `frontend/src/components/asset/AIPanel.tsx`)
   `PredictionInfo += low_confidence`; `PredictionBadge` показывает «Боковик/Слабый сигнал» нейтрально при слабом сигнале. *(зависит от: T5)*
 
-- **T10 — Подключить AIPanel на странице актива** (`frontend/src/pages/AssetPage.tsx`)
+- [x] **T10 — Подключить AIPanel на странице актива** (`frontend/src/pages/AssetPage.tsx`)
   Отрендерить ныне неиспользуемый `AIPanel` с `symbol={asset.symbol}`, рядом с `NewsPanel`. *(зависит от: T9)*
 
-- **T11 — Заменить мок AiSignalWidget** (`frontend/src/components/dashboard/widgets/AiSignalWidget.tsx`)
+- [x] **T11 — Заменить мок AiSignalWidget** (`frontend/src/components/dashboard/widgets/AiSignalWidget.tsx`)
   Убрать хардкод, использовать `usePrediction` (символ по умолчанию `BTC-USDT`), состояния loading/empty, сохранить визуал и `gridH`-логику. *(зависит от: T8)*
 
 ### Фаза 5 — Тесты

@@ -4,6 +4,7 @@ import AssetHeader from '../components/asset/AssetHeader'
 import MainCard from '../components/asset/MainCard'
 import MetricsBar from '../components/asset/MetricsBar'
 import NewsPanel from '../components/asset/NewsPanel'
+import AIPanel from '../components/asset/AIPanel'
 import { usePrices } from '../hooks/usePrices'
 
 export default function AssetPage() {
@@ -82,12 +83,20 @@ export default function AssetPage() {
             <MetricsBar asset={asset} />
           </div>
 
-          {/* RIGHT column */}
+          {/* RIGHT column — news + AI chat panel */}
           <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
             height: 'calc(420px + 16px + 100px)',
             minHeight: 540,
           }}>
-            <NewsPanel symbol={asset.symbol} ticker={asset.symbol} />
+            <div style={{ flex: '1 1 0', minHeight: 220 }}>
+              <NewsPanel symbol={asset.symbol} ticker={asset.symbol} />
+            </div>
+            <div style={{ flex: '1 1 0', minHeight: 280 }}>
+              <AIPanel symbol={asset.symbol} />
+            </div>
           </div>
         </div>
       </motion.div>

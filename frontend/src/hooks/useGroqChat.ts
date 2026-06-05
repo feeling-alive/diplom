@@ -9,6 +9,7 @@ export interface PredictionInfo {
   direction: string
   probability: number
   source: string
+  low_confidence?: boolean
 }
 
 interface UseGroqChatOptions {

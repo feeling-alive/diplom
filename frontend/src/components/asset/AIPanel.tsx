@@ -13,9 +13,14 @@ const SUGGESTIONS = [
   { icon: <ShieldAlert size={12} />,  label: 'Оцени риски входа' },
 ]
 
-function PredictionBadge({ direction, probability }: { direction: string; probability: number }) {
-  const color = direction === 'UP' ? '#16a34a' : direction === 'DOWN' ? '#dc2626' : '#6b7280'
-  const Icon = direction === 'UP' ? TrendingUp : direction === 'DOWN' ? TrendingDown : Minus
+function PredictionBadge({ direction, probability, lowConfidence }: { direction: string; probability: number; lowConfidence?: boolean }) {
+  // A weak/low-confidence call is shown neutrally as "боковик" regardless of
+  // the raw direction, so a flat ~51% never reads as a confident move.
+  const isWeak = lowConfidence || direction === 'SIDEWAYS'
+  const color = isWeak ? '#6b7280' : direction === 'UP' ? '#16a34a' : '#dc2626'
+  const Icon = isWeak ? Minus : direction === 'UP' ? TrendingUp : TrendingDown
+  const label = isWeak ? 'Боковик' : direction === 'UP' ? 'Вверх' : 'Вниз'
+  const suffix = lowConfidence ? ' · слабый сигнал' : ''
   return (
     <div style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -23,7 +28,7 @@ function PredictionBadge({ direction, probability }: { direction: string; probab
       background: `${color}15`, color, fontSize: 10, fontWeight: 600,
     }}>
       <Icon size={12} />
-      {direction === 'UP' ? 'Вверх' : direction === 'DOWN' ? 'Вниз' : 'Боковик'} · {(probability * 100).toFixed(0)}%
+      {label} · {(probability * 100).toFixed(0)}%{suffix}
     </div>
   )
 }
@@ -78,7 +83,11 @@ export default function AIPanel({ symbol }: Props) {
           </div>
         </div>
         {prediction && (
-          <PredictionBadge direction={prediction.direction} probability={prediction.probability} />
+          <PredictionBadge
+            direction={prediction.direction}
+            probability={prediction.probability}
+            lowConfidence={prediction.low_confidence}
+          />
         )}
       </div>
 
