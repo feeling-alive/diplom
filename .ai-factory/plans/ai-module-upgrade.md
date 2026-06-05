@@ -45,18 +45,18 @@
 
 ### Фаза 2 — Бэкенд: инференс и порог боковика
 
-- **T4 — Инференс PatchTST + порог боковика** (`backend/app/services/patchtst.py`)
+- [x] **T4 — Инференс PatchTST + порог боковика** (`backend/app/services/patchtst.py`)
   Окно/таймфрейм из конфига, признаки через `features` + scaler. Разбор всех меток, top-1/top-2 + margin, понижение слабого `UP/DOWN` до `SIDEWAYS` с `low_confidence=True`. Возврат `{symbol, prediction, probability, raw_probabilities, low_confidence, source}`. *(зависит от: T1, T3)*
 
-- **T5 — Проброс low_confidence в схему, промт, кэш** (`backend/app/routes/chat.py`)
+- [x] **T5 — Проброс low_confidence в схему, промт, кэш** (`backend/app/routes/chat.py`)
   `_get_prediction_cached` берёт конфиг; `PredictionOut += low_confidence`; промт явно сообщает о слабом сигнале/боковике. *(зависит от: T4)*
 
 ### Фаза 3 — Бэкенд: новости в контексте
 
-- **T6 — Фикс привязки новостей по тикеру** (`backend/app/routes/chat.py`)
+- [x] **T6 — Фикс привязки новостей по тикеру** (`backend/app/routes/chat.py`)
   `_get_news_context` фильтрует по `base_ticker`; фоллбэк по category/title-ilike, лимит из конфига. *(зависит от: T1, T2)*
 
-- **T7 — Опц. новости в общем чате** (`backend/app/routes/chat.py`)
+- [x] **T7 — Опц. новости в общем чате** (`backend/app/routes/chat.py`)
   При `general` + `general_news_enabled` — блок свежих общерыночных новостей. По умолчанию выключено. *(зависит от: T1)*
 
 ### Фаза 4 — Фронтенд: предсказание в UI

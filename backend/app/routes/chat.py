@@ -12,17 +12,19 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import cast, select
+from sqlalchemy import cast, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
+from app.config import settings
 from app.database import get_db
 from app.models import ChatSession, NewsArticle, User
 from app.services.cache import get_cached, set_cached
 from app.services.candles import get_candles
 from app.services.groq_service import get_groq_response
 from app.services.patchtst import get_prediction
+from app.services.symbols import base_ticker
 
 logger = logging.getLogger("backend.chat")
 
@@ -44,6 +46,8 @@ class PredictionOut(BaseModel):
     direction: str
     probability: float
     source: str
+    low_confidence: bool = False
+    raw_probabilities: dict[str, float] | None = None
 
 
 class ChatResponse(BaseModel):
@@ -141,7 +145,11 @@ async def _get_prediction_cached(symbol: str) -> dict[str, Any]:
     except Exception as exc:
         logger.warning("[chat] cache read error for %s: %s", symbol, exc)
 
-    candles_data = await get_candles(symbol=symbol, timeframe="1H", limit=100)
+    candles_data = await get_candles(
+        symbol=symbol,
+        timeframe=settings.prediction_timeframe,
+        limit=settings.prediction_seq_len,
+    )
     prediction = await get_prediction(
         candles_data.get("candles") or [], symbol=symbol
     )
@@ -161,28 +169,97 @@ async def _get_prediction_cached(symbol: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-async def _get_news_context(db: AsyncSession, symbol: str) -> str:
-    """Return a text block with the latest 3-5 news for *symbol*."""
-    result = await db.execute(
-        select(NewsArticle)
-        .where(cast(NewsArticle.symbols, JSONB).contains([symbol]))
-        .order_by(NewsArticle.published_at.desc())
-        .limit(5)
-    )
-    articles = list(result.scalars().all())
-
-    if not articles:
-        logger.debug("[chat] news context for %s: 0 articles", symbol)
-        return "Нет свежих новостей по данному активу."
-
+def _format_news_lines(articles: list[NewsArticle]) -> str:
+    """Render articles as a Russian bullet block for the system prompt."""
     lines: list[str] = []
     for a in articles:
         title = a.title_ru or a.title
         desc = a.description_ru or a.description or ""
         lines.append(f"- {title}. {desc[:200]}")
-
-    logger.debug("[chat] news context for %s: %d articles", symbol, len(articles))
     return "Свежие новости:\n" + "\n".join(lines)
+
+
+async def _get_news_context(db: AsyncSession, symbol: str) -> str:
+    """Return a text block with the latest news relevant to *symbol*.
+
+    News ``symbols`` are stored as bare tickers (``BTC``), while *symbol* may be
+    a full instrument id (``BTC-USDT``) — so we match on :func:`base_ticker`.
+    Falls back through text search and a category feed so the context is rarely
+    empty.
+    """
+    ticker = base_ticker(symbol)
+    limit = settings.news_context_limit
+    is_crypto = "-" in symbol
+
+    # 1. Exact tag match on the enriched ``symbols`` array (PostgreSQL JSONB).
+    # The JSONB cast does not compile on the sqlite test DB — treat that as
+    # "no match" and fall through to the portable fallbacks below. The compile
+    # error happens before any DB round-trip, so the session stays clean.
+    articles: list[NewsArticle] = []
+    path = "symbols"
+    try:
+        result = await db.execute(
+            select(NewsArticle)
+            .where(cast(NewsArticle.symbols, JSONB).contains([ticker]))
+            .order_by(NewsArticle.published_at.desc())
+            .limit(limit)
+        )
+        articles = list(result.scalars().all())
+    except Exception as exc:  # noqa: BLE001 — non-PG dialect: skip JSONB path
+        logger.debug("[chat] symbols JSONB query unsupported (%s); using fallback", exc)
+
+    # 2. Fallback: free-text search by ticker in title/description.
+    if not articles and ticker:
+        like = f"%{ticker}%"
+        result = await db.execute(
+            select(NewsArticle)
+            .where(
+                or_(
+                    NewsArticle.title.ilike(like),
+                    NewsArticle.title_ru.ilike(like),
+                    NewsArticle.description.ilike(like),
+                )
+            )
+            .order_by(NewsArticle.published_at.desc())
+            .limit(limit)
+        )
+        articles = list(result.scalars().all())
+        path = "text"
+
+    # 3. Fallback: latest articles in the asset's broad category.
+    if not articles:
+        category = "crypto" if is_crypto else "stocks"
+        result = await db.execute(
+            select(NewsArticle)
+            .where(NewsArticle.category == category)
+            .order_by(NewsArticle.published_at.desc())
+            .limit(limit)
+        )
+        articles = list(result.scalars().all())
+        path = f"category:{category}"
+
+    if not articles:
+        logger.debug("[chat] news context for %s (%s): 0 articles", symbol, ticker)
+        return "Нет свежих новостей по данному активу."
+
+    logger.debug(
+        "[chat] news context for %s (%s): %d articles via %s",
+        symbol, ticker, len(articles), path,
+    )
+    return _format_news_lines(articles)
+
+
+async def _get_general_news_context(db: AsyncSession) -> str:
+    """Return the latest market news (any category) for the general chat."""
+    result = await db.execute(
+        select(NewsArticle)
+        .order_by(NewsArticle.published_at.desc())
+        .limit(settings.news_context_limit)
+    )
+    articles = list(result.scalars().all())
+    if not articles:
+        return ""
+    return _format_news_lines(articles)
 
 
 def _to_prediction_out(prediction: dict[str, Any]) -> PredictionOut:
@@ -190,14 +267,32 @@ def _to_prediction_out(prediction: dict[str, Any]) -> PredictionOut:
         direction=prediction.get("prediction", "SIDEWAYS"),
         probability=float(prediction.get("probability", 0.5)),
         source=prediction.get("source", "fallback"),
+        low_confidence=bool(prediction.get("low_confidence", False)),
+        raw_probabilities=prediction.get("raw_probabilities") or None,
     )
 
 
-def _build_system_prompt(symbol: str, direction: str, probability: float, news_context: str) -> str:
+def _build_system_prompt(
+    symbol: str,
+    direction: str,
+    probability: float,
+    news_context: str,
+    low_confidence: bool,
+) -> str:
+    if low_confidence or direction == "SIDEWAYS":
+        trend_line = (
+            f"Технический анализ (PatchTST): сигнал слабый/неопределённый — "
+            f"боковик (модель не уверена, уверенность ~{probability:.0%}). "
+            f"Не интерпретируй это как уверенное направление."
+        )
+    else:
+        trend_line = (
+            f"Технический анализ (PatchTST): тренд {direction} "
+            f"(уверенность: {probability:.0%})."
+        )
     return (
         f"Ты — профессиональный финансовый аналитик. Проанализируй актив {symbol}.\n\n"
-        f"Текущий тренд (технический анализ PatchTST): {direction} "
-        f"(уверенность: {probability:.0%})\n\n"
+        f"{trend_line}\n\n"
         f"{news_context}\n\n"
         f"Дай краткий (3-5 предложений) взвешенный ответ на русском, "
         f"объединяя технический анализ и фундаментальные новости. "
@@ -254,29 +349,37 @@ async def chat_message(
     is_general = symbol == "general"
 
     if is_general:
-        # General chat — no prediction or news context, plain Groq
+        # General chat — no prediction; optional market-news block.
         system_prompt = (
             "Ты — финансовый AI-ассистент. Отвечай кратко (3-5 предложений), "
             "на русском языке. Помогай пользователю: объясняй термины, "
             "анализируй рыночную ситуацию, оценивай риски стратегий. "
             "Не давай конкретных инвестиционных рекомендаций."
         )
+        if settings.general_news_enabled:
+            news_block = await _get_general_news_context(db)
+            if news_block:
+                system_prompt = f"{system_prompt}\n\n{news_block}"
+                logger.debug("[chat] general news context attached to prompt")
     else:
         # 1. Fetch technical prediction
         prediction = await _get_prediction_cached(symbol)
         direction = prediction.get("prediction", "SIDEWAYS")
         probability = float(prediction.get("probability", 0.5))
+        low_confidence = bool(prediction.get("low_confidence", False))
         pred_source = prediction.get("source", "fallback")
         logger.debug(
-            "[chat] prediction: %s %.2f from=%s",
-            direction, probability, pred_source,
+            "[chat] prediction: %s %.2f low_conf=%s from=%s",
+            direction, probability, low_confidence, pred_source,
         )
 
         # 2. Fetch news context
         news_context = await _get_news_context(db, symbol)
 
         # 3. Build system prompt with prediction + news
-        system_prompt = _build_system_prompt(symbol, direction, probability, news_context)
+        system_prompt = _build_system_prompt(
+            symbol, direction, probability, news_context, low_confidence
+        )
 
     # 4. Load chat history for context
     session = await _get_or_create_session(db, current_user.id, symbol)
