@@ -51,10 +51,10 @@
 `['open','high','low','close','volume','rsi','macd','macd_hist','macd_signal','bb_width','bb_pos']`
 
 ### Блок 2 — Гибридный сигнал (PatchTST + правила)
-- **#4** `_rule_based_signal` (RSI / MACD-кросс / MA-тренд → rule_score ∈ [-1,1]). *(blocked by #1)*
-- **#5** `_combine_signals` (60/40 + буст 15% при согласии, кламп [0.15..0.85]).
-- **#6** Интеграция в `get_prediction` + поля `patchtst_prob/rule_score/signals_agree`; проброс в `PredictionOut`. *(blocked by #4, #5)*
-- **#7** Тесты `test_patchtst.py`. *(blocked by #6)*
+- [x] **#4** `_rule_based_signal` (RSI / MACD-кросс / MA-тренд → rule_score ∈ [-1,1]). *(blocked by #1)*
+- [x] **#5** `_combine_signals` (60/40 + буст 15% при согласии, кламп [0.15..0.85]).
+- [x] **#6** Интеграция в `get_prediction` + поля `patchtst_prob/rule_score/signals_agree`; проброс в `PredictionOut`. *(blocked by #4, #5)*
+- [x] **#7** Тесты `test_patchtst.py`. *(blocked by #6)*
 
 ### Блок 3 — Улучшенный промт Groq
 - **#8** Новый `_build_system_prompt` (структура «АНАЛИЗ АКТИВА», `rule_score_text`, 4-5 предложений, дисклеймер). *(blocked by #6)*

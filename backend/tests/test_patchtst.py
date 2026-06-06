@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 import pytest
 
-from app.services.patchtst import get_prediction
+from app.services.patchtst import _combine_signals, _rule_based_signal, get_prediction
 
 # Enough candles to fill any reasonable window; values are arbitrary.
 _CANDLES = [{"c": 100.0 + i} for i in range(120)]
@@ -40,6 +40,11 @@ def _deterministic_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.config.settings.hf_api_key", "test-key")
     monkeypatch.setattr("app.config.settings.prediction_confidence_threshold", 0.55)
     monkeypatch.setattr("app.config.settings.prediction_margin", 0.10)
+    # Neutralise the rule-based signal by default so the confidence-gate tests
+    # below exercise the gate deterministically. With rule_score=0 the hybrid
+    # maps the model UP score p to combined_up = 0.6*p + 0.2. Tests that need a
+    # real / specific rule score re-patch this within the test.
+    monkeypatch.setattr("app.services.patchtst._rule_based_signal", lambda candles: 0.0)
 
 
 async def test_confident_up(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -48,7 +53,10 @@ async def test_confident_up(monkeypatch: pytest.MonkeyPatch) -> None:
     assert res["prediction"] == "UP"
     assert res["low_confidence"] is False
     assert res["source"] == "huggingface"
-    assert res["probability"] == pytest.approx(0.80)
+    # With the neutral rule (rule_score=0): combined_up = 0.6*0.80 + 0.2 = 0.68.
+    assert res["probability"] == pytest.approx(0.68)
+    # The original model UP probability is preserved in patchtst_prob.
+    assert res["patchtst_prob"] == pytest.approx(0.80)
 
 
 async def test_weak_up_below_threshold_downgraded(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -134,3 +142,87 @@ async def test_scaler_applied_to_inputs(monkeypatch: pytest.MonkeyPatch) -> None
     assert inputs[-1][3] == 40.0
     # left-padded first row reuses the first real row close 10 * 2 = 20.
     assert inputs[0][3] == 20.0
+
+
+# ---------------------------------------------------------------------------
+# Hybrid signal: _rule_based_signal (pure function, no network)
+# ---------------------------------------------------------------------------
+
+
+def _ohlcv_candles(closes: list[float]) -> list[dict[str, float]]:
+    return [{"o": c, "h": c, "l": c, "c": float(c), "v": 1.0} for c in closes]
+
+
+def test_rule_signal_uptrend_positive() -> None:
+    # Steady rise: bullish MACD + bullish MA trend dominate the overbought RSI.
+    score = _rule_based_signal(_ohlcv_candles([100 + i for i in range(60)]))
+    assert score > 0.0
+
+
+def test_rule_signal_downtrend_negative() -> None:
+    # Steady decline: oversold RSI is outweighed by bearish MACD + MA trend.
+    score = _rule_based_signal(_ohlcv_candles([100 - i for i in range(60)]))
+    assert score < 0.0
+
+
+def test_rule_signal_flat_is_neutral() -> None:
+    assert _rule_based_signal(_ohlcv_candles([50.0] * 60)) == 0.0
+
+
+def test_rule_signal_empty_is_neutral() -> None:
+    assert _rule_based_signal([]) == 0.0
+
+
+def test_rule_signal_in_range() -> None:
+    for closes in ([100 + i for i in range(60)], [100 - i for i in range(60)]):
+        score = _rule_based_signal(_ohlcv_candles(closes))
+        assert -1.0 <= score <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# Hybrid signal: _combine_signals (pure function)
+# ---------------------------------------------------------------------------
+
+
+def test_combine_agree_boosts_confidence() -> None:
+    up, down = _combine_signals(0.8, 0.6)  # both bullish -> agree
+    baseline_up = 0.6 * 0.8 + 0.4 * ((0.6 + 1) / 2)
+    assert up > 0.5
+    assert up >= baseline_up  # boosted by agreement
+    assert up <= 0.85
+    assert up + down == pytest.approx(1.0)
+
+
+def test_combine_disagree_no_boost() -> None:
+    # PatchTST bullish (0.7) vs rule bearish (-0.6) -> disagree, no boost.
+    up, down = _combine_signals(0.7, -0.6)
+    expected_up = 0.6 * 0.7 + 0.4 * ((-0.6 + 1) / 2)
+    assert up == pytest.approx(expected_up)
+    assert up + down == pytest.approx(1.0)
+
+
+def test_combine_clamps_to_range() -> None:
+    up, _ = _combine_signals(0.99, 0.99)
+    assert 0.15 <= up <= 0.85
+
+
+# ---------------------------------------------------------------------------
+# Hybrid integration: get_prediction exposes the new fields
+# ---------------------------------------------------------------------------
+
+
+async def test_prediction_exposes_hybrid_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_post(monkeypatch, {"UP": 0.80, "DOWN": 0.15, "SIDEWAYS": 0.05})
+    monkeypatch.setattr("app.services.patchtst._rule_based_signal", lambda candles: 0.5)
+    res = await get_prediction(_CANDLES, "BTC-USDT")
+    assert res["patchtst_prob"] == pytest.approx(0.80)
+    assert res["rule_score"] == pytest.approx(0.5)
+    assert res["signals_agree"] is True  # model UP + rule UP
+    assert res["prediction"] == "UP"
+
+
+async def test_neutral_fallback_has_hybrid_defaults() -> None:
+    res = await get_prediction([], "BTC-USDT")
+    assert res["patchtst_prob"] == 0.5
+    assert res["rule_score"] == 0.0
+    assert res["signals_agree"] is False

@@ -48,6 +48,10 @@ class PredictionOut(BaseModel):
     source: str
     low_confidence: bool = False
     raw_probabilities: dict[str, float] | None = None
+    # Hybrid signal fields (optional — backward compatible with old fallbacks).
+    patchtst_prob: float | None = None
+    rule_score: float | None = None
+    signals_agree: bool | None = None
 
 
 class ChatResponse(BaseModel):
@@ -263,12 +267,18 @@ async def _get_general_news_context(db: AsyncSession) -> str:
 
 
 def _to_prediction_out(prediction: dict[str, Any]) -> PredictionOut:
+    patchtst_prob = prediction.get("patchtst_prob")
+    rule_score = prediction.get("rule_score")
+    signals_agree = prediction.get("signals_agree")
     return PredictionOut(
         direction=prediction.get("prediction", "SIDEWAYS"),
         probability=float(prediction.get("probability", 0.5)),
         source=prediction.get("source", "fallback"),
         low_confidence=bool(prediction.get("low_confidence", False)),
         raw_probabilities=prediction.get("raw_probabilities") or None,
+        patchtst_prob=float(patchtst_prob) if patchtst_prob is not None else None,
+        rule_score=float(rule_score) if rule_score is not None else None,
+        signals_agree=bool(signals_agree) if signals_agree is not None else None,
     )
 
 
