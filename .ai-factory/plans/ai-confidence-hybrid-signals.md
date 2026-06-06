@@ -57,8 +57,8 @@
 - [x] **#7** Тесты `test_patchtst.py`. *(blocked by #6)*
 
 ### Блок 3 — Улучшенный промт Groq
-- **#8** Новый `_build_system_prompt` (структура «АНАЛИЗ АКТИВА», `rule_score_text`, 4-5 предложений, дисклеймер). *(blocked by #6)*
-- **#9** Тесты `test_chat.py`. *(blocked by #8)*
+- [x] **#8** Новый `_build_system_prompt` (структура «АНАЛИЗ АКТИВА», `rule_score_text`, 4-5 предложений, дисклеймер). *(blocked by #6)*
+- [x] **#9** Тесты `test_chat.py`. *(blocked by #8)*
 
 ### Блок 4 — Дефолтный таймфрейм 1H
 - **#10** `interval: 'D'` → `'60'` в `TradingViewModal.tsx`; гарантировать применение при каждом открытии.

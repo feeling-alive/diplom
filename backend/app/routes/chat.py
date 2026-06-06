@@ -282,31 +282,66 @@ def _to_prediction_out(prediction: dict[str, Any]) -> PredictionOut:
     )
 
 
+_DIRECTION_TEXT = {
+    "UP": "рост (UP)",
+    "DOWN": "падение (DOWN)",
+    "SIDEWAYS": "боковик (SIDEWAYS)",
+}
+
+_DISCLAIMER = (
+    "⚠️ Материал носит информационный характер. "
+    "Все торговые решения вы принимаете самостоятельно."
+)
+
+
+def _rule_score_text(rule_score: float) -> str:
+    """Render the rule-based score as a human-readable Russian verdict."""
+    if rule_score > 0.3:
+        return "бычьи (RSI/MACD/тренд указывают на рост)"
+    if rule_score < -0.3:
+        return "медвежьи (RSI/MACD/тренд указывают на падение)"
+    return "нейтральные (смешанные сигналы)"
+
+
 def _build_system_prompt(
     symbol: str,
     direction: str,
     probability: float,
     news_context: str,
     low_confidence: bool,
+    patchtst_prob: float,
+    rule_score: float,
+    signals_agree: bool,
 ) -> str:
+    """Build the structured Russian system prompt for the hybrid analysis."""
+    direction_text = _DIRECTION_TEXT.get(direction, direction)
     if low_confidence or direction == "SIDEWAYS":
-        trend_line = (
-            f"Технический анализ (PatchTST): сигнал слабый/неопределённый — "
-            f"боковик (модель не уверена, уверенность ~{probability:.0%}). "
-            f"Не интерпретируй это как уверенное направление."
-        )
-    else:
-        trend_line = (
-            f"Технический анализ (PatchTST): тренд {direction} "
-            f"(уверенность: {probability:.0%})."
-        )
+        direction_text += " — сигнал слабый, высокая неопределённость"
+    agree_text = "да" if signals_agree else "нет"
+
     return (
-        f"Ты — профессиональный финансовый аналитик. Проанализируй актив {symbol}.\n\n"
-        f"{trend_line}\n\n"
+        "Ты — профессиональный финансовый аналитик платформы FinTrack.\n"
+        "Отвечай ТОЛЬКО на вопросы связанные с финансовыми рынками, "
+        "активами, трейдингом, инвестициями и экономикой.\n"
+        "На любые другие темы (еда, медицина, развлечения и т.д.) — "
+        "вежливо откажи одним предложением.\n\n"
+        f"══ АНАЛИЗ АКТИВА: {symbol} ══\n\n"
+        "ТЕХНИЧЕСКИЙ СИГНАЛ (гибридная модель):\n"
+        f"• Направление: {direction_text}\n"
+        f"• Уверенность: {probability:.0%}\n"
+        f"• PatchTST (трансформер): {patchtst_prob:.0%}\n"
+        f"• Технические индикаторы: {_rule_score_text(rule_score)}\n"
+        f"• Сигналы согласованы: {agree_text}\n\n"
         f"{news_context}\n\n"
-        f"Дай краткий (3-5 предложений) взвешенный ответ на русском, "
-        f"объединяя технический анализ и фундаментальные новости. "
-        f"Не давай конкретных инвестиционных рекомендаций."
+        "ЗАДАЧА: напиши анализ строго по структуре:\n"
+        "1. Текущий сигнал — что показывает модель и что показывают индикаторы\n"
+        "2. Контекст — почему рынок движется в этом направлении (или почему неопределённость)\n"
+        "3. На что обратить внимание — ключевые уровни или события\n\n"
+        "Требования к ответу:\n"
+        "- Ровно 4-5 предложений\n"
+        "- Только русский язык\n"
+        "- Конкретно и по делу, без воды\n"
+        f"- Последняя строка ВСЕГДА:\n  {_DISCLAIMER}"
     )
 
 
@@ -377,10 +412,13 @@ async def chat_message(
         direction = prediction.get("prediction", "SIDEWAYS")
         probability = float(prediction.get("probability", 0.5))
         low_confidence = bool(prediction.get("low_confidence", False))
+        patchtst_prob = float(prediction.get("patchtst_prob", probability))
+        rule_score = float(prediction.get("rule_score", 0.0))
+        signals_agree = bool(prediction.get("signals_agree", False))
         pred_source = prediction.get("source", "fallback")
         logger.debug(
-            "[chat] prediction: %s %.2f low_conf=%s from=%s",
-            direction, probability, low_confidence, pred_source,
+            "[chat] prediction: %s %.2f low_conf=%s patchtst=%.2f rule=%.2f agree=%s from=%s",
+            direction, probability, low_confidence, patchtst_prob, rule_score, signals_agree, pred_source,
         )
 
         # 2. Fetch news context
@@ -388,7 +426,14 @@ async def chat_message(
 
         # 3. Build system prompt with prediction + news
         system_prompt = _build_system_prompt(
-            symbol, direction, probability, news_context, low_confidence
+            symbol,
+            direction,
+            probability,
+            news_context,
+            low_confidence,
+            patchtst_prob,
+            rule_score,
+            signals_agree,
         )
 
     # 4. Load chat history for context

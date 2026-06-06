@@ -266,3 +266,56 @@ async def test_news_context_empty_when_no_articles(db_session: AsyncSession) -> 
 
     ctx = await _get_news_context(db_session, "BTC-USDT")
     assert "Нет свежих новостей" in ctx
+
+
+# ---------------------------------------------------------------------------
+# System prompt builder (Block 3) — pure functions, no network
+# ---------------------------------------------------------------------------
+
+
+def test_rule_score_text_thresholds() -> None:
+    from app.routes.chat import _rule_score_text
+
+    assert "бычьи" in _rule_score_text(0.5)
+    assert "медвежьи" in _rule_score_text(-0.5)
+    assert "нейтральные" in _rule_score_text(0.0)
+
+
+def test_build_system_prompt_structure() -> None:
+    from app.routes.chat import _build_system_prompt
+
+    prompt = _build_system_prompt(
+        symbol="BTC-USDT",
+        direction="UP",
+        probability=0.62,
+        news_context="Свежие новости:\n- BTC растёт.",
+        low_confidence=False,
+        patchtst_prob=0.70,
+        rule_score=0.5,
+        signals_agree=True,
+    )
+    assert "АНАЛИЗ АКТИВА: BTC-USDT" in prompt
+    assert "PatchTST (трансформер): 70%" in prompt
+    assert "бычьи" in prompt
+    assert "Сигналы согласованы: да" in prompt
+    assert "Уверенность: 62%" in prompt
+    assert "Материал носит информационный характер" in prompt
+
+
+def test_build_system_prompt_low_confidence_branch() -> None:
+    from app.routes.chat import _build_system_prompt
+
+    prompt = _build_system_prompt(
+        symbol="ETH-USDT",
+        direction="SIDEWAYS",
+        probability=0.51,
+        news_context="Нет свежих новостей по данному активу.",
+        low_confidence=True,
+        patchtst_prob=0.51,
+        rule_score=0.0,
+        signals_agree=False,
+    )
+    assert "слабый" in prompt  # uncertainty note rendered
+    assert "Сигналы согласованы: нет" in prompt
+    assert "нейтральные" in prompt
+    assert "Материал носит информационный характер" in prompt
