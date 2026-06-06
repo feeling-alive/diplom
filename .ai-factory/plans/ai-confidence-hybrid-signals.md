@@ -61,8 +61,8 @@
 - [x] **#9** Тесты `test_chat.py`. *(blocked by #8)*
 
 ### Блок 4 — Дефолтный таймфрейм 1H
-- **#10** `interval: 'D'` → `'60'` в `TradingViewModal.tsx`; гарантировать применение при каждом открытии.
-- **#11** Фронт-тест `TradingViewModal.test.tsx` (src содержит `interval=60`). *(blocked by #10)*
+- [x] **#10** `interval: 'D'` → `'60'` в `TradingViewModal.tsx`; гарантировать применение при каждом открытии.
+- [x] **#11** Фронт-тест `TradingViewModal.test.tsx` (src содержит `interval=60`). *(blocked by #10)*
 
 ### Документация
 - **#12** Обновить `DESCRIPTION.md` + `app/ml/README.md`. *(blocked by #7, #9)*

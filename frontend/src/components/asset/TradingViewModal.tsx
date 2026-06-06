@@ -37,7 +37,10 @@ function toTradingViewSymbol(asset: Asset): string {
 function buildTvUrl(symbol: string): string {
   const params = new URLSearchParams({
     symbol,
-    interval: 'D',
+    // Default to the 1H ("60") timeframe. The iframe lives inside `{open && ...}`
+    // within AnimatePresence, so it unmounts on close and remounts on every open
+    // — this default therefore applies each time the "Про график" tab is opened.
+    interval: '60',
     theme: 'light',
     locale: 'ru',
     style: '1',
@@ -85,7 +88,7 @@ export default function TradingViewModal({ open, onClose, asset }: Props) {
     symbol: asset.symbol,
   })
 
-  console.debug('[TradingViewModal] open=%s symbol=%s tvSymbol=%s', open, asset.symbol, tvSymbol)
+  console.debug('[TradingViewModal] open=%s symbol=%s tvSymbol=%s interval=60', open, asset.symbol, tvSymbol)
 
   useEffect(() => {
     if (!open) return
