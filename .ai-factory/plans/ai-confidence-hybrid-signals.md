@@ -65,7 +65,7 @@
 - [x] **#11** Фронт-тест `TradingViewModal.test.tsx` (src содержит `interval=60`). *(blocked by #10)*
 
 ### Документация
-- **#12** Обновить `DESCRIPTION.md` + `app/ml/README.md`. *(blocked by #7, #9)*
+- [x] **#12** Обновить `DESCRIPTION.md` + `app/ml/README.md`. *(blocked by #7, #9)*
 
 ## Commit Plan
 
