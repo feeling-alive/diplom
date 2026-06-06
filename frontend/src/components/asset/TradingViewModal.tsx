@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Bot, TrendingUp, Activity, ShieldAlert, Send, TrendingDown, Minus } from 'lucide-react'
 import { useGroqChat } from '../../hooks/useGroqChat'
@@ -103,17 +103,19 @@ export default function TradingViewModal({ open, onClose, asset }: Props) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const handleSend = useCallback(() => {
+  // Plain handlers: React Compiler memoizes automatically, and a manual
+  // useCallback here could not preserve its inferred deps (react-hooks rule).
+  const handleSend = () => {
     if (!input.trim() || loading) return
     send(input.trim())
     setInput('')
-  }, [input, loading, send])
+  }
 
-  const handlePromptClick = useCallback((text: string) => {
+  const handlePromptClick = (text: string) => {
     send(text)
-  }, [send])
+  }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: ReactKeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
