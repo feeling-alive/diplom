@@ -43,8 +43,9 @@ def _deterministic_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     # Neutralise the rule-based signal by default so the confidence-gate tests
     # below exercise the gate deterministically. With rule_score=0 the hybrid
     # maps the model UP score p to combined_up = 0.6*p + 0.2. Tests that need a
-    # real / specific rule score re-patch this within the test.
-    monkeypatch.setattr("app.services.patchtst._rule_based_signal", lambda candles: 0.0)
+    # real / specific rule score re-patch this within the test. Returns the
+    # (rule_score, indicator_details) tuple shape the real function now returns.
+    monkeypatch.setattr("app.services.patchtst._rule_based_signal", lambda candles: (0.0, {}))
 
 
 async def test_confident_up(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -155,28 +156,51 @@ def _ohlcv_candles(closes: list[float]) -> list[dict[str, float]]:
 
 def test_rule_signal_uptrend_positive() -> None:
     # Steady rise: bullish MACD + bullish MA trend dominate the overbought RSI.
-    score = _rule_based_signal(_ohlcv_candles([100 + i for i in range(60)]))
+    score, _ = _rule_based_signal(_ohlcv_candles([100 + i for i in range(60)]))
     assert score > 0.0
 
 
 def test_rule_signal_downtrend_negative() -> None:
     # Steady decline: oversold RSI is outweighed by bearish MACD + MA trend.
-    score = _rule_based_signal(_ohlcv_candles([100 - i for i in range(60)]))
+    score, _ = _rule_based_signal(_ohlcv_candles([100 - i for i in range(60)]))
     assert score < 0.0
 
 
 def test_rule_signal_flat_is_neutral() -> None:
-    assert _rule_based_signal(_ohlcv_candles([50.0] * 60)) == 0.0
+    score, _ = _rule_based_signal(_ohlcv_candles([50.0] * 60))
+    assert score == 0.0
 
 
 def test_rule_signal_empty_is_neutral() -> None:
-    assert _rule_based_signal([]) == 0.0
+    score, details = _rule_based_signal([])
+    assert score == 0.0
+    assert details == {}
 
 
 def test_rule_signal_in_range() -> None:
     for closes in ([100 + i for i in range(60)], [100 - i for i in range(60)]):
-        score = _rule_based_signal(_ohlcv_candles(closes))
+        score, _ = _rule_based_signal(_ohlcv_candles(closes))
         assert -1.0 <= score <= 1.0
+
+
+def test_rule_signal_returns_indicator_details() -> None:
+    # Steady decline → oversold RSI, bearish trend, negative price-vs-SMA20.
+    _, details = _rule_based_signal(_ohlcv_candles([200 - i for i in range(60)]))
+    assert set(details) == {
+        "rsi", "rsi_zone", "macd_cross", "macd_position", "trend", "price_vs_sma20",
+    }
+    assert details["rsi_zone"] == "перепродан"
+    assert details["trend"] == "нисходящий"
+    assert details["macd_position"] == "ниже сигнальной"
+    assert isinstance(details["rsi"], float)
+    assert details["price_vs_sma20"] < 0  # price below its SMA20 in a decline
+
+
+def test_rule_signal_short_history_safe_details() -> None:
+    # < 20 candles: SMA20 unavailable → safe degraded details, no div-by-zero.
+    _, details = _rule_based_signal(_ohlcv_candles([100.0, 101.0, 102.0]))
+    assert details["trend"] == "смешанный"
+    assert details["price_vs_sma20"] == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -213,12 +237,14 @@ def test_combine_clamps_to_range() -> None:
 
 async def test_prediction_exposes_hybrid_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     _mock_post(monkeypatch, {"UP": 0.80, "DOWN": 0.15, "SIDEWAYS": 0.05})
-    monkeypatch.setattr("app.services.patchtst._rule_based_signal", lambda candles: 0.5)
+    details = {"rsi": 42.0, "rsi_zone": "нейтральная зона", "trend": "восходящий"}
+    monkeypatch.setattr("app.services.patchtst._rule_based_signal", lambda candles: (0.5, details))
     res = await get_prediction(_CANDLES, "BTC-USDT")
     assert res["patchtst_prob"] == pytest.approx(0.80)
     assert res["rule_score"] == pytest.approx(0.5)
     assert res["signals_agree"] is True  # model UP + rule UP
     assert res["prediction"] == "UP"
+    assert res["indicator_details"] == details
 
 
 async def test_neutral_fallback_has_hybrid_defaults() -> None:
@@ -226,3 +252,4 @@ async def test_neutral_fallback_has_hybrid_defaults() -> None:
     assert res["patchtst_prob"] == 0.5
     assert res["rule_score"] == 0.0
     assert res["signals_agree"] is False
+    assert res["indicator_details"] == {}

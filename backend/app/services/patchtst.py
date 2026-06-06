@@ -57,6 +57,7 @@ def _neutral_prediction(symbol: str, reason: str = "fallback") -> dict[str, Any]
         "patchtst_prob": 0.5,
         "rule_score": 0.0,
         "signals_agree": False,
+        "indicator_details": {},
     }
 
 
@@ -128,8 +129,8 @@ def _apply_confidence_gate(scores: dict[str, float]) -> tuple[str, float, bool]:
 # ---------------------------------------------------------------------------
 
 
-def _rule_based_signal(candles: list[dict[str, Any]]) -> float:
-    """Compute a rule-based technical score in ``[-1.0, +1.0]``.
+def _rule_based_signal(candles: list[dict[str, Any]]) -> tuple[float, dict[str, Any]]:
+    """Compute a rule-based technical score plus a human-readable indicator snapshot.
 
     Combines three independent signals from the candle series:
 
@@ -142,39 +143,56 @@ def _rule_based_signal(candles: list[dict[str, Any]]) -> float:
 
     ``rule_score = (rsi + macd + trend) / 3`` clamped to ``[-1, 1]``.
 
+    Returns ``(rule_score, indicator_details)`` where ``indicator_details`` carries
+    the real indicator values the chat system prompt renders:
+    ``{rsi, rsi_zone, macd_cross, macd_position, trend, price_vs_sma20}``.
+
+    SMA availability: ``SMA20`` (needed for ``price_vs_sma20`` and the trend
+    classification) is meaningful from ~20 candles, so it is computed under its
+    own ``>= 20`` guard, separate from the ``>= 50`` guard that ``SMA50`` and the
+    up/down trend verdict require. With ``< 20`` candles ``price_vs_sma20`` stays
+    ``0.0`` and ``trend`` stays ``"смешанный"`` — never divides by zero.
+
     NOTE: the prompt phrased this as ``_rule_based_signal(df)`` over a pandas
     DataFrame. This project does not use pandas — we operate on the candle list
     via the pure-Python indicator helpers in ``services/features.py`` instead.
-    Degrades to neutral (0.0) on missing/short data rather than raising.
+    Degrades to ``(0.0, {})`` on missing/short data rather than raising.
     """
     ohlcv = extract_ohlcv(candles)
     closes = ohlcv["close"]
     if not closes:
         logger.debug("[patchtst] rule signal: no closes -> 0.0")
-        return 0.0
+        return 0.0, {}
 
     ind = compute_indicators(ohlcv)
     rsi = ind["rsi"]
     macd = ind["macd"]
     macd_signal = ind["macd_signal"]
+    last_close = closes[-1]
 
-    # 1. RSI signal
+    # 1. RSI signal + zone
     last_rsi = rsi[-1]
     if last_rsi < 35:
         rsi_sig = 1.0
+        rsi_zone = "перепродан"
     elif last_rsi > 65:
         rsi_sig = -1.0
+        rsi_zone = "перекуплен"
     else:
         rsi_sig = 0.0
+        rsi_zone = "нейтральная зона"
 
-    # 2. MACD signal (crossover takes priority over level)
+    # 2. MACD signal (crossover takes priority over level) + cross/position text
+    macd_cross = "нет пересечения"
     if len(macd) >= 2:
         m_now, m_prev = macd[-1], macd[-2]
         s_now, s_prev = macd_signal[-1], macd_signal[-2]
         if m_now > s_now and m_prev <= s_prev:
             macd_sig = 1.0
+            macd_cross = "бычье пересечение"
         elif m_now < s_now and m_prev >= s_prev:
             macd_sig = -1.0
+            macd_cross = "медвежье пересечение"
         elif m_now > s_now:
             macd_sig = 0.5
         elif m_now < s_now:
@@ -184,27 +202,51 @@ def _rule_based_signal(candles: list[dict[str, Any]]) -> float:
     else:
         macd_sig = 0.0
 
-    # 3. Trend signal (SMA20 vs SMA50). Needs enough history to be meaningful.
+    if macd and macd_signal:
+        macd_position = "выше сигнальной" if macd[-1] > macd_signal[-1] else "ниже сигнальной"
+    else:
+        macd_position = "ниже сигнальной"
+
+    # 3. Trend signal (SMA20 vs SMA50). SMA20 (>=20) drives price_vs_sma20; the
+    #    full up/down verdict additionally needs SMA50 (>=50).
     trend_sig = 0.0
-    if len(closes) >= 50:
+    trend = "смешанный"
+    price_vs_sma20 = 0.0
+    if len(closes) >= 20:
         sma20 = sum(closes[-20:]) / 20
-        sma50 = sum(closes[-50:]) / 50
-        last_close = closes[-1]
-        if last_close > sma20 > sma50:
-            trend_sig = 1.0
-        elif last_close < sma20 < sma50:
-            trend_sig = -1.0
+        if sma20:
+            price_vs_sma20 = round((last_close / sma20 - 1) * 100, 2)
+        if len(closes) >= 50:
+            sma50 = sum(closes[-50:]) / 50
+            if last_close > sma20 > sma50:
+                trend_sig = 1.0
+                trend = "восходящий"
+            elif last_close < sma20 < sma50:
+                trend_sig = -1.0
+                trend = "нисходящий"
 
     rule_score = (rsi_sig + macd_sig + trend_sig) / 3.0
     rule_score = max(-1.0, min(1.0, rule_score))
+
+    indicator_details: dict[str, Any] = {
+        "rsi": round(last_rsi, 1),
+        "rsi_zone": rsi_zone,
+        "macd_cross": macd_cross,
+        "macd_position": macd_position,
+        "trend": trend,
+        "price_vs_sma20": price_vs_sma20,
+    }
+
     logger.debug(
-        "[patchtst] rule signals rsi=%.1f macd=%.2f trend=%.2f -> score=%.3f",
-        rsi_sig,
+        "[patchtst] rule signals rsi=%.1f(%s) macd=%.2f(%s) trend=%s -> score=%.3f",
+        last_rsi,
+        rsi_zone,
         macd_sig,
-        trend_sig,
+        macd_cross,
+        trend,
         rule_score,
     )
-    return rule_score
+    return rule_score, indicator_details
 
 
 def _combine_signals(patchtst_prob_up: float, rule_score: float) -> tuple[float, float]:
@@ -304,7 +346,7 @@ async def get_prediction(
 
     # --- Hybrid step: blend the model with rule-based technical signals -------
     patchtst_prob_up = scores.get("UP", 0.5)
-    rule_score = _rule_based_signal(candles)
+    rule_score, indicator_details = _rule_based_signal(candles)
     combined_up, combined_down = _combine_signals(patchtst_prob_up, rule_score)
 
     patchtst_direction = "UP" if patchtst_prob_up > 0.5 else "DOWN"
@@ -343,4 +385,5 @@ async def get_prediction(
         "patchtst_prob": patchtst_prob_up,
         "rule_score": rule_score,
         "signals_agree": signals_agree,
+        "indicator_details": indicator_details,
     }

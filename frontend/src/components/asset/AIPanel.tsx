@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Bot, TrendingUp, Activity, ShieldAlert, Send, TrendingDown, Minus } from 'lucide-react'
+import { Bot, TrendingUp, Activity, ShieldAlert, Send, TrendingDown, Minus, Loader2 } from 'lucide-react'
 import { useGroqChat } from '../../hooks/useGroqChat'
 
 interface Props {
@@ -13,22 +13,40 @@ const SUGGESTIONS = [
   { icon: <ShieldAlert size={12} />,  label: 'Оцени риски входа' },
 ]
 
-function PredictionBadge({ direction, probability, lowConfidence }: { direction: string; probability: number; lowConfidence?: boolean }) {
-  // A weak/low-confidence call is shown neutrally as "боковик" regardless of
-  // the raw direction, so a flat ~51% never reads as a confident move.
-  const isWeak = lowConfidence || direction === 'SIDEWAYS'
-  const color = isWeak ? '#6b7280' : direction === 'UP' ? '#16a34a' : '#dc2626'
-  const Icon = isWeak ? Minus : direction === 'UP' ? TrendingUp : TrendingDown
-  const label = isWeak ? 'Боковик' : direction === 'UP' ? 'Вверх' : 'Вниз'
-  const suffix = lowConfidence ? ' · слабый сигнал' : ''
+// Badge driven purely by the rule-based technical score:
+//   > 0.3 → bull, < -0.3 → bear, in-between → neutral, null/undefined → loading.
+// No percentages, no "боковик".
+function PredictionBadge({ ruleScore }: { ruleScore: number | null | undefined }) {
+  const loading = ruleScore === null || ruleScore === undefined
+  const isBull = typeof ruleScore === 'number' && ruleScore > 0.3
+  const isBear = typeof ruleScore === 'number' && ruleScore < -0.3
+
+  const { color, Icon, label } = loading
+    ? { color: '#6b7280', Icon: Loader2, label: 'Загрузка...' }
+    : isBull
+      ? { color: '#16a34a', Icon: TrendingUp, label: 'Бычий сигнал' }
+      : isBear
+        ? { color: '#dc2626', Icon: TrendingDown, label: 'Медвежий сигнал' }
+        : { color: '#6b7280', Icon: Minus, label: 'Нейтральный' }
+
   return (
     <div style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
       padding: '3px 8px', borderRadius: 6,
       background: `${color}15`, color, fontSize: 10, fontWeight: 600,
     }}>
-      <Icon size={12} />
-      {label} · {(probability * 100).toFixed(0)}%{suffix}
+      {loading ? (
+        <motion.span
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+          style={{ display: 'inline-flex' }}
+        >
+          <Loader2 size={12} />
+        </motion.span>
+      ) : (
+        <Icon size={12} />
+      )}
+      {label}
     </div>
   )
 }
@@ -82,13 +100,7 @@ export default function AIPanel({ symbol }: Props) {
             Анализ: {symbol}
           </div>
         </div>
-        {prediction && (
-          <PredictionBadge
-            direction={prediction.direction}
-            probability={prediction.probability}
-            lowConfidence={prediction.low_confidence}
-          />
-        )}
+        <PredictionBadge ruleScore={prediction?.rule_score} />
       </div>
 
       {/* Messages */}

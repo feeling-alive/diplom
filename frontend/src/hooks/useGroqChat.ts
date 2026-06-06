@@ -10,6 +10,8 @@ export interface PredictionInfo {
   probability: number
   source: string
   low_confidence?: boolean
+  rule_score?: number | null
+  indicator_details?: Record<string, unknown> | null
 }
 
 interface UseGroqChatOptions {

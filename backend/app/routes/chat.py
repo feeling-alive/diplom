@@ -52,6 +52,7 @@ class PredictionOut(BaseModel):
     patchtst_prob: float | None = None
     rule_score: float | None = None
     signals_agree: bool | None = None
+    indicator_details: dict[str, Any] | None = None
 
 
 class ChatResponse(BaseModel):
@@ -244,7 +245,7 @@ async def _get_news_context(db: AsyncSession, symbol: str) -> str:
 
     if not articles:
         logger.debug("[chat] news context for %s (%s): 0 articles", symbol, ticker)
-        return "Нет свежих новостей по данному активу."
+        return _NO_NEWS_SENTINEL
 
     logger.debug(
         "[chat] news context for %s (%s): %d articles via %s",
@@ -279,14 +280,13 @@ def _to_prediction_out(prediction: dict[str, Any]) -> PredictionOut:
         patchtst_prob=float(patchtst_prob) if patchtst_prob is not None else None,
         rule_score=float(rule_score) if rule_score is not None else None,
         signals_agree=bool(signals_agree) if signals_agree is not None else None,
+        indicator_details=prediction.get("indicator_details") or None,
     )
 
 
-_DIRECTION_TEXT = {
-    "UP": "рост (UP)",
-    "DOWN": "падение (DOWN)",
-    "SIDEWAYS": "боковик (SIDEWAYS)",
-}
+# Single source of truth for the "no news" case — returned by _get_news_context
+# and matched by _build_news_block so the wording can never drift between them.
+_NO_NEWS_SENTINEL = "Нет свежих новостей по данному активу."
 
 _DISCLAIMER = (
     "⚠️ Материал носит информационный характер. "
@@ -303,44 +303,55 @@ def _rule_score_text(rule_score: float) -> str:
     return "нейтральные (смешанные сигналы)"
 
 
+def _build_news_block(news_context: str) -> str:
+    """Render the news section: real news, or an explicit no-news instruction."""
+    has_news = bool(news_context) and news_context.strip() != _NO_NEWS_SENTINEL
+    if has_news:
+        return f"Актуальные новости из базы:\n{news_context}"
+    return "ВАЖНО: новостей нет — не упоминай никакие события."
+
+
 def _build_system_prompt(
     symbol: str,
-    direction: str,
-    probability: float,
-    news_context: str,
-    low_confidence: bool,
-    patchtst_prob: float,
+    indicator_details: dict[str, Any],
     rule_score: float,
-    signals_agree: bool,
+    news_context: str,
 ) -> str:
-    """Build the structured Russian system prompt for the hybrid analysis."""
-    direction_text = _DIRECTION_TEXT.get(direction, direction)
-    if low_confidence or direction == "SIDEWAYS":
-        direction_text += " — сигнал слабый, высокая неопределённость"
-    agree_text = "да" if signals_agree else "нет"
+    """Build the indicator-driven Russian system prompt for asset analysis.
+
+    Grounded ONLY in the rule-based technical indicators (RSI, MACD, trend,
+    price-vs-SMA20) plus the aggregate ``rule_score`` verdict — the raw PatchTST
+    UP/DOWN call is intentionally not surfaced to the LLM here. ``indicator_details``
+    may be empty (short candle history); every field is read with a safe default
+    so formatting never raises.
+    """
+    rsi = indicator_details.get("rsi", "—")
+    rsi_zone = indicator_details.get("rsi_zone", "нет данных")
+    macd_position = indicator_details.get("macd_position", "нет данных")
+    macd_cross = indicator_details.get("macd_cross", "нет данных")
+    trend = indicator_details.get("trend", "нет данных")
+    price_vs_sma20 = indicator_details.get("price_vs_sma20", 0.0)
+    news_block = _build_news_block(news_context)
 
     return (
-        "Ты — профессиональный финансовый аналитик платформы FinTrack.\n"
-        "Отвечай ТОЛЬКО на вопросы связанные с финансовыми рынками, "
-        "активами, трейдингом, инвестициями и экономикой.\n"
-        "На любые другие темы (еда, медицина, развлечения и т.д.) — "
-        "вежливо откажи одним предложением.\n\n"
-        f"══ АНАЛИЗ АКТИВА: {symbol} ══\n\n"
-        "ТЕХНИЧЕСКИЙ СИГНАЛ (гибридная модель):\n"
-        f"• Направление: {direction_text}\n"
-        f"• Уверенность: {probability:.0%}\n"
-        f"• PatchTST (трансформер): {patchtst_prob:.0%}\n"
-        f"• Технические индикаторы: {_rule_score_text(rule_score)}\n"
-        f"• Сигналы согласованы: {agree_text}\n\n"
-        f"{news_context}\n\n"
-        "ЗАДАЧА: напиши анализ строго по структуре:\n"
-        "1. Текущий сигнал — что показывает модель и что показывают индикаторы\n"
-        "2. Контекст — почему рынок движется в этом направлении (или почему неопределённость)\n"
-        "3. На что обратить внимание — ключевые уровни или события\n\n"
-        "Требования к ответу:\n"
-        "- Ровно 4-5 предложений\n"
-        "- Только русский язык\n"
-        "- Конкретно и по делу, без воды\n"
+        "Ты — финансовый аналитик платформы FinTrack.\n"
+        "Отвечай ТОЛЬКО на вопросы о финансах и рынках.\n"
+        "На нефинансовые вопросы — вежливо откажи одним предложением.\n\n"
+        f"══ ТЕХНИЧЕСКИЙ АНАЛИЗ: {symbol} ══\n\n"
+        "Индикаторы (реальные значения):\n"
+        f"• RSI(14): {rsi} — {rsi_zone}\n"
+        f"• MACD: {macd_position}, {macd_cross}\n"
+        f"• Тренд: {trend} (цена {price_vs_sma20:+.1f}% от SMA20)\n"
+        f"• Общий технический сигнал: {_rule_score_text(rule_score)}\n\n"
+        f"{news_block}\n\n"
+        "ЗАДАЧА: напиши технический анализ по структуре:\n"
+        "1. Что сейчас происходит с активом (на основе индикаторов)\n"
+        "2. На что обратить внимание трейдеру\n"
+        "3. Общий вывод (1 предложение)\n\n"
+        "Требования:\n"
+        "- 4-5 предложений, русский язык\n"
+        "- Опирайся ТОЛЬКО на данные индикаторов выше\n"
+        "- Если нет новостей в блоке выше — НЕ упоминай никаких новостей вообще\n"
         f"- Последняя строка ВСЕГДА:\n  {_DISCLAIMER}"
     )
 
@@ -415,6 +426,7 @@ async def chat_message(
         patchtst_prob = float(prediction.get("patchtst_prob", probability))
         rule_score = float(prediction.get("rule_score", 0.0))
         signals_agree = bool(prediction.get("signals_agree", False))
+        indicator_details = prediction.get("indicator_details") or {}
         pred_source = prediction.get("source", "fallback")
         logger.debug(
             "[chat] prediction: %s %.2f low_conf=%s patchtst=%.2f rule=%.2f agree=%s from=%s",
@@ -424,16 +436,12 @@ async def chat_message(
         # 2. Fetch news context
         news_context = await _get_news_context(db, symbol)
 
-        # 3. Build system prompt with prediction + news
+        # 3. Build the indicator-driven system prompt
         system_prompt = _build_system_prompt(
             symbol,
-            direction,
-            probability,
-            news_context,
-            low_confidence,
-            patchtst_prob,
+            indicator_details,
             rule_score,
-            signals_agree,
+            news_context,
         )
 
     # 4. Load chat history for context
@@ -443,6 +451,13 @@ async def chat_message(
     # 5. Call Groq
     reply = await get_groq_response(system_prompt, body.message, history)
     logger.debug("[chat] groq reply received len=%d", len(reply))
+
+    # Enforce the disclaimer on asset analyses — it is part of the prompt contract,
+    # so append it hardcoded if the model omitted it. Done before save so the
+    # persisted assistant message also carries it.
+    if prediction is not None and "информационный характер" not in reply:
+        reply += "\n\n" + _DISCLAIMER
+        logger.debug("[chat] disclaimer appended to reply")
 
     # 6. Save to DB
     session.messages = _merge_messages(session.messages, body.message, reply)

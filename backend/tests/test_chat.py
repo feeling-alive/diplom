@@ -160,7 +160,9 @@ async def test_chat_with_symbol_returns_reply_and_prediction(client: AsyncClient
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["reply"] == _FAKE_GROQ_REPLY
+    # Asset analyses get the disclaimer hardcoded onto the reply.
+    assert body["reply"].startswith(_FAKE_GROQ_REPLY)
+    assert "Материал носит информационный характер" in body["reply"]
     assert body["prediction"] is not None
     assert body["prediction"]["direction"] == "UP"
     assert body["prediction"]["probability"] == 0.82
@@ -281,41 +283,74 @@ def test_rule_score_text_thresholds() -> None:
     assert "нейтральные" in _rule_score_text(0.0)
 
 
+_DETAILS_DOWN = {
+    "rsi": 32.0,
+    "rsi_zone": "перепродан",
+    "macd_position": "ниже сигнальной",
+    "macd_cross": "нет пересечения",
+    "trend": "нисходящий",
+    "price_vs_sma20": -3.4,
+}
+
+
 def test_build_system_prompt_structure() -> None:
     from app.routes.chat import _build_system_prompt
 
     prompt = _build_system_prompt(
         symbol="BTC-USDT",
-        direction="UP",
-        probability=0.62,
-        news_context="Свежие новости:\n- BTC растёт.",
-        low_confidence=False,
-        patchtst_prob=0.70,
+        indicator_details=_DETAILS_DOWN,
         rule_score=0.5,
-        signals_agree=True,
+        news_context="Свежие новости:\n- BTC растёт.",
     )
-    assert "АНАЛИЗ АКТИВА: BTC-USDT" in prompt
-    assert "PatchTST (трансформер): 70%" in prompt
-    assert "бычьи" in prompt
-    assert "Сигналы согласованы: да" in prompt
-    assert "Уверенность: 62%" in prompt
+    assert "ТЕХНИЧЕСКИЙ АНАЛИЗ: BTC-USDT" in prompt
+    assert "RSI(14): 32.0 — перепродан" in prompt
+    assert "MACD: ниже сигнальной, нет пересечения" in prompt
+    assert "Тренд: нисходящий (цена -3.4% от SMA20)" in prompt
+    assert "бычьи" in prompt  # rule_score_text(0.5)
+    assert "ЗАДАЧА" in prompt
+    assert "Актуальные новости из базы:" in prompt
     assert "Материал носит информационный характер" in prompt
 
 
-def test_build_system_prompt_low_confidence_branch() -> None:
-    from app.routes.chat import _build_system_prompt
+def test_build_system_prompt_no_news_branch() -> None:
+    from app.routes.chat import _NO_NEWS_SENTINEL, _build_system_prompt
 
     prompt = _build_system_prompt(
         symbol="ETH-USDT",
-        direction="SIDEWAYS",
-        probability=0.51,
-        news_context="Нет свежих новостей по данному активу.",
-        low_confidence=True,
-        patchtst_prob=0.51,
+        indicator_details={},  # degraded: no candle history
         rule_score=0.0,
-        signals_agree=False,
+        news_context=_NO_NEWS_SENTINEL,
     )
-    assert "слабый" in prompt  # uncertainty note rendered
-    assert "Сигналы согласованы: нет" in prompt
+    assert "ВАЖНО: новостей нет" in prompt
+    assert "Актуальные новости из базы:" not in prompt
     assert "нейтральные" in prompt
+    # Empty details render with safe defaults, not a KeyError.
+    assert "нет данных" in prompt
     assert "Материал носит информационный характер" in prompt
+
+
+def test_build_news_block_branches() -> None:
+    from app.routes.chat import _NO_NEWS_SENTINEL, _build_news_block
+
+    assert _build_news_block("Свежие новости:\n- X").startswith("Актуальные новости из базы:")
+    assert _build_news_block(_NO_NEWS_SENTINEL).startswith("ВАЖНО: новостей нет")
+    assert _build_news_block("").startswith("ВАЖНО: новостей нет")
+
+
+async def test_chat_does_not_duplicate_disclaimer(
+    monkeypatch: pytest.MonkeyPatch, client: AsyncClient
+) -> None:
+    reply_with = (
+        "Вывод по активу. ⚠️ Материал носит информационный характер. "
+        "Все торговые решения вы принимаете самостоятельно."
+    )
+
+    async def fake_groq(system_prompt: str, user_message: str, history: list | None = None) -> str:
+        return reply_with
+
+    monkeypatch.setattr("app.routes.chat.get_groq_response", fake_groq)
+    await client.post("/auth/register", json=USER)
+    resp = await client.post("/api/chat/message", json={"message": "q", "symbol": "BTC"})
+    assert resp.status_code == 200, resp.text
+    # Already present → not appended a second time.
+    assert resp.json()["reply"].count("информационный характер") == 1
