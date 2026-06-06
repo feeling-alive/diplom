@@ -25,7 +25,7 @@ from typing import Any
 import httpx
 
 from app.config import settings
-from app.services.features import apply_scaler, build_feature_window
+from app.services.features import apply_scaler, build_feature_matrix
 
 logger = logging.getLogger("backend.patchtst")
 
@@ -129,22 +129,27 @@ async def get_prediction(
     * ``low_confidence`` is ``True`` when a weak directional call was gated down
       to SIDEWAYS (or on a technical fallback).
     """
-    window = build_feature_window(candles, settings.prediction_seq_len)
+    matrix = build_feature_matrix(candles, settings.prediction_seq_len)
 
-    if not window:
+    if not matrix:
         return _neutral_prediction(symbol, reason="no_candle_data")
 
     if not settings.hf_api_key:
         logger.warning("[patchtst] HF_API_KEY absent; returning neutral")
         return _neutral_prediction(symbol, reason="missing_config")
 
-    inputs = apply_scaler(window)
+    # NOTE: the 11-feature matrix changes the HF payload shape vs. the previous
+    # flat close-price window. A model expecting the univariate window may reject
+    # the matrix — that surfaces as an HTTP/parse error below and degrades to a
+    # neutral fallback (see _neutral_prediction). See plan risk #2.
+    inputs = apply_scaler(matrix)
     url = _HF_INFERENCE_URL.format(model_id=settings.hf_model_id)
 
     logger.info(
-        "[patchtst] fetch symbol=%s seq_len=%d model=%s",
+        "[patchtst] fetch symbol=%s seq_len=%d cols=%d model=%s",
         symbol,
         len(inputs),
+        len(inputs[0]) if inputs and isinstance(inputs[0], list) else 1,
         settings.hf_model_id,
     )
 

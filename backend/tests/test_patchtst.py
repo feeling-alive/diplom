@@ -112,12 +112,25 @@ async def test_unexpected_response_fallback(monkeypatch: pytest.MonkeyPatch) -> 
 async def test_scaler_applied_to_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, Any] = {}
     _mock_post(monkeypatch, {"UP": 0.90, "DOWN": 0.05, "SIDEWAYS": 0.05}, captured)
-    # Patch the scaler the same way features would, but deterministically (x2).
+    # Patch the scaler the same way features would, but deterministically (x2 per
+    # cell of the 11-column feature matrix).
     monkeypatch.setattr(
-        "app.services.patchtst.apply_scaler", lambda window: [v * 2 for v in window]
+        "app.services.patchtst.apply_scaler",
+        lambda matrix: [[v * 2 for v in row] for row in matrix],
     )
-    res = await get_prediction([{"c": 10.0}, {"c": 20.0}], "BTC-USDT")
+    res = await get_prediction(
+        [
+            {"o": 10, "h": 10, "l": 10, "c": 10.0, "v": 1},
+            {"o": 20, "h": 20, "l": 20, "c": 20.0, "v": 2},
+        ],
+        "BTC-USDT",
+    )
     assert res["prediction"] == "UP"
     inputs = captured["inputs"]
-    assert inputs[-1] == 40.0  # most recent close 20 * 2
-    assert inputs[0] == 20.0  # left-padded first close 10 * 2
+    # inputs is now a 2D matrix: seq_len rows × 11 columns, each value doubled.
+    assert isinstance(inputs, list) and isinstance(inputs[0], list)
+    assert len(inputs[0]) == 11
+    # close is column index 3; most recent real row close 20 * 2 = 40.
+    assert inputs[-1][3] == 40.0
+    # left-padded first row reuses the first real row close 10 * 2 = 20.
+    assert inputs[0][3] == 20.0
