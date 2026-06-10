@@ -19,7 +19,7 @@ vi.mock('react-router-dom', () => ({
 // usePrices is async-first (isLoading=true on first render → AssetTable shows skeletons).
 // Mock it with deterministic loaded data so rows render synchronously in tests.
 vi.mock('../../../hooks/usePrices', () => {
-  type T = 'crypto' | 'stock' | 'forex' | 'index'
+  type T = 'crypto' | 'stock' | 'forex'
   const mk = (symbol: string, name: string, type: T, price: number, change24h: number) => ({
     symbol, name, type, price, change24h,
     volume24h: 1_000_000_000, marketCap: 100_000_000_000,
@@ -28,10 +28,9 @@ vi.mock('../../../hooks/usePrices', () => {
   const cryptos = [mk('BTC-USDT', 'Bitcoin', 'crypto', 94000, 1.2), mk('ETH-USDT', 'Ethereum', 'crypto', 3200, -0.5), mk('SOL-USDT', 'Solana', 'crypto', 180, 3.1)]
   const stocks = [mk('AAPL', 'Apple', 'stock', 225, 0.8), mk('MSFT', 'Microsoft', 'stock', 430, -0.3)]
   const forex = [mk('EUR-USD', 'Euro', 'forex', 1.08, 0.1)]
-  const indices = [mk('SPX', 'S&P 500', 'index', 5842, 0.4)]
-  const all = [...cryptos, ...stocks, ...forex, ...indices]
+  const all = [...cryptos, ...stocks, ...forex]
   const bySymbol = Object.fromEntries(all.map((a) => [a.symbol, a]))
-  return { usePrices: () => ({ all, cryptos, stocks, forex, indices, bySymbol, isLoading: false, lastUpdated: Date.now() }) }
+  return { usePrices: () => ({ all, cryptos, stocks, forex, bySymbol, isLoading: false, lastUpdated: Date.now() }) }
 })
 
 describe('AssetTable', () => {
@@ -69,9 +68,9 @@ describe('AssetTable', () => {
     expect(screen.getByText('BTC-USDT')).toBeInTheDocument()
   })
 
-  it('shows empty state for filter with no matching assets', () => {
-    render(<AssetTable filter="index" />)
-    // SPX is an index — should render
-    expect(screen.getByText('SPX')).toBeInTheDocument()
+  it('shows only forex assets when filter=forex', () => {
+    render(<AssetTable filter="forex" />)
+    expect(screen.getByText('EUR-USD')).toBeInTheDocument()
+    expect(screen.queryByText('BTC-USDT')).not.toBeInTheDocument()
   })
 })

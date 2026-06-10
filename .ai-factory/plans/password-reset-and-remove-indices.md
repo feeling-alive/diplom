@@ -148,8 +148,8 @@
 | 4 | API-функции фронтенда | Frontend | — | ✅ |
 | 5 | ForgotPasswordPage + ResetPasswordPage | Frontend | 4 | ✅ |
 | 6 | Маршруты + ссылка в LoginPage | Frontend | 5 | ✅ |
-| 7 | Убрать тип index (типы/данные/хуки) | Cleanup | — | ⏳ |
-| 8 | Убрать index из UI-компонентов | Cleanup | 7 | ⏳ |
+| 7 | Убрать тип index (типы/данные/хуки) | Cleanup | — | ✅ |
+| 8 | Убрать index из UI-компонентов | Cleanup | 7 | ✅ |
 | 9 | Backend-тесты password reset | Tests | 3 | ⏳ |
-| 10 | Обновить frontend-тесты | Tests | 8 | ⏳ |
+| 10 | Обновить frontend-тесты | Tests | 8 | ✅ |
 | 11 | Обновить PROJECT_OVERVIEW.md | Docs | 6, 10 | ⏳ |

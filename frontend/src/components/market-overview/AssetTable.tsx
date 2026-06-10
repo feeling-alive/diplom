@@ -6,7 +6,7 @@ import { usePrices } from '../../hooks/usePrices'
 import { getMockOHLCV } from '../../mock/ohlcv.mock'
 import type { Asset } from '../../types/market.types'
 
-type FilterType = 'all' | 'crypto' | 'stock' | 'forex' | 'index'
+type FilterType = 'all' | 'crypto' | 'stock' | 'forex'
 type SortKey = 'price' | 'change24h' | 'volume24h' | 'marketCap'
 type SortDir = 'asc' | 'desc'
 
@@ -126,7 +126,7 @@ export default function AssetTable({ filter }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('marketCap')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const navigate = useNavigate()
-  const { all, cryptos, stocks, forex, indices, isLoading } = usePrices()
+  const { all, cryptos, stocks, forex, isLoading } = usePrices()
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -140,8 +140,7 @@ export default function AssetTable({ filter }: Props) {
   const pool = filter === 'all' ? all
     : filter === 'crypto' ? cryptos
     : filter === 'stock' ? stocks
-    : filter === 'forex' ? forex
-    : indices
+    : forex
 
   const rows = useMemo(() => {
     return [...pool].sort((a, b) => {

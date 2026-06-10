@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Asset } from '../types/market.types'
 import { MOCK_PRICES } from '../mock/prices.mock'
-import INITIAL_PRICES from '../data/prices.json'
 import { USE_MOCK } from '../lib/env'
 
 interface AssetPriceResult {
@@ -15,13 +14,6 @@ interface AssetPriceResult {
 // Fetch a single non-crypto quote. Pure (no component state) so TanStack Query can
 // cache it per (type, symbol) — Задача 2: повторный заход на актив не грузит заново.
 async function fetchQuote(symbol: string, type: Asset['type']): Promise<{ price: number; change24h: number }> {
-  if (type === 'index') {
-    // [Задача 3] Индексы не отдаются бесплатным Finnhub — берём стабильный снимок из
-    // data/prices.json, не обращаясь к /api/quotes/stock (иначе вернулся бы мусор/0).
-    const snap = (INITIAL_PRICES as Asset[]).find((a) => a.symbol === symbol)
-    console.warn('[useAssetPrice] index %s: живого источника нет, снимок=%s', symbol, snap?.price)
-    return { price: snap?.price ?? 0, change24h: snap?.change24h ?? 0 }
-  }
   if (type === 'forex') {
     const [base, quote] = symbol.replace('-', '/').split('/')
     const res = await fetch(`/api/quotes/forex/${base}/${quote}`)
@@ -73,14 +65,14 @@ export function useAssetPrice(
     }
   }, [symbol])
 
-  // All non-mock quotes (crypto/stock/forex/index) go through the same cached
+  // All non-mock quotes (crypto/stock/forex) go through the same cached
   // query. Crypto polls faster (15s) for a near-live feel; the old direct OKX
   // WebSocket was removed — it broke whenever the browser couldn't reach
   // okx.com (CORS / blocked network), leaving prices stuck at 0.
   const query = useQuery({
     queryKey: ['assetPrice', type, symbol],
     enabled: !useMock && !!symbol,
-    refetchInterval: type === 'index' ? false : type === 'crypto' ? 15_000 : 60_000,
+    refetchInterval: type === 'crypto' ? 15_000 : 60_000,
     refetchOnMount: false,
     queryFn: () => fetchQuote(symbol, type),
   })

@@ -34,17 +34,15 @@ function formatTime(ts: number, tf: Timeframe): string {
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 }
 
-// Currency-aware price label: forex shows 4 decimals (no $), indices a plain
-// number, crypto/stock a $ amount. Used for both Y-axis ticks and the tooltip.
+// Currency-aware price label: forex shows 4 decimals (no $), crypto/stock a
+// $ amount. Used for both Y-axis ticks and the tooltip.
 function formatAxisPrice(value: number, type?: Asset['type']): string {
   if (type === 'forex') return value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
-  if (type === 'index') return value.toLocaleString('en-US', { maximumFractionDigits: 0 })
   return '$' + value.toLocaleString('en-US', { maximumFractionDigits: value < 1 ? 4 : 0 })
 }
 
 function formatTooltipPrice(value: number, type?: Asset['type']): string {
   if (type === 'forex') return value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
-  if (type === 'index') return value.toLocaleString('en-US', { maximumFractionDigits: 2 })
   return '$' + value.toLocaleString('en-US', { maximumFractionDigits: value < 1 ? 6 : 2 })
 }
 

@@ -4,14 +4,13 @@ import MarketSummaryBar from '../components/market-overview/MarketSummaryBar'
 import TopMovers from '../components/market-overview/TopMovers'
 import AssetTable from '../components/market-overview/AssetTable'
 
-type FilterType = 'all' | 'crypto' | 'stock' | 'forex' | 'index'
+type FilterType = 'all' | 'crypto' | 'stock' | 'forex'
 
 const FILTER_TABS: { key: FilterType; label: string }[] = [
   { key: 'all', label: 'Все' },
   { key: 'crypto', label: 'Крипто' },
   { key: 'stock', label: 'Акции' },
   { key: 'forex', label: 'Форекс' },
-  { key: 'index', label: 'Индексы' },
 ]
 
 const today = new Date().toLocaleDateString('ru-RU', {

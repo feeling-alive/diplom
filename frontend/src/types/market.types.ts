@@ -1,7 +1,7 @@
 export interface Asset {
   symbol: string        // e.g. 'BTC-USDT' | 'ETH-USDT' | 'AAPL' | 'EUR-USD'
   name: string          // e.g. 'Bitcoin'
-  type: 'crypto' | 'stock' | 'forex' | 'index'
+  type: 'crypto' | 'stock' | 'forex'
   price: number
   change24h: number     // percent change over 24h
   changeDollar?: number // dollar change

@@ -6,7 +6,6 @@ const TYPE_LABELS: Record<Asset['type'], string> = {
   crypto: 'Крипто',
   stock: 'Акции',
   forex: 'Форекс',
-  index: 'Индексы',
 }
 
 function formatPrice(asset: Asset): string {

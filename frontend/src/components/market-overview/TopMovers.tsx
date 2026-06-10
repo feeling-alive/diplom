@@ -4,7 +4,7 @@ import { TrendingUp, TrendingDown } from 'lucide-react'
 import { usePrices } from '../../hooks/usePrices'
 import type { Asset } from '../../types/market.types'
 
-type FilterType = 'all' | 'crypto' | 'stock' | 'forex' | 'index'
+type FilterType = 'all' | 'crypto' | 'stock' | 'forex'
 
 interface Props {
   filter: FilterType
@@ -119,13 +119,12 @@ function MoverSection({ title, items, positive }: SectionProps) {
 }
 
 export default function TopMovers({ filter }: Props) {
-  const { all, cryptos, stocks, forex, indices } = usePrices()
+  const { all, cryptos, stocks, forex } = usePrices()
 
   const pool = filter === 'all' ? all
     : filter === 'crypto' ? cryptos
     : filter === 'stock' ? stocks
-    : filter === 'forex' ? forex
-    : indices
+    : forex
 
   const gainers = [...pool].sort((a, b) => b.change24h - a.change24h).slice(0, 3)
   const losers  = [...pool].sort((a, b) => a.change24h - b.change24h).slice(0, 3)

@@ -14,7 +14,7 @@ vi.mock('framer-motion', () => ({
 vi.mock('react-router-dom', () => ({ useNavigate: () => navigateMock }))
 
 vi.mock('../../../hooks/usePrices', () => {
-  type T = 'crypto' | 'stock' | 'forex' | 'index'
+  type T = 'crypto' | 'stock' | 'forex'
   const mk = (symbol: string, name: string, type: T, price: number, change24h: number) => ({
     symbol, name, type, price, change24h,
     volume24h: 1_000_000_000, marketCap: 100_000_000_000,
@@ -23,10 +23,9 @@ vi.mock('../../../hooks/usePrices', () => {
   const cryptos = [mk('BTC-USDT', 'Bitcoin', 'crypto', 94000, 1.2), mk('ETH-USDT', 'Ethereum', 'crypto', 3200, -0.5)]
   const stocks = [mk('AAPL', 'Apple', 'stock', 225, 0.8)]
   const forex = [mk('EUR-USD', 'Euro', 'forex', 1.08, 0.1)]
-  const indices = [mk('SPX', 'S&P 500', 'index', 5842, 0.4)]
-  const all = [...cryptos, ...stocks, ...forex, ...indices]
+  const all = [...cryptos, ...stocks, ...forex]
   const bySymbol = Object.fromEntries(all.map((a) => [a.symbol, a]))
-  return { usePrices: () => ({ all, cryptos, stocks, forex, indices, bySymbol, isLoading: false, lastUpdated: Date.now() }) }
+  return { usePrices: () => ({ all, cryptos, stocks, forex, bySymbol, isLoading: false, lastUpdated: Date.now() }) }
 })
 
 describe('MarketSummaryBar — интерактивные карточки (Задача 5)', () => {

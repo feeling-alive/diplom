@@ -7,7 +7,6 @@ export interface PriceMap {
   cryptos: Asset[]
   stocks: Asset[]
   forex: Asset[]
-  indices: Asset[]
   all: Asset[]
   isLoading: boolean
   lastUpdated: number
@@ -78,10 +77,6 @@ async function fetchAllPrices(): Promise<Asset[]> {
   return INITIAL.map((a) => {
     const u = updates.get(a.symbol)
     if (u) return { ...a, ...u }
-    // [FIX Задача 3] Индексы (SPX/DJI/IXIC/DAX/NKY/USOIL/UKOIL) не имеют бесплатного
-    // живого источника — Finnhub free их не отдаёт. Без этого guard'а к статичному
-    // снимку применялся случайный jitter → SPX «дрожал». Оставляем снимок стабильным.
-    if (a.type === 'index') return a
     // Лёгкий jitter относительно снимка, чтобы активы без живого источника не выглядели
     // полностью замершими. Считается от INITIAL (не накапливается) → значения стабильны.
     const j = 1 + (Math.random() - 0.5) * 0.01
@@ -114,7 +109,6 @@ export function usePrices(): PriceMap {
     cryptos: prices.filter((a) => a.type === 'crypto'),
     stocks: prices.filter((a) => a.type === 'stock'),
     forex: prices.filter((a) => a.type === 'forex'),
-    indices: prices.filter((a) => a.type === 'index'),
     all: prices,
     isLoading: query.isLoading,
     lastUpdated: query.dataUpdatedAt,

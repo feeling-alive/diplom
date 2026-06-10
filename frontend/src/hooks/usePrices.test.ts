@@ -16,8 +16,7 @@ function makeWrapper() {
 
 describe('usePrices (Задача 2 + 3)', () => {
   beforeEach(() => {
-    // Все внешние запросы падают → updates пуст → к не-индексам применяется jitter,
-    // индексы остаются неизменными (фикс Задачи 3).
+    // Все внешние запросы падают → updates пуст → к снимку применяется jitter.
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('no network in test'))))
   })
   afterEach(() => {
@@ -25,18 +24,15 @@ describe('usePrices (Задача 2 + 3)', () => {
     vi.restoreAllMocks()
   })
 
-  it('Задача 3: не применяет jitter к индексам', async () => {
+  it('снимок не содержит индексов, все цены конечны', async () => {
     const { wrapper } = makeWrapper()
     const { result } = renderHook(() => usePrices(), { wrapper })
 
-    const spxBefore = result.current.bySymbol['SPX']?.price
-    expect(spxBefore).toBeGreaterThan(0)
-
     await waitFor(() => expect(result.current.lastUpdated).toBeGreaterThan(0))
 
-    expect(result.current.bySymbol['SPX']?.price).toBe(spxBefore)
-    expect(result.current.indices.length).toBeGreaterThan(0)
-    expect(result.current.indices.every((i) => Number.isFinite(i.price))).toBe(true)
+    expect(result.current.bySymbol['SPX']).toBeUndefined()
+    expect(result.current.all.length).toBeGreaterThan(0)
+    expect(result.current.all.every((a) => Number.isFinite(a.price))).toBe(true)
   })
 
   it('Задача 2: повторный маунт с тем же QueryClient не показывает isLoading заново', async () => {
