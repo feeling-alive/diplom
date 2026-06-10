@@ -145,9 +145,9 @@
 | 1 | fastapi-mail, конфиг, .env.example | Backend | — | ✅ |
 | 2 | Email-сервис + HTML-шаблон | Backend | 1 | ✅ |
 | 3 | Эндпоинты forgot/reset | Backend | 2 | ✅ |
-| 4 | API-функции фронтенда | Frontend | — | ⏳ |
-| 5 | ForgotPasswordPage + ResetPasswordPage | Frontend | 4 | ⏳ |
-| 6 | Маршруты + ссылка в LoginPage | Frontend | 5 | ⏳ |
+| 4 | API-функции фронтенда | Frontend | — | ✅ |
+| 5 | ForgotPasswordPage + ResetPasswordPage | Frontend | 4 | ✅ |
+| 6 | Маршруты + ссылка в LoginPage | Frontend | 5 | ✅ |
 | 7 | Убрать тип index (типы/данные/хуки) | Cleanup | — | ⏳ |
 | 8 | Убрать index из UI-компонентов | Cleanup | 7 | ⏳ |
 | 9 | Backend-тесты password reset | Tests | 3 | ⏳ |

@@ -50,6 +50,33 @@ export async function apiLogin(email: string, password: string): Promise<AuthUse
   return (await res.json()) as AuthUser
 }
 
+export async function apiForgotPassword(email: string): Promise<{ message: string }> {
+  console.debug('[authApi] forgotPassword', email)
+  const res = await fetch('/auth/forgot-password', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+  if (!res.ok) throw new Error(await parseError(res))
+  return (await res.json()) as { message: string }
+}
+
+export async function apiResetPassword(
+  token: string,
+  newPassword: string,
+): Promise<{ message: string }> {
+  console.debug('[authApi] resetPassword token present=', Boolean(token))
+  const res = await fetch('/auth/reset-password', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, new_password: newPassword }),
+  })
+  if (!res.ok) throw new Error(await parseError(res))
+  return (await res.json()) as { message: string }
+}
+
 export async function apiLogout(): Promise<void> {
   console.debug('[authApi] logout')
   await fetch('/auth/logout', { method: 'POST', credentials: 'include' })

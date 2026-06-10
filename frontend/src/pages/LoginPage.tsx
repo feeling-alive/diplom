@@ -175,6 +175,14 @@ export default function LoginPage() {
               {passwordError && (
                 <p style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{passwordError}</p>
               )}
+              <p style={{ textAlign: 'right', marginTop: 6 }}>
+                <Link
+                  to="/forgot-password"
+                  style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline' }}
+                >
+                  Забыли пароль?
+                </Link>
+              </p>
             </div>
 
             {/* Form-level error (design-system alert, no MUI) */}
