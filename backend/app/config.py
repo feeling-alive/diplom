@@ -73,6 +73,15 @@ class Settings(BaseSettings):
     backend_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:5173"
 
+    # --- SMTP / Email (восстановление пароля) -----------------------------------
+    # Empty smtp_host => emails are not sent; the reset link is logged at DEBUG
+    # instead (graceful degradation for local development without a mailbox).
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "noreply@fintrack.local"
+
     # --- CORS ------------------------------------------------------------------
     # Comma-separated origins; the frontend Vite dev server by default.
     cors_origins: str = "http://localhost:5173"
@@ -173,6 +182,13 @@ def log_startup_config() -> None:
     logger.info(
         "[config] groq_api_key=%s",
         "present" if settings.groq_api_key else "ABSENT",
+    )
+    logger.info(
+        "[config] smtp host=%s port=%d user=%s from=%s",
+        settings.smtp_host or "ABSENT(emails logged, not sent)",
+        settings.smtp_port,
+        "present" if settings.smtp_user else "ABSENT",
+        settings.smtp_from,
     )
     logger.info(
         "[config] prediction seq_len=%d tf=%s threshold=%.2f margin=%.2f scaler=%s",

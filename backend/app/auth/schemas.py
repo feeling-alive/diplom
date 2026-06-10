@@ -29,6 +29,26 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    """Запрос ссылки сброса пароля."""
+
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Смена пароля по токену из письма. Те же правила, что при регистрации."""
+
+    token: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)
+
+    @field_validator("new_password")
+    @classmethod
+    def password_has_digit(cls, value: str) -> str:
+        if not any(ch.isdigit() for ch in value):
+            raise ValueError("Пароль должен содержать хотя бы одну цифру")
+        return value
+
+
 class UserResponse(BaseModel):
     """Public user representation. Built from the ORM User via ``from_attributes``."""
 
