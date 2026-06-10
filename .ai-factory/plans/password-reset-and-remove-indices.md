@@ -152,4 +152,4 @@
 | 8 | Убрать index из UI-компонентов | Cleanup | 7 | ✅ |
 | 9 | Backend-тесты password reset | Tests | 3 | ✅ |
 | 10 | Обновить frontend-тесты | Tests | 8 | ✅ |
-| 11 | Обновить PROJECT_OVERVIEW.md | Docs | 6, 10 | ⏳ |
+| 11 | Обновить PROJECT_OVERVIEW.md | Docs | 6, 10 | ✅ |
