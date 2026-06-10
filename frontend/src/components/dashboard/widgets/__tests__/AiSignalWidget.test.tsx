@@ -22,7 +22,9 @@ describe('AiSignalWidget', () => {
     })
     render(<AiSignalWidget />)
     expect(screen.getByText('Восходящий')).toBeInTheDocument()
-    expect(screen.getByText('AI 82%')).toBeInTheDocument()
+    // Badge shows "AI" only — percentages are intentionally not displayed.
+    expect(screen.getByText('AI')).toBeInTheDocument()
+    expect(screen.queryByText(/\d+%/)).not.toBeInTheDocument()
   })
 
   it('shows a neutral sideways label for a weak/low-confidence signal', () => {

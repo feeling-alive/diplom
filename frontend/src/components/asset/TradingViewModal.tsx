@@ -62,7 +62,8 @@ const SUGGESTIONS = [
   { icon: <ShieldAlert size={13} />, label: 'Оцени риски входа' },
 ]
 
-function PredictionBadge({ direction, probability }: { direction: string; probability: number }) {
+// Badge shows direction only — no percentages (numbers read as false precision).
+function PredictionBadge({ direction }: { direction: string }) {
   const color = direction === 'UP' ? '#16a34a' : direction === 'DOWN' ? '#dc2626' : '#6b7280'
   const Icon = direction === 'UP' ? TrendingUp : direction === 'DOWN' ? TrendingDown : Minus
   return (
@@ -72,7 +73,7 @@ function PredictionBadge({ direction, probability }: { direction: string; probab
       background: `${color}15`, color, fontSize: 11, fontWeight: 600,
     }}>
       <Icon size={14} />
-      {direction === 'UP' ? 'Вверх' : direction === 'DOWN' ? 'Вниз' : 'Боковик'} · {(probability * 100).toFixed(0)}%
+      {direction === 'UP' ? 'Вверх' : direction === 'DOWN' ? 'Вниз' : 'Нейтрально'}
     </div>
   )
 }
@@ -205,7 +206,7 @@ export default function TradingViewModal({ open, onClose, asset }: Props) {
                 </div>
                 {prediction && (
                   <div style={{ marginTop: 8 }}>
-                    <PredictionBadge direction={prediction.direction} probability={prediction.probability} />
+                    <PredictionBadge direction={prediction.direction} />
                   </div>
                 )}
               </div>

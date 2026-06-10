@@ -50,5 +50,9 @@
       "Bash(curl -s -m 8 \"http://localhost:8000/api/quotes/stock/AAPL\")",
       "PowerShell($p = Get-CimInstance Win32_Process -Filter \"ProcessId=26116\"; \"PID: $\\($p.ProcessId\\)\"; \"Parent: $\\($p.ParentProcessId\\)\"; \"Cmd: $\\($p.CommandLine\\)\")"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "github",
+    "playwright"
+  ]
 }

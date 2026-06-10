@@ -4,7 +4,6 @@ import AssetHeader from '../components/asset/AssetHeader'
 import MainCard from '../components/asset/MainCard'
 import MetricsBar from '../components/asset/MetricsBar'
 import NewsPanel from '../components/asset/NewsPanel'
-import AIPanel from '../components/asset/AIPanel'
 import { usePrices } from '../hooks/usePrices'
 
 export default function AssetPage() {
@@ -93,9 +92,6 @@ export default function AssetPage() {
           }}>
             <div style={{ flex: '1 1 0', minHeight: 220 }}>
               <NewsPanel symbol={asset.symbol} ticker={asset.symbol} />
-            </div>
-            <div style={{ flex: '1 1 0', minHeight: 280 }}>
-              <AIPanel symbol={asset.symbol} />
             </div>
           </div>
         </div>

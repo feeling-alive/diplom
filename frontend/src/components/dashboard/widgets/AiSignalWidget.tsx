@@ -37,7 +37,7 @@ export default function AiSignalWidget({ gridW = 2, gridH = 2, symbol = DEFAULT_
             padding: '2px 6px', borderRadius: 999,
             background: '#f3e8ff', color: ACCENT,
             fontSize: 9, fontWeight: 700,
-          }}>AI {Math.round(data.probability * 100)}%</span>
+          }}>AI</span>
         )}
       </div>
 
