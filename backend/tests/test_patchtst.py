@@ -30,7 +30,7 @@ def _mock_predict(
 @pytest.fixture(autouse=True)
 def _deterministic_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.config.settings.prediction_confidence_threshold", 0.55)
-    monkeypatch.setattr("app.config.settings.prediction_margin", 0.10)
+    monkeypatch.setattr("app.config.settings.prediction_margin", 0.03)
     # Neutralise the rule-based signal by default so the confidence-gate tests
     # below exercise the gate deterministically. With rule_score=0 the hybrid
     # maps the model UP probability p to combined_up = 0.6*p + 0.2. Tests that
@@ -51,28 +51,40 @@ async def test_confident_up(monkeypatch: pytest.MonkeyPatch) -> None:
     assert res["patchtst_prob"] == pytest.approx(0.80)
 
 
-async def test_weak_up_below_threshold_downgraded(monkeypatch: pytest.MonkeyPatch) -> None:
-    # combined_up = 0.6*0.51 + 0.2 = 0.506 < 0.55 threshold -> low-conf SIDEWAYS.
+async def test_near_tie_reported_sideways(monkeypatch: pytest.MonkeyPatch) -> None:
+    # combined_up = 0.6*0.51 + 0.2 = 0.506: |UP-DOWN| = 0.012 < 0.03 margin ->
+    # no detectable edge, reported as SIDEWAYS (flagged low_confidence).
     _mock_predict(monkeypatch, 0.51, 0.49)
     res = await get_prediction(_CANDLES, "BTC-USDT")
     assert res["prediction"] == "SIDEWAYS"
     assert res["low_confidence"] is True
 
 
-async def test_small_margin_downgraded(monkeypatch: pytest.MonkeyPatch) -> None:
-    # combined_up = 0.6*0.58 + 0.2 = 0.548: margin over DOWN is 0.096 < 0.10
-    # (and the score itself sits below the 0.55 threshold) -> downgrade.
+async def test_weak_direction_kept_with_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    # combined_up = 0.6*0.58 + 0.2 = 0.548: margin 0.096 >= 0.03 so the UP
+    # direction is KEPT; probability 0.548 < 0.55 only raises the flag.
     _mock_predict(monkeypatch, 0.58, 0.42)
     res = await get_prediction(_CANDLES, "BTC-USDT")
-    assert res["prediction"] == "SIDEWAYS"
+    assert res["prediction"] == "UP"
     assert res["low_confidence"] is True
+    assert res["probability"] == pytest.approx(0.548)
+
+
+async def test_weak_down_kept_with_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Mirror case: combined_up = 0.6*0.42 + 0.2 = 0.452 -> DOWN 0.548 with
+    # margin 0.096 -> direction kept, flagged low_confidence.
+    _mock_predict(monkeypatch, 0.42, 0.58)
+    res = await get_prediction(_CANDLES, "BTC-USDT")
+    assert res["prediction"] == "DOWN"
+    assert res["low_confidence"] is True
+    assert res["probability"] == pytest.approx(0.548)
 
 
 async def test_neutral_model_gives_low_confidence_sideways(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # The local model is binary (UP/DOWN only) — a flat 50/50 call has no
-    # genuine SIDEWAYS class behind it, so the gate reports low confidence.
+    # A flat 50/50 call is an exact tie (margin 0 < 0.03) -> SIDEWAYS with the
+    # low_confidence flag (probability 0.5 < 0.55 threshold).
     _mock_predict(monkeypatch, 0.50, 0.50)
     res = await get_prediction(_CANDLES, "BTC-USDT")
     assert res["prediction"] == "SIDEWAYS"

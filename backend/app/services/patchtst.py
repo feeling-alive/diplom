@@ -6,10 +6,10 @@ in-process: no HF Inference API, no network calls, no API key.
 
 The model is binary (UP/DOWN over a 60×11 feature window). Its probabilities
 are blended with a rule-based technical signal (``_rule_based_signal`` +
-``_combine_signals``) and the combined call goes through the same confidence
-gate as before: a weak UP/DOWN — below ``prediction_confidence_threshold`` or
-with a margin under ``prediction_margin`` — is downgraded to a low-confidence
-SIDEWAYS (the "боковик" problem).
+``_combine_signals``) and the combined call goes through a soft confidence
+gate: only a near-tie (``|UP - DOWN| < prediction_margin``) becomes SIDEWAYS;
+a weak directional call keeps its direction and is flagged ``low_confidence``
+when the probability sits below ``prediction_confidence_threshold``.
 
 Graceful degradation: missing model/scaler files, short candle history, or an
 inference error all return a neutral fallback with a distinguishable
@@ -228,38 +228,43 @@ def _neutral_prediction(symbol: str, reason: str = "fallback") -> dict[str, Any]
 
 
 def _apply_confidence_gate(scores: dict[str, float]) -> tuple[str, float, bool]:
-    """Decide the reported prediction from raw label scores.
+    """Decide the reported prediction from the combined UP/DOWN probabilities.
 
     Returns ``(prediction, probability, low_confidence)``:
 
-    * The model's top label wins by default.
-    * A top ``UP``/``DOWN`` whose score is below the threshold, or whose margin
-      over the runner-up is below ``prediction_margin``, is downgraded to
-      ``SIDEWAYS`` with ``low_confidence=True``.
-    * A genuine top ``SIDEWAYS`` keeps ``low_confidence=False``.
-    * ``probability`` is the score of the *reported* prediction (honest: a
-      downgraded signal reports the SIDEWAYS score, not the rejected UP score).
+    * The direction is the argmax of UP vs DOWN. Only a near-perfect tie —
+      ``|UP - DOWN| < prediction_margin`` (default 0.03) — is reported as
+      ``SIDEWAYS``: with no detectable edge there is genuinely no direction.
+    * ``low_confidence`` is a pure *flag*: ``True`` when the reported
+      probability sits below ``prediction_confidence_threshold``. It never
+      changes the direction — a weak UP stays UP, just flagged.
+    * ``probability`` is the score of the top direction (also for SIDEWAYS,
+      where it is ~0.5 by construction).
     """
-    ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
-    top_label, top_score = ranked[0]
-    runner_score = ranked[1][1] if len(ranked) > 1 else 0.0
-    margin = top_score - runner_score
+    up = scores.get("UP", 0.5)
+    down = scores.get("DOWN", 0.5)
+    top_label, top_score = ("UP", up) if up >= down else ("DOWN", down)
+    margin = abs(up - down)
 
     threshold = settings.prediction_confidence_threshold
     min_margin = settings.prediction_margin
 
-    if top_label in ("UP", "DOWN") and (top_score < threshold or margin < min_margin):
+    if margin < min_margin:
         prediction = "SIDEWAYS"
-        low_confidence = True
         logger.info(
-            "[patchtst] downgrade %s(%.3f) -> SIDEWAYS (score<%.2f or margin %.3f<%.2f)",
-            top_label, top_score, threshold, margin, min_margin,
+            "[patchtst] tie %s(%.3f) -> SIDEWAYS (margin %.3f < %.2f)",
+            top_label, top_score, margin, min_margin,
         )
     else:
         prediction = top_label
-        low_confidence = False
 
-    probability = scores.get(prediction, top_score)
+    probability = top_score
+    low_confidence = probability < threshold
+    if low_confidence and prediction != "SIDEWAYS":
+        logger.info(
+            "[patchtst] weak %s kept (prob %.3f < %.2f) — flagged low_confidence",
+            prediction, probability, threshold,
+        )
     return prediction, probability, low_confidence
 
 
@@ -456,14 +461,10 @@ async def get_prediction(
     rule_direction = "UP" if rule_score > 0.1 else ("DOWN" if rule_score < -0.1 else "NEUTRAL")
     signals_agree = patchtst_direction == rule_direction
 
-    # Feed the combined UP/DOWN probabilities through the same confidence gate
-    # so the SIDEWAYS/боковик semantics are preserved. The local model is
-    # binary, so there is no genuine SIDEWAYS mass — the gate alone produces it.
-    combined_scores = {
-        "UP": combined_up,
-        "DOWN": combined_down,
-        "SIDEWAYS": 0.0,
-    }
+    # Gate the combined UP/DOWN probabilities: only a near-tie becomes
+    # SIDEWAYS; a weak directional call keeps its direction and is merely
+    # flagged low_confidence (see _apply_confidence_gate).
+    combined_scores = {"UP": combined_up, "DOWN": combined_down}
     prediction, probability, low_confidence = _apply_confidence_gate(combined_scores)
 
     logger.info(

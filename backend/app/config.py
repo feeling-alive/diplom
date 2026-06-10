@@ -97,12 +97,12 @@ class Settings(BaseSettings):
     # Candle window (SEQ_LEN) and timeframe fed to the PatchTST classifier.
     prediction_seq_len: int = 100
     prediction_timeframe: str = "1H"
-    # Confidence gating: a top UP/DOWN label below the threshold, or with too
-    # small a margin over the runner-up, is downgraded to a low-confidence
-    # SIDEWAYS signal so the model never projects false certainty (a flat ~51%
-    # "боковик" must not read as a confident call).
+    # Confidence gating (soft): only a near-tie |UP - DOWN| < prediction_margin
+    # is reported as SIDEWAYS — otherwise the argmax direction is kept. The
+    # threshold drives the low_confidence *flag* only (probability below it is
+    # flagged, never re-labelled): a weak UP stays UP.
     prediction_confidence_threshold: float = 0.55
-    prediction_margin: float = 0.10
+    prediction_margin: float = 0.03
     # Optional joblib scaler applied to the feature window before the HF call.
     # Path is relative to the backend working dir; absent file => raw close
     # prices are sent (graceful, behaviour unchanged from before).
