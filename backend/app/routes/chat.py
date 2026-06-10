@@ -159,7 +159,9 @@ async def _get_prediction_cached(symbol: str) -> dict[str, Any]:
         candles_data.get("candles") or [], symbol=symbol
     )
 
-    if prediction.get("source") == "huggingface":
+    # Only cache genuine model output ("local" inference) — fallback predictions
+    # carry their reason in `source` and must not be pinned in Redis for 60 s.
+    if prediction.get("source") == "local":
         try:
             await set_cached(cache_key, prediction, PREDICTION_CACHE_TTL)
             logger.debug("[chat] prediction cached for %s ttl=%d", symbol, PREDICTION_CACHE_TTL)

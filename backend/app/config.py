@@ -89,9 +89,9 @@ class Settings(BaseSettings):
     etherscan_api_key: str = ""
 
     # --- AI / ML API keys ------------------------------------------------------
+    # PatchTST inference is local (services/patchtst.py + app/ml/pytorch_model.pt);
+    # no HF API key is needed anymore.
     groq_api_key: str = ""
-    hf_api_key: str = ""
-    hf_model_id: str = "nikasq/PatchTST-Time-Series-Classifier"
 
     # --- AI / ML inference tuning ----------------------------------------------
     # Candle window (SEQ_LEN) and timeframe fed to the PatchTST classifier.
@@ -173,11 +173,6 @@ def log_startup_config() -> None:
     logger.info(
         "[config] groq_api_key=%s",
         "present" if settings.groq_api_key else "ABSENT",
-    )
-    logger.info(
-        "[config] hf_api_key=%s hf_model_id=%s",
-        "present" if settings.hf_api_key else "ABSENT",
-        settings.hf_model_id or "not set",
     )
     logger.info(
         "[config] prediction seq_len=%d tf=%s threshold=%.2f margin=%.2f scaler=%s",

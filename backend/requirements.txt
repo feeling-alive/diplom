@@ -32,3 +32,9 @@ apscheduler>=3.10
 numpy
 joblib
 scikit-learn
+
+# --- AI / ML local inference (PatchTST) ---------------------------------------
+# PyTorch для локального инференса PatchTST (app/ml/pytorch_model.pt).
+# huggingface_hub — только для скачивания весов модели при старте (не инференс).
+torch
+huggingface_hub

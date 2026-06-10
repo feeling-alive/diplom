@@ -9,6 +9,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import AsyncIterator
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -37,6 +38,26 @@ API_PREFIX = "/api/quotes"
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # Local PatchTST weights: download once from HF Hub if absent. Wrapped so an
+    # offline start degrades gracefully — patchtst.py falls back to a neutral
+    # prediction when the file is missing (same philosophy as Redis/DB above).
+    model_path = Path("app/ml/pytorch_model.pt")
+    if not model_path.exists():
+        try:
+            import shutil
+
+            from huggingface_hub import hf_hub_download
+
+            logger.info("[main] pytorch_model.pt absent — downloading from HF Hub...")
+            p = hf_hub_download(
+                "nikasq/PatchTST-Time-Series-Classifier",
+                "pytorch_model.pt",
+            )
+            shutil.copy(p, model_path)
+            logger.info("[main] pytorch_model.pt downloaded -> %s", model_path)
+        except Exception as err:  # noqa: BLE001 — degrade gracefully, never block startup
+            logger.warning("[main] model download failed: %s — AI prediction will degrade", err)
+
     log_startup_config()
     # Dev convenience: create tables from ORM metadata on startup. In a real
     # deployment Alembic migrations own the schema; this is a no-op when tables

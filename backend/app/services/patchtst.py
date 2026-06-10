@@ -1,46 +1,212 @@
-"""Hugging Face Inference API client for PatchTST time-series classifier.
+"""Local PyTorch inference for the PatchTST time-series classifier.
 
-Sends a (optionally scaled) closing-price window to a Hugging Face classifier
-model and returns a directional prediction (UP/DOWN/SIDEWAYS) with a confidence
-score and a low-confidence flag.
+Loads ``app/ml/pytorch_model.pt`` (exact architecture restored from the
+training notebook — see ``services/patchtst_model.py``) and runs inference
+in-process: no HF Inference API, no network calls, no API key.
 
-Confidence gating: a top UP/DOWN label that is below
-``prediction_confidence_threshold`` — or wins by a margin smaller than
-``prediction_margin`` over the runner-up — is downgraded to a low-confidence
-SIDEWAYS signal. This prevents a near-flat ~51% call from reading as a confident
-direction (the "боковик" problem).
+The model is binary (UP/DOWN over a 60×11 feature window). Its probabilities
+are blended with a rule-based technical signal (``_rule_based_signal`` +
+``_combine_signals``) and the combined call goes through the same confidence
+gate as before: a weak UP/DOWN — below ``prediction_confidence_threshold`` or
+with a margin under ``prediction_margin`` — is downgraded to a low-confidence
+SIDEWAYS (the "боковик" problem).
 
-Graceful degradation: returns a neutral fallback when the upstream is
-unreachable, the API key is missing, or the response is malformed. A fallback
-SIDEWAYS (``source`` = reason) stays distinguishable from a genuine model
-SIDEWAYS (``source="huggingface"``).
+Graceful degradation: missing model/scaler files, short candle history, or an
+inference error all return a neutral fallback with a distinguishable
+``source`` reason instead of raising.
 """
 
 from __future__ import annotations
 
-import json
 import logging
+from pathlib import Path
 from typing import Any
 
-import httpx
+import joblib
+import numpy as np
+import torch
 
 from app.config import settings
-from app.services.features import (
-    apply_scaler,
-    build_feature_matrix,
-    compute_indicators,
-    extract_ohlcv,
-)
+from app.services.features import compute_indicators, extract_ohlcv
+from app.services.patchtst_model import PatchTST
 
 logger = logging.getLogger("backend.patchtst")
 
-_HF_INFERENCE_URL = "https://api-inference.huggingface.co/models/{model_id}"
+MODEL_PATH = Path(__file__).parent.parent / "ml" / "pytorch_model.pt"
+SCALER_PATH = Path(__file__).parent.parent / "ml" / "scaler.pkl"
+
+FEATURE_NAMES = [
+    'open', 'high', 'low', 'close', 'volume',
+    'rsi', 'macd', 'macd_hist', 'macd_signal', 'bb_width', 'bb_pos'
+]
 
 _VALID_LABELS = ("UP", "DOWN", "SIDEWAYS")
 
+_model = None
+_scaler = None
+
+
+def _load_resources() -> None:
+    """Lazily load the PyTorch weights and the joblib scaler (once per process)."""
+    global _model, _scaler
+    if _model is not None:
+        return
+
+    # Модель
+    try:
+        state_dict = torch.load(
+            MODEL_PATH, map_location="cpu", weights_only=True
+        )
+        m = PatchTST(n_features=11)
+        m.load_state_dict(state_dict)
+        m.eval()
+        _model = m
+        logger.info("[patchtst] PatchTST loaded locally ✅")
+    except Exception as e:  # noqa: BLE001 — degrade gracefully, never crash startup
+        logger.warning("[patchtst] PatchTST load failed: %s", e)
+
+    # Scaler
+    try:
+        _scaler = joblib.load(SCALER_PATH)
+        logger.info("[patchtst] Scaler loaded ✅")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[patchtst] Scaler load failed: %s", e)
+
+
+def _build_features(candles) -> np.ndarray | None:
+    """Строит матрицу (seq_len, 11) из свечей.
+
+    Порядок признаков строго как при обучении:
+    open,high,low,close,volume,rsi,macd,macd_hist,macd_signal,bb_width,bb_pos
+    """
+    try:
+        opens, highs, lows, closes, volumes = [], [], [], [], []
+        for c in candles:
+            if isinstance(c, (list, tuple)):
+                opens.append(float(c[1]))
+                highs.append(float(c[2]))
+                lows.append(float(c[3]))
+                closes.append(float(c[4]))
+                volumes.append(float(c[5]))
+            elif isinstance(c, dict):
+                opens.append(float(c.get('o') or c.get('open', 0)))
+                highs.append(float(c.get('h') or c.get('high', 0)))
+                lows.append(float(c.get('l') or c.get('low', 0)))
+                closes.append(float(c.get('c') or c.get('close', 0)))
+                volumes.append(float(c.get('v') or c.get('volume', 0)))
+
+        n = len(closes)
+        if n < 60:
+            return None
+
+        cl = np.array(closes, dtype=np.float64)
+        op = np.array(opens, dtype=np.float64)
+        hi = np.array(highs, dtype=np.float64)
+        lo = np.array(lows, dtype=np.float64)
+        vo = np.array(volumes, dtype=np.float64)
+
+        # RSI (14, EMA-сглаживание как при обучении)
+        delta = np.diff(cl, prepend=cl[0])
+        gain = np.where(delta > 0, delta, 0.0)
+        loss = np.where(delta < 0, -delta, 0.0)
+        alpha = 1.0 / 14
+        avg_gain = np.zeros(n)
+        avg_loss = np.zeros(n)
+        avg_gain[0] = gain[0]
+        avg_loss[0] = loss[0]
+        for i in range(1, n):
+            avg_gain[i] = gain[i]*alpha + avg_gain[i-1]*(1-alpha)
+            avg_loss[i] = loss[i]*alpha + avg_loss[i-1]*(1-alpha)
+        # errstate: np.where evaluates both branches eagerly, so a zero
+        # avg_loss (monotonic series) emits a noisy RuntimeWarning even though
+        # the 100.0 fallback is what gets picked. Values are unchanged.
+        with np.errstate(divide="ignore", invalid="ignore"):
+            rs = np.where(avg_loss > 1e-10, avg_gain/avg_loss, 100.0)
+        rsi = 100 - 100/(1+rs)
+
+        # MACD (EWM span=12,26,9)
+        def ewm(arr, span):
+            alpha = 2.0/(span+1)
+            result = np.zeros(len(arr))
+            result[0] = arr[0]
+            for i in range(1, len(arr)):
+                result[i] = arr[i]*alpha + result[i-1]*(1-alpha)
+            return result
+
+        ema12 = ewm(cl, 12)
+        ema26 = ewm(cl, 26)
+        macd = ema12 - ema26
+        macd_signal = ewm(macd, 9)
+        macd_hist = macd - macd_signal
+
+        # Bollinger Bands (20 периодов)
+        bb_width = np.zeros(n)
+        bb_pos = np.zeros(n)
+        for i in range(19, n):
+            window = cl[i-19:i+1]
+            sma = window.mean()
+            std = window.std()
+            if std > 1e-10 and sma > 1e-10:
+                upper = sma + 2*std
+                lower = sma - 2*std
+                bb_width[i] = (upper-lower)/sma
+                bb_pos[i] = (cl[i]-lower)/(upper-lower+1e-10)
+
+        matrix = np.column_stack([
+            op, hi, lo, cl, vo,
+            rsi, macd, macd_hist, macd_signal,
+            bb_width, bb_pos
+        ])
+
+        # Берём последние 60 строк
+        matrix = matrix[-60:]
+
+        # Нормализация
+        if _scaler is not None:
+            try:
+                matrix = _scaler.transform(matrix)
+            except Exception:  # noqa: BLE001 — shape mismatch etc.
+                # Fallback: window normalization
+                mean = matrix.mean(axis=0)
+                std = matrix.std(axis=0)
+                std[std < 1e-8] = 1e-8
+                matrix = (matrix - mean) / std
+        else:
+            mean = matrix.mean(axis=0)
+            std = matrix.std(axis=0)
+            std[std < 1e-8] = 1e-8
+            matrix = (matrix - mean) / std
+
+        return matrix.astype(np.float32)
+
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[patchtst] Feature build error: %s", e)
+        return None
+
+
+def _patchtst_predict(candles) -> tuple[float, float, bool]:
+    """Returns (prob_up, prob_down, available)."""
+    _load_resources()
+    if _model is None:
+        return 0.5, 0.5, False
+
+    matrix = _build_features(candles)
+    if matrix is None:
+        return 0.5, 0.5, False
+
+    try:
+        x = torch.tensor(matrix).unsqueeze(0)  # (1, 60, 11)
+        with torch.no_grad():
+            logits = _model(x)
+            probs = torch.softmax(logits, dim=1)[0]
+        return probs[1].item(), probs[0].item(), True
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[patchtst] Inference error: %s", e)
+        return 0.5, 0.5, False
+
 
 def _neutral_prediction(symbol: str, reason: str = "fallback") -> dict[str, Any]:
-    """Return a safe neutral prediction when the upstream is unavailable.
+    """Return a safe neutral prediction when the model is unavailable.
 
     ``source`` carries the *reason* so callers can tell a technical fallback
     apart from a genuine model SIDEWAYS.
@@ -59,33 +225,6 @@ def _neutral_prediction(symbol: str, reason: str = "fallback") -> dict[str, Any]
         "signals_agree": False,
         "indicator_details": {},
     }
-
-
-def _parse_scores(raw: Any) -> dict[str, float]:
-    """Parse a HF text-classification response into ``{label: score}``.
-
-    Accepts ``[[{"label": "UP", "score": 0.7}, ...]]`` or the unwrapped
-    ``[{"label": "UP", "score": 0.7}, ...]``. Unknown labels are ignored and
-    scores are clamped to ``[0, 1]``. Returns ``{}`` on failure.
-    """
-    try:
-        if not isinstance(raw, list) or not raw:
-            return {}
-        inner = raw[0] if isinstance(raw[0], list) else raw
-        if not isinstance(inner, list):
-            return {}
-        scores: dict[str, float] = {}
-        for item in inner:
-            if not isinstance(item, dict):
-                continue
-            label = str(item.get("label", "")).upper()
-            if label not in _VALID_LABELS:
-                continue
-            score = max(0.0, min(1.0, float(item.get("score", 0))))
-            scores[label] = score
-        return scores
-    except (TypeError, ValueError, KeyError, IndexError):
-        return {}
 
 
 def _apply_confidence_gate(scores: dict[str, float]) -> tuple[str, float, bool]:
@@ -153,9 +292,6 @@ def _rule_based_signal(candles: list[dict[str, Any]]) -> tuple[float, dict[str, 
     up/down trend verdict require. With ``< 20`` candles ``price_vs_sma20`` stays
     ``0.0`` and ``trend`` stays ``"смешанный"`` — never divides by zero.
 
-    NOTE: the prompt phrased this as ``_rule_based_signal(df)`` over a pandas
-    DataFrame. This project does not use pandas — we operate on the candle list
-    via the pure-Python indicator helpers in ``services/features.py`` instead.
     Degrades to ``(0.0, {})`` on missing/short data rather than raising.
     """
     ohlcv = extract_ohlcv(candles)
@@ -288,92 +424,58 @@ async def get_prediction(
     candles: list[dict[str, Any]],
     symbol: str = "unknown",
 ) -> dict[str, Any]:
-    """Send a scaled close-price window to the PatchTST classifier.
+    """Run the local PatchTST model over the candle window and blend with rules.
 
     Returns ``{symbol, prediction, probability, raw_probabilities,
-    low_confidence, source}``.
+    low_confidence, source, patchtst_prob, rule_score, signals_agree,
+    indicator_details}``.
 
-    * ``source`` is ``"huggingface"`` on success, or a fallback reason label.
+    * ``source`` is ``"local"`` on success, or a fallback reason label.
     * ``prediction`` is one of ``UP``, ``DOWN``, ``SIDEWAYS``.
     * ``probability`` is a float in ``[0, 1]`` for the reported prediction.
     * ``low_confidence`` is ``True`` when a weak directional call was gated down
       to SIDEWAYS (or on a technical fallback).
-    """
-    matrix = build_feature_matrix(candles, settings.prediction_seq_len)
 
-    if not matrix:
+    Kept ``async`` for caller compatibility (routes/chat.py awaits it); the
+    inference itself is a fast in-process CPU forward pass.
+    """
+    if not candles:
         return _neutral_prediction(symbol, reason="no_candle_data")
 
-    if not settings.hf_api_key:
-        logger.warning("[patchtst] HF_API_KEY absent; returning neutral")
-        return _neutral_prediction(symbol, reason="missing_config")
+    prob_up, prob_down, available = _patchtst_predict(candles)
+    if not available:
+        return _neutral_prediction(symbol, reason="model_unavailable")
 
-    # NOTE: the 11-feature matrix changes the HF payload shape vs. the previous
-    # flat close-price window. A model expecting the univariate window may reject
-    # the matrix — that surfaces as an HTTP/parse error below and degrades to a
-    # neutral fallback (see _neutral_prediction). See plan risk #2.
-    inputs = apply_scaler(matrix)
-    url = _HF_INFERENCE_URL.format(model_id=settings.hf_model_id)
-
-    logger.info(
-        "[patchtst] fetch symbol=%s seq_len=%d cols=%d model=%s",
-        symbol,
-        len(inputs),
-        len(inputs[0]) if inputs and isinstance(inputs[0], list) else 1,
-        settings.hf_model_id,
-    )
-
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(
-                url,
-                json={"inputs": inputs},
-                headers={"Authorization": f"Bearer {settings.hf_api_key}"},
-            )
-            resp.raise_for_status()
-            raw: Any = resp.json()
-    except httpx.HTTPError as err:
-        logger.warning("[patchtst] HF API error for %s: %s", symbol, err)
-        return _neutral_prediction(symbol, reason="hf_api_error")
-    except (json.JSONDecodeError, TypeError, ValueError) as err:
-        logger.warning("[patchtst] HF response parse error: %s", err)
-        return _neutral_prediction(symbol, reason="parse_error")
-
-    scores = _parse_scores(raw)
-    if not scores:
-        logger.warning("[patchtst] unexpected response shape from HF: %s", raw)
-        return _neutral_prediction(symbol, reason="unexpected_response")
+    scores = {"UP": prob_up, "DOWN": prob_down}
 
     # --- Hybrid step: blend the model with rule-based technical signals -------
-    patchtst_prob_up = scores.get("UP", 0.5)
     rule_score, indicator_details = _rule_based_signal(candles)
-    combined_up, combined_down = _combine_signals(patchtst_prob_up, rule_score)
+    combined_up, combined_down = _combine_signals(prob_up, rule_score)
 
-    patchtst_direction = "UP" if patchtst_prob_up > 0.5 else "DOWN"
+    patchtst_direction = "UP" if prob_up > 0.5 else "DOWN"
     rule_direction = "UP" if rule_score > 0.1 else ("DOWN" if rule_score < -0.1 else "NEUTRAL")
     signals_agree = patchtst_direction == rule_direction
 
     # Feed the combined UP/DOWN probabilities through the same confidence gate
-    # so the SIDEWAYS/боковик semantics are preserved. The model's own SIDEWAYS
-    # mass is kept so a strong genuine-sideways call can still win the ranking.
+    # so the SIDEWAYS/боковик semantics are preserved. The local model is
+    # binary, so there is no genuine SIDEWAYS mass — the gate alone produces it.
     combined_scores = {
         "UP": combined_up,
         "DOWN": combined_down,
-        "SIDEWAYS": scores.get("SIDEWAYS", 0.0),
+        "SIDEWAYS": 0.0,
     }
     prediction, probability, low_confidence = _apply_confidence_gate(combined_scores)
 
     logger.info(
         "[patchtst] prediction symbol=%s %s prob=%.4f low_conf=%s "
-        "patchtst_up=%.3f rule=%.3f agree=%s raw=%s",
+        "patchtst_up=%.3f rule=%.3f agree=%s",
         symbol,
         prediction,
         probability,
         low_confidence,
-        patchtst_prob_up,
+        prob_up,
         rule_score,
         signals_agree,
-        scores,
     )
     return {
         "symbol": symbol,
@@ -381,8 +483,8 @@ async def get_prediction(
         "probability": probability,
         "raw_probabilities": scores,
         "low_confidence": low_confidence,
-        "source": "huggingface",
-        "patchtst_prob": patchtst_prob_up,
+        "source": "local",
+        "patchtst_prob": prob_up,
         "rule_score": rule_score,
         "signals_agree": signals_agree,
         "indicator_details": indicator_details,

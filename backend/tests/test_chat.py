@@ -55,7 +55,7 @@ _FAKE_PREDICTION = {
     "symbol": "BTC",
     "prediction": "UP",
     "probability": 0.82,
-    "source": "huggingface",
+    "source": "local",
 }
 
 
@@ -89,7 +89,7 @@ async def test_predict_public_ok(client: AsyncClient) -> None:
     body = resp.json()
     assert body["direction"] == "UP"
     assert body["probability"] == 0.82
-    assert body["source"] == "huggingface"
+    assert body["source"] == "local"
 
 
 async def test_predict_public_empty_symbol_returns_400(client: AsyncClient) -> None:
@@ -128,7 +128,7 @@ async def test_predict_public_exposes_low_confidence(
             "probability": 0.51,
             "raw_probabilities": {"UP": 0.51, "DOWN": 0.30, "SIDEWAYS": 0.19},
             "low_confidence": True,
-            "source": "huggingface",
+            "source": "local",
         }
 
     monkeypatch.setattr("app.routes.chat.get_prediction", fake_low_conf)
