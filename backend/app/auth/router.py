@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import secrets
+import uuid
 from urllib.parse import urlencode
 
 import httpx
@@ -210,7 +211,16 @@ async def reset_password(
             detail="Токен недействителен или истёк",
         )
 
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        logger.warning("[auth] reset-password: stored value is not a UUID")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Токен недействителен или истёк",
+        )
+
+    user = (await db.execute(select(User).where(User.id == user_uuid))).scalar_one_or_none()
     if user is None:
         logger.warning("[auth] reset-password: token points to missing user=%s", user_id)
         raise HTTPException(
