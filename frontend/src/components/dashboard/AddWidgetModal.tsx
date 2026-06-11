@@ -1,7 +1,9 @@
 import { useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import WidgetPreview from './WidgetPreview'
+import { SearchInput } from '../ui/SearchInput'
+import { EmptySearchState } from '../ui/EmptySearchState'
 import type { WidgetType, WidgetSize } from '../../types/widgets.types'
 import { WIDGET_REGISTRY } from '../../constants/widgets.registry'
 
@@ -122,27 +124,16 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
 
               {/* Search */}
               <div style={{ padding: '14px 24px 0' }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  background: 'var(--bg)', borderRadius: 999,
-                  padding: '8px 14px',
-                  border: '1px solid var(--border)',
-                }}>
-                  <Search size={14} strokeWidth={2} color="var(--muted)" />
-                  <input
-                    placeholder="Поиск виджетов..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value)
-                      setPage(0)
-                    }}
-                    style={{
-                      flex: 1, background: 'none', border: 'none',
-                      outline: 'none', fontSize: 13, color: 'var(--text)',
-                      fontFamily: 'var(--font)',
-                    }}
-                  />
-                </div>
+                <SearchInput
+                  value={searchQuery}
+                  onChange={(v) => {
+                    console.debug('[AddWidgetModal] search=%s', v)
+                    setSearchQuery(v)
+                    setPage(0)
+                  }}
+                  placeholder="Поиск виджетов..."
+                  fullWidth
+                />
               </div>
 
               {/* Widget grid */}
@@ -155,12 +146,8 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
                 alignContent: 'start',
               }}>
                 {filtered.length === 0 ? (
-                  <div style={{
-                    gridColumn: '1 / -1',
-                    textAlign: 'center', padding: '60px 0',
-                    color: 'var(--muted)', fontSize: 13,
-                  }}>
-                    Ничего не найдено
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <EmptySearchState message="Виджеты не найдены" />
                   </div>
                 ) : (
                   <AnimatePresence mode="wait">

@@ -84,14 +84,14 @@ Rationale: Roadmap не найден (.ai-factory/ROADMAP.md отсутству�
 
 ### Phase 2: Общие UI-компоненты поиска
 
-- [ ] **Задача 4**: `SearchInput` компонент
+- [x] **Задача 4**: `SearchInput` компонент
   - Props: `value, onChange, placeholder?, fullWidth?, className?`
   - Search icon слева (lucide `Search`, 16px, `var(--muted)`), X кнопка справа при `value !== ''`
   - Border `1px solid var(--border)`, borderRadius `12px`, focus/hover → `var(--accent)`
   - `fullWidth` или 220px; mobile (`≤600px`) всегда 100%
   - Файл: `frontend/src/components/ui/SearchInput.tsx`
 
-- [ ] **Задача 11**: `EmptySearchState` компонент
+- [x] **Задача 11**: `EmptySearchState` компонент
   - Prop: `message?: string` (дефолт: «Ничего не найдено»)
   - Иконка `SearchX` (40px, `var(--soft)`), текст `var(--muted)` 13px
   - Framer Motion: `scale 0.9→1, opacity 0→1`
@@ -101,7 +101,7 @@ Rationale: Roadmap не найден (.ai-factory/ROADMAP.md отсутству�
 
 ### Phase 3: Глобальный поиск — бэкенд и хук
 
-- [ ] **Задача 5**: Бэкенд `GET /api/search?q=...` (зависит от ничего)
+- [x] **Задача 5**: Бэкенд `GET /api/search?q=...` (зависит от ничего)
   - Новый файл: `backend/app/routes/search.py`
   - Response: `{ assets: AssetResult[], news: NewsResult[] }`, limit 5 каждой группы
   - Assets: фильтровать JSON-снимок активов по symbol/name (ILIKE)
@@ -110,7 +110,7 @@ Rationale: Roadmap не найден (.ai-factory/ROADMAP.md отсутству�
   - Регистрация в `backend/app/main.py`
   - Vite proxy: проверить что `/api` проксируется на `:8000` (уже должно быть)
 
-- [ ] **Задача 6**: Хук `useGlobalSearch` (зависит от задачи 5)
+- [x] **Задача 6**: Хук `useGlobalSearch` (зависит от задачи 5)
   - 400мс debounce: `useState(rawQuery) + useEffect(setDebounced, 400ms)`
   - `useQuery(['search', debouncedQuery], ..., { enabled: len >= 2, staleTime: 30_000 })`
   - `useMock = true`: возвращать mock-данные при ошибке или отсутствии ключа
@@ -120,7 +120,7 @@ Rationale: Roadmap не найден (.ai-factory/ROADMAP.md отсутству�
 
 ### Phase 4: Глобальный поиск и таблица рынка
 
-- [ ] **Задача 7**: Глобальный поиск на Dashboard (зависит от задач 4, 6, 11)
+- [x] **Задача 7**: Глобальный поиск на Dashboard (зависит от задач 4, 6, 11)
   - Определить активный компонент (DashboardHeader vs DashboardTopBar — проверить Dashboard.tsx)
   - Заменить stub на `<SearchInput>` + подключить `useGlobalSearch`
   - Dropdown: секция «Активы» + секция «Новости», клик → navigate
@@ -128,7 +128,7 @@ Rationale: Roadmap не найден (.ai-factory/ROADMAP.md отсутству�
   - Framer Motion: `opacity/y` dropdown, stagger результатов
   - Mobile: dropdown ширина `100vw - 32px`
 
-- [ ] **Задача 8**: Поиск в таблице рынка (зависит от задач 4, 11)
+- [x] **Задача 8**: Поиск в таблице рынка (зависит от задач 4, 11)
   - `MarketOverview.tsx`: добавить `searchQuery` state + `<SearchInput>`
   - `AssetTable.tsx`: prop `searchQuery?: string`, `useMemo` фильтр по symbol/name
   - EmptyState при `filtered.length === 0`
@@ -137,13 +137,13 @@ Rationale: Roadmap не найден (.ai-factory/ROADMAP.md отсутству�
 
 ### Phase 5: Полировка существующего поиска
 
-- [ ] **Задача 9**: NewsPage — SearchInput + 400мс + Framer Motion (зависит от задач 4, 11)
+- [x] **Задача 9**: NewsPage — SearchInput + 400мс + Framer Motion (зависит от задач 4, 11)
   - Заменить input на `<SearchInput>`
   - Debounce: 500мс → 400мс
   - Framer Motion stagger карточек новостей
   - EmptyState при пустом результате
 
-- [ ] **Задача 10**: AddWidgetModal — SearchInput + EmptyState + Framer Motion (зависит от задач 4, 11)
+- [x] **Задача 10**: AddWidgetModal — SearchInput + EmptyState + Framer Motion (зависит от задач 4, 11)
   - Заменить input на `<SearchInput>`
   - EmptyState при `filtered.length === 0`
   - Framer Motion stagger виджетов

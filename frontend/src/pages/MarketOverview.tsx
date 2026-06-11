@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import MarketSummaryBar from '../components/market-overview/MarketSummaryBar'
 import TopMovers from '../components/market-overview/TopMovers'
 import AssetTable from '../components/market-overview/AssetTable'
+import { SearchInput } from '../components/ui/SearchInput'
 
 type FilterType = 'all' | 'crypto' | 'stock' | 'forex'
 
@@ -21,8 +22,9 @@ const today = new Date().toLocaleDateString('ru-RU', {
 
 export default function MarketOverview() {
   const [filter, setFilter] = useState<FilterType>('all')
+  const [searchQuery, setSearchQuery] = useState('')
 
-  console.debug('[MarketOverview] rendered, filter=', filter)
+  console.debug('[MarketOverview] rendered, filter=%s search=%s', filter, searchQuery)
 
   return (
     <div className="main-content" style={{ flex: 1 }}>
@@ -79,7 +81,18 @@ export default function MarketOverview() {
 
         {/* Asset table */}
         <div className="card" style={{ padding: '16px 20px' }}>
-          <AssetTable filter={filter} />
+          <div style={{ marginBottom: 14 }}>
+            <SearchInput
+              value={searchQuery}
+              onChange={(v) => {
+                console.debug('[MarketOverview] search query=%s', v)
+                setSearchQuery(v)
+              }}
+              placeholder="Поиск по активам..."
+              fullWidth
+            />
+          </div>
+          <AssetTable filter={filter} searchQuery={searchQuery} />
         </div>
       </motion.div>
     </div>

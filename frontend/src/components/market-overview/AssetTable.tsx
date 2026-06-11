@@ -4,6 +4,7 @@ import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePrices } from '../../hooks/usePrices'
 import { getMockOHLCV } from '../../mock/ohlcv.mock'
+import { EmptySearchState } from '../ui/EmptySearchState'
 import type { Asset } from '../../types/market.types'
 
 type FilterType = 'all' | 'crypto' | 'stock' | 'forex'
@@ -12,6 +13,7 @@ type SortDir = 'asc' | 'desc'
 
 interface Props {
   filter: FilterType
+  searchQuery?: string
 }
 
 const GRID = '32px 2fr 1.2fr 1fr 1fr 1fr 72px'
@@ -122,7 +124,7 @@ function SkeletonRow({ index }: { index: number }) {
   )
 }
 
-export default function AssetTable({ filter }: Props) {
+export default function AssetTable({ filter, searchQuery = '' }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('marketCap')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const navigate = useNavigate()
@@ -143,14 +145,18 @@ export default function AssetTable({ filter }: Props) {
     : forex
 
   const rows = useMemo(() => {
-    return [...pool].sort((a, b) => {
+    const q = searchQuery.trim().toLowerCase()
+    const filtered = q
+      ? pool.filter((a) => a.symbol.toLowerCase().includes(q) || a.name.toLowerCase().includes(q))
+      : pool
+    return [...filtered].sort((a, b) => {
       const va = (a[sortKey] as number) ?? 0
       const vb = (b[sortKey] as number) ?? 0
       return sortDir === 'asc' ? va - vb : vb - va
     })
-  }, [pool, sortKey, sortDir])
+  }, [pool, sortKey, sortDir, searchQuery])
 
-  console.debug('[AssetTable] filter=', filter, 'sort=', sortKey, sortDir, 'rows=', rows.length, 'isLoading=', isLoading)
+  console.debug('[AssetTable] filter=%s search=%s → %d/%d rows isLoading=%s', filter, searchQuery, rows.length, pool.length, isLoading)
 
   function handleRowClick(symbol: string) {
     console.debug('[AssetTable] row clicked, symbol=', symbol)
@@ -179,7 +185,9 @@ export default function AssetTable({ filter }: Props) {
   }
 
   if (rows.length === 0) {
-    return (
+    return searchQuery ? (
+      <EmptySearchState message="По запросу ничего не найдено" />
+    ) : (
       <div style={{ padding: '24px', textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>
         Нет активов в этой категории
       </div>
