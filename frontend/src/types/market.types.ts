@@ -57,4 +57,4 @@ export interface WatchlistItem {
   viewCount: number   // incremented each time the asset page is opened — used for personalization ranking
 }
 
-export type Timeframe = '1m' | '5m' | '15m' | '1H' | '4H' | '1D' | '1W' | '1M'
+export type Timeframe = '30m' | '1H' | '1D' | '1W' | '1M'

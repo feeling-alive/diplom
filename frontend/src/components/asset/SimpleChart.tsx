@@ -13,18 +13,15 @@ interface Props {
 }
 
 const TIMEFRAMES: { key: Timeframe; label: string }[] = [
-  { key: '1m', label: '1м' },
-  { key: '5m', label: '5м' },
-  { key: '15m', label: '15м' },
-  { key: '1H', label: '1Ч' },
-  { key: '4H', label: '4Ч' },
-  { key: '1D', label: '1Д' },
-  { key: '1W', label: '1Н' },
-  { key: '1M', label: '1М' },
+  { key: '30m', label: '30м' },
+  { key: '1H',  label: '1ч'  },
+  { key: '1D',  label: '1д'  },
+  { key: '1W',  label: '1н'  },
+  { key: '1M',  label: '1м'  },
 ]
 
 // Intraday timeframes show time; daily+ show the date.
-const INTRADAY: Timeframe[] = ['1m', '5m', '15m', '1H', '4H']
+const INTRADAY: Timeframe[] = ['30m', '1H']
 
 function formatTime(ts: number, tf: Timeframe): string {
   const d = new Date(ts)
@@ -106,7 +103,7 @@ export default function SimpleChart({ symbol, change24h, assetType }: Props) {
       <div style={{
         display: 'flex',
         justifyContent: 'flex-end',
-        flexWrap: 'wrap',
+        flexWrap: 'nowrap',
         gap: 4,
         marginBottom: 12,
       }}>
@@ -119,15 +116,16 @@ export default function SimpleChart({ symbol, change24h, assetType }: Props) {
               setTf(t.key)
             }}
             style={{
-              padding: '5px 12px',
+              padding: '4px 10px',
               borderRadius: 999,
-              border: 'none',
-              background: tf === t.key ? 'var(--ink)' : 'transparent',
+              border: '1px solid var(--border)',
+              backgroundColor: tf === t.key ? 'var(--accent)' : 'transparent',
               color: tf === t.key ? '#fff' : 'var(--muted)',
               fontSize: 11,
-              fontWeight: 600,
+              fontWeight: tf === t.key ? 600 : 400,
               cursor: 'pointer',
-              transition: 'background 0.15s, color 0.15s',
+              transition: 'background-color 0.15s, color 0.15s, border-color 0.15s',
+              whiteSpace: 'nowrap',
             }}
           >
             {t.label}

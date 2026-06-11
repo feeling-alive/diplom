@@ -31,11 +31,8 @@ _FINNHUB_URL = "https://finnhub.io/api/v1/stock/candle"
 # Maps frontend timeframes -> Finnhub resolution parameter.
 # OKX accepts the same strings as-is, so no OKX-side map is needed.
 _FINNHUB_TF_MAP: dict[str, str] = {
-    "1m": "1",
-    "5m": "5",
-    "15m": "15",
+    "30m": "30",
     "1H": "60",
-    "4H": "240",
     "1D": "D",
     "1W": "W",
     "1M": "M",
@@ -117,7 +114,7 @@ async def _fetch_finnhub(symbol: str, timeframe: str, limit: int) -> list[dict[s
     # Finnhub needs unix-second ``from``/``to``. We just need ``limit`` candles,
     # so derive the window from the resolution in seconds.
     sec_per_bar: dict[str, int] = {
-        "1": 60, "5": 300, "15": 900, "60": 3600, "240": 14400,
+        "30": 1800, "60": 3600,
         "D": 86400, "W": 604800, "M": 2592000,
     }
     span = sec_per_bar.get(resolution, 86400) * max(1, limit)

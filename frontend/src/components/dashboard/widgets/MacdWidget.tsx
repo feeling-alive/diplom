@@ -13,9 +13,9 @@ const ASSETS = [
 ]
 
 const TFS: { label: string, value: Timeframe }[] = [
-  { label: '1H', value: '1H' },
-  { label: '4H', value: '4H' },
-  { label: '1D', value: '1D' },
+  { label: '30м', value: '30m' },
+  { label: '1Ч', value: '1H' },
+  { label: '1Д', value: '1D' },
 ]
 
 function calculateEMA(data: number[], period: number): number[] {

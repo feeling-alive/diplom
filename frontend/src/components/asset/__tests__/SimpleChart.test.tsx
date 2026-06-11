@@ -26,10 +26,10 @@ describe('SimpleChart', () => {
     useOHLCVMock.mockReset()
   })
 
-  it('renders all 8 timeframe buttons', () => {
+  it('renders all 5 timeframe buttons', () => {
     useOHLCVMock.mockReturnValue({ data: makePoints(30), isLoading: false, error: null })
     render(<SimpleChart symbol="BTC-USDT" change24h={2.5} assetType="crypto" />)
-    for (const label of ['1м', '5м', '15м', '1Ч', '4Ч', '1Д', '1Н', '1М']) {
+    for (const label of ['30м', '1ч', '1д', '1н', '1м']) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
   })
@@ -49,8 +49,8 @@ describe('SimpleChart', () => {
   it('requests new candles when a timeframe is clicked', () => {
     useOHLCVMock.mockReturnValue({ data: makePoints(10), isLoading: false, error: null })
     render(<SimpleChart symbol="BTC-USDT" change24h={1} assetType="crypto" />)
-    // Default timeframe is 1D; clicking 1м should re-query with '1m'.
-    fireEvent.click(screen.getByText('1м'))
-    expect(useOHLCVMock).toHaveBeenCalledWith('BTC-USDT', '1m')
+    // Default timeframe is 1D; clicking 30м should re-query with '30m'.
+    fireEvent.click(screen.getByText('30м'))
+    expect(useOHLCVMock).toHaveBeenCalledWith('BTC-USDT', '30m')
   })
 })
