@@ -2,7 +2,7 @@
 
 # Бэкенд API
 
-FastAPI-сервис (`backend/`) — прокси/кэш котировок, хранение данных пользователей, персистентность дашборда.
+FastAPI-сервис (`backend/`) — прокси/кэш котировок, хранение данных пользователей, персистентность дашборда, система комментариев с ответами и уведомлениями.
 
 ## Запуск
 
@@ -36,6 +36,11 @@ uvicorn app.main:app --reload --port 8000
 | `REDIS_URL` | `redis://localhost:6379` |
 | `FRONTEND_URL` | `http://localhost:5173` (CORS allow-origin) |
 | `BACKEND_URL` | `http://localhost:8000` (Google OAuth callback) |
+| `SMTP_HOST` | SMTP-сервер для писем сброса пароля (опционально) |
+| `SMTP_PORT` | Порт SMTP (обычно 587) |
+| `SMTP_USER` | Логин SMTP |
+| `SMTP_PASSWORD` | Пароль SMTP |
+| `MAIL_FROM` | Адрес отправителя писем |
 
 ## Роуты
 
@@ -49,6 +54,11 @@ uvicorn app.main:app --reload --port 8000
 | `GET` | `/auth/me` | Текущий пользователь |
 | `GET` | `/auth/google` | Редирект на Google OAuth (501 без `google_client_id`) |
 | `GET` | `/auth/google/callback` | OAuth callback |
+| `POST` | `/auth/forgot-password` | Запрос сброса пароля (токен в Redis TTL 900с, письмо fastapi-mail) |
+| `POST` | `/auth/reset-password` | Сброс пароля по токену (bcrypt-хэш, токен удаляется) |
+
+> Сброс пароля: ответ нейтральный (не раскрывает, существует ли аккаунт). Без SMTP — ссылка пишется в DEBUG-лог.
+> **Зависимость:** `starlette>=0.40,<0.49` обязательный пин (fastapi-mail несовместим со starlette 1.x).
 
 ### Профиль `/users`
 
@@ -101,6 +111,36 @@ uvicorn app.main:app --reload --port 8000
 
 Кэш — Redis. При недоступности Redis — graceful degradation (запрос напрямую к источнику).
 
+### Новости и комментарии `/api/news`
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/api/news` | Список новостных статей |
+| `GET` | `/api/news/{article_id}/comments` | Комментарии к статье (только top-level + вложенные ответы) |
+| `POST` | `/api/news/{article_id}/comments` | Добавить комментарий или ответ (parent_id опционален) |
+| `POST` | `/api/news/comments/{comment_id}/like` | Лайк комментария (increment; создаёт уведомление type=`reaction`) |
+
+Ответы на комментарии имеют глубину 1: top-level комментарии возвращаются с полем `replies[]`.
+
+### Уведомления `/api/notifications`
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/api/notifications` | Список уведомлений текущего пользователя (limit 50, order by created_at desc) |
+| `POST` | `/api/notifications/read-all` | Пометить все уведомления прочитанными |
+| `POST` | `/api/notifications/{notification_id}/read` | Пометить одно уведомление прочитанным |
+
+**Типы уведомлений:**
+
+| Тип | Когда создаётся |
+|-----|----------------|
+| `comment_reply` | Кто-то ответил на ваш комментарий |
+| `reaction` | Кто-то лайкнул ваш комментарий |
+
+Самоуведомления исключены: если `sender_id == recipient_id`, уведомление не создаётся.
+
+**NotificationOut schema:** `id`, `type`, `message`, `link`, `is_read`, `created_at`, `sender_username`, `sender_avatar_url`.
+
 ## Модели БД
 
 `backend/app/models.py` (SQLAlchemy 2.0 async, PostgreSQL 14):
@@ -111,43 +151,64 @@ uvicorn app.main:app --reload --port 8000
 | `Subscription` | user_id (FK), plan, expires_at, ai_requests_used |
 | `DashboardConfig` | user_id (FK), layout (JSON) — envelope дашбордов |
 | `ChatSession` | user_id (FK), asset_symbol, messages (JSON) |
-| `Comment` | user_id (FK), asset_symbol, body, created_at |
+| `Comment` | user_id (FK), article_url, text, likes, parent_id (самоссылочный FK, nullable), created_at |
 | `Favorite` | user_id (FK), asset_symbol |
+| `Notification` | user_id (FK, CASCADE), sender_id (FK, SET NULL), type, message, link, is_read, created_at |
 
-Миграции — Alembic (`backend/alembic/`).
+Миграции — Alembic (`backend/alembic/`). Ключевые миграции:
+
+- `add_parent_id_to_comments` — добавляет `parent_id` и индекс на таблицу `comments`
+- `add_notifications_table` — создаёт таблицу `notifications` с индексами по `user_id` и `is_read`
+
+## Frontend-хук уведомлений
+
+`frontend/src/hooks/useNotifications.ts` — TanStack Query с поллингом раз в 30 секунд:
+
+```ts
+const { data, unreadCount, markAllRead, markRead } = useNotifications()
+```
+
+Хук активен только при авторизованной сессии (`enabled: !!user`). Bell-иконка в `DashboardHeader` показывает бейдж с `unreadCount` и выпадающий список уведомлений.
 
 ## Vite Proxy
 
 `frontend/vite.config.ts` проксирует на `http://localhost:8000`:
 
 ```
-/auth         → /auth
-/users        → /users
-/subscription → /subscription
-/dashboard    → /dashboard
-/uploads      → /uploads
-/api          → /api
+/auth              → /auth
+/users             → /users
+/subscription      → /subscription
+/dashboard         → /dashboard
+/uploads           → /uploads
+/api/quotes        → /api/quotes
+/api/news          → /api/news
+/api/notifications → /api/notifications
 ```
 
 ## Тесты бэкенда
 
 ```bash
 cd backend
-pytest -v   # 33 passed (+ 1 pre-existing красный test_google_not_configured — зависит от окружения)
+pytest -v
 ```
 
-Покрытие: `test_auth.py`, `test_profile.py`, `test_dashboard.py` (9 кейсов), `test_quotes.py`.
+Покрытие: `test_auth.py`, `test_profile.py`, `test_dashboard.py` (9 кейсов), `test_quotes.py`, `test_password_reset.py` (7 кейсов).
+
+> Один pre-existing красный тест `test_google_not_configured` — зависит от окружения (Google OAuth без ключей).
 
 ## Ключевые файлы
 
 | Файл | Назначение |
 |------|------------|
 | `backend/app/main.py` | FastAPI app, CORS, монтирование роутеров и статики |
-| `backend/app/models.py` | SQLAlchemy-модели (6 таблиц) |
+| `backend/app/models.py` | SQLAlchemy-модели (7 таблиц) |
 | `backend/app/database.py` | async engine, `get_db`, `Base` |
 | `backend/app/auth/` | JWT, bcrypt, Google OAuth, dependencies |
 | `backend/app/routes/dashboard.py` | GET/PUT + `_normalize_to_envelope` + лимиты |
 | `backend/app/routes/quotes.py` | Прокси котировок + Redis-кэш |
+| `backend/app/routes/news.py` | Новости, комментарии (threaded), лайки, `_create_notification` |
+| `backend/app/routes/notifications.py` | GET/POST уведомлений |
+| `backend/app/services/email.py` | fastapi-mail, HTML-шаблон письма сброса пароля |
 | `docker-compose.yml` | postgres + redis + backend (dev-сборка) |
 | `backend/alembic/` | Миграции БД |
 

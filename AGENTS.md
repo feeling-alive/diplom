@@ -58,9 +58,9 @@ FinTrack — настраиваемый финансовый дашборд (к�
 │   │   ├── main.py               # FastAPI app, CORS, StaticFiles /uploads, монтаж роутеров
 │   │   ├── config.py             # настройки (SECRET_KEY, DB URL, Google OAuth, CORS)
 │   │   ├── database.py           # async engine, get_db, Base (SQLAlchemy 2.0)
-│   │   ├── models.py             # 9 ORM-моделей (User, Subscription, DashboardConfig, ChatSession, Comment, Favorite, NewsArticle, NewsReaction, NewsFavorite)
+│   │   ├── models.py             # ORM-модели (User, Subscription, DashboardConfig, ChatSession, Comment, Favorite, Notification, NewsArticle, NewsReaction, NewsFavorite)
 │   │   ├── auth/                 # JWT + Google OAuth (utils, schemas, dependencies, router)
-│   │   ├── routes/               # profile.py, subscription.py, quotes.py, crypto.py, forex.py, dashboard.py, news.py, chat.py
+│   │   ├── routes/               # profile.py, subscription.py, quotes.py, crypto.py, forex.py, dashboard.py, news.py, chat.py, notifications.py
 │   │   └── services/             # cache.py, finnhub.py, okx.py, frankfurter.py, candles.py, coingecko.py, fng.py, funding.py, gas.py, patchtst.py, groq_service.py, news_fetcher.py
 │   ├── alembic/                  # миграции БД
 │   ├── tests/                    # pytest (test_profile.py, ...)
@@ -105,10 +105,9 @@ FinTrack — настраиваемый финансовый дашборд (к�
 |----------|------|----------|
 | README | `README.md` | Лэндинг проекта: возможности, быстрый старт, ссылки на детали |
 | Система виджетов | `docs/widgets.md` | Реестр 31 виджета, DnD/resize, edit mode, persisted layout |
-| Статус DnD/виджетов | `STATUS.md` | Исторический снапшот (untracked, может устареть) |
-| Снимок состояния проекта | `PROJECT_STATE.md` | Точечный снапшот состояния (untracked) |
-| Asset page prompt | `asset-page-prompt.md` | Историческая спецификация страницы актива |
-| Hooks overview | `hooks-overview.md` | Историческое описание кастомных хуков |
+| Несколько дашбордов | `docs/multi-dashboard.md` | Карусель дашбордов, envelope-схема БД, лимиты |
+| Настройки и валюты | `docs/settings.md` | SettingsContext, CurrencyContext, страница `/settings` |
+| Бэкенд API | `docs/backend.md` | FastAPI роуты, PostgreSQL-модели, Redis-кэш, уведомления |
 
 ## Файлы AI-контекста
 
