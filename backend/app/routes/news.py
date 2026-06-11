@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, get_optional_user
 from app.database import get_db
-from app.models import Comment, NewsArticle, NewsFavorite, NewsReaction, User
+from app.models import Comment, NewsArticle, NewsFavorite, NewsReaction, Notification, User
 from app.services.cache import get_cached, set_cached
 
 logger = logging.getLogger("backend.news")
@@ -80,10 +80,19 @@ class CommentOut(BaseModel):
     avatar_url: str | None
     text: str
     created_at: str
+    parent_id: uuid.UUID | None = None
+    likes: int = 0
+    replies: list["CommentOut"] = []
+
+    model_config = {"from_attributes": True}
+
+
+CommentOut.model_rebuild()
 
 
 class CommentIn(BaseModel):
     text: str = Field(..., min_length=3, max_length=1000)
+    parent_id: str | None = None
 
 
 class ReactionIn(BaseModel):
@@ -245,6 +254,58 @@ async def get_article(
     return ArticleSummary(**data)
 
 
+async def _create_notification(
+    session: AsyncSession,
+    *,
+    recipient_id: uuid.UUID,
+    sender_id: uuid.UUID,
+    notif_type: str,
+    message: str,
+    link: str,
+) -> None:
+    """Create a notification unless the sender is also the recipient."""
+    if recipient_id == sender_id:
+        logger.debug("[news] skip self-notification user=%s", sender_id)
+        return
+    notif = Notification(
+        user_id=recipient_id,
+        sender_id=sender_id,
+        type=notif_type,
+        message=message,
+        link=link,
+    )
+    session.add(notif)
+    logger.debug("[news] notification created type=%s recipient=%s sender=%s", notif_type, recipient_id, sender_id)
+
+
+async def _build_comment_out(session: AsyncSession, c: "Comment") -> CommentOut:
+    """Build a CommentOut from a Comment ORM object, loading author and replies."""
+    author = await session.get(User, c.user_id)
+    reply_outs: list[CommentOut] = []
+    for r in c.replies:
+        reply_author = await session.get(User, r.user_id)
+        reply_outs.append(CommentOut(
+            id=r.id,
+            username=reply_author.username if reply_author else "unknown",
+            avatar_url=reply_author.avatar_url if reply_author else None,
+            text=r.text,
+            created_at=r.created_at.isoformat(),
+            parent_id=r.parent_id,
+            likes=r.likes,
+            replies=[],
+        ))
+    return CommentOut(
+        id=c.id,
+        username=author.username if author else "unknown",
+        avatar_url=author.avatar_url if author else None,
+        text=c.text,
+        created_at=c.created_at.isoformat(),
+        parent_id=c.parent_id,
+        likes=c.likes,
+        replies=reply_outs,
+    )
+
+
 @router.get("/{article_id}/comments", response_model=list[CommentOut])
 async def get_comments(
     article_id: uuid.UUID,
@@ -254,18 +315,14 @@ async def get_comments(
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
     rows = await session.scalars(
-        select(Comment).where(Comment.article_url == article.url).order_by(Comment.created_at.desc())
+        select(Comment)
+        .where(Comment.article_url == article.url, Comment.parent_id.is_(None))
+        .order_by(Comment.created_at.desc())
     )
     result = []
     for c in rows:
-        author = await session.get(User, c.user_id)
-        result.append(CommentOut(
-            id=c.id,
-            username=author.username if author else "unknown",
-            avatar_url=author.avatar_url if author else None,
-            text=c.text,
-            created_at=c.created_at.isoformat(),
-        ))
+        result.append(await _build_comment_out(session, c))
+    logger.debug("[news] get_comments article=%s total=%d", article_id, len(result))
     return result
 
 
@@ -279,17 +336,40 @@ async def add_comment(
     article = await session.get(NewsArticle, article_id)
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
-    comment = Comment(user_id=user.id, article_url=article.url, text=body.text)
+    parent_id: uuid.UUID | None = None
+    if body.parent_id:
+        try:
+            parent_id = uuid.UUID(body.parent_id)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid parent_id format")
+        parent = await session.get(Comment, parent_id)
+        if not parent or parent.article_url != article.url:
+            raise HTTPException(status_code=404, detail="Parent comment not found")
+    comment = Comment(user_id=user.id, article_url=article.url, text=body.text, parent_id=parent_id)
     session.add(comment)
+    if parent_id:
+        parent_comment = await session.get(Comment, parent_id)
+        if parent_comment:
+            await _create_notification(
+                session,
+                recipient_id=parent_comment.user_id,
+                sender_id=user.id,
+                notif_type="comment_reply",
+                message=f"{user.username} ответил на ваш комментарий",
+                link=f"/news/{article_id}#comments",
+            )
     await session.commit()
     await session.refresh(comment)
-    logger.debug("[news] comment added article=%s user=%s", article_id, user.id)
+    logger.debug("[news] comment added article=%s user=%s parent=%s", article_id, user.id, parent_id)
     return CommentOut(
         id=comment.id,
         username=user.username,
         avatar_url=user.avatar_url,
         text=comment.text,
         created_at=comment.created_at.isoformat(),
+        parent_id=comment.parent_id,
+        likes=comment.likes,
+        replies=[],
     )
 
 
@@ -307,6 +387,29 @@ async def delete_comment(
     await session.delete(comment)
     await session.commit()
     logger.debug("[news] comment deleted %s by user=%s", comment_id, user.id)
+
+
+@router.post("/comments/{comment_id}/like", status_code=200)
+async def like_comment(
+    comment_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict[str, object]:
+    comment = await session.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    comment.likes = (comment.likes or 0) + 1
+    await _create_notification(
+        session,
+        recipient_id=comment.user_id,
+        sender_id=user.id,
+        notif_type="reaction",
+        message=f"{user.username} поставил реакцию на ваш комментарий",
+        link=f"/news/comments#{comment_id}",
+    )
+    await session.commit()
+    logger.debug("[news] like_comment id=%s user=%s new_likes=%d", comment_id, user.id, comment.likes)
+    return {"likes": comment.likes}
 
 
 @router.post("/{article_id}/react", status_code=200)

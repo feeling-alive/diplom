@@ -50,6 +50,10 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      '/api/notifications': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/api/finnhub': {
         target: 'https://finnhub.io/api/v1',
         changeOrigin: true,

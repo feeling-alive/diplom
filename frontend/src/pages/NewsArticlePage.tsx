@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { ArrowLeft, ExternalLink, Star, ThumbsDown, ThumbsUp } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowLeft, ExternalLink, Star, ThumbsDown, ThumbsUp, Reply } from 'lucide-react'
 import { useNewsArticle, reactToArticle, toggleFavorite } from '../hooks/useNews'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
@@ -12,6 +12,9 @@ interface Comment {
   avatar_url: string | null
   text: string
   created_at: string
+  parent_id: string | null
+  likes: number
+  replies: Comment[]
 }
 
 function useComments(articleId: string) {
@@ -48,6 +51,8 @@ export default function NewsArticlePage() {
   const { user } = useAuth()
   const qc = useQueryClient()
   const [commentText, setCommentText] = useState('')
+  const [replyingTo, setReplyingTo] = useState<string | null>(null)
+  const [replyText, setReplyText] = useState('')
 
   console.debug('[NewsArticlePage] load article', id)
 
@@ -55,20 +60,28 @@ export default function NewsArticlePage() {
   const { data: comments = [] } = useComments(id)
 
   const submitComment = useMutation({
-    mutationFn: async (text: string) => {
+    mutationFn: async ({ text, parent_id }: { text: string; parent_id?: string | null }) => {
       const res = await fetch(`/api/news/${id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, parent_id: parent_id ?? null }),
       })
       if (!res.ok) throw new Error(`comment ${res.status}`)
     },
     onSuccess: () => {
       setCommentText('')
+      setReplyText('')
+      setReplyingTo(null)
       qc.invalidateQueries({ queryKey: ['news', 'comments', id] })
       qc.invalidateQueries({ queryKey: ['news', 'article', id] })
     },
   })
+
+  async function handleLike(commentId: string) {
+    console.debug('[NewsArticlePage] like comment=%s', commentId)
+    await fetch(`/api/news/comments/${commentId}/like`, { method: 'POST' })
+    qc.invalidateQueries({ queryKey: ['news', 'comments', id] })
+  }
 
   async function handleReact(type: 'like' | 'dislike') {
     await reactToArticle(id, type)
@@ -207,7 +220,7 @@ export default function NewsArticlePage() {
             />
             <button
               disabled={commentText.trim().length < 3 || submitComment.isPending}
-              onClick={() => submitComment.mutate(commentText.trim())}
+              onClick={() => submitComment.mutate({ text: commentText.trim() })}
               style={{
                 marginTop: 8, padding: '8px 20px', borderRadius: 999, border: 'none',
                 background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 13,
@@ -229,26 +242,21 @@ export default function NewsArticlePage() {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {comments.map((c) => (
-            <div key={c.id} style={{
-              padding: 14, borderRadius: 'var(--r-md)', background: 'var(--bg)',
-              border: '1px solid var(--border)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <div style={{
-                  width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0,
-                }}>
-                  {c.username.charAt(0).toUpperCase()}
-                </div>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{c.username}</span>
-                <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>
-                  {new Date(c.created_at).toLocaleDateString('ru-RU')}
-                </span>
-              </div>
-              <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>{c.text}</p>
-            </div>
+          {comments.map((c, idx) => (
+            <CommentCard
+              key={c.id}
+              comment={c}
+              index={idx}
+              articleId={id}
+              replyingTo={replyingTo}
+              replyText={replyText}
+              onSetReplyingTo={setReplyingTo}
+              onSetReplyText={setReplyText}
+              onSubmitReply={(text, parentId) => submitComment.mutate({ text, parent_id: parentId })}
+              onLike={handleLike}
+              isSubmitting={submitComment.isPending}
+              depth={0}
+            />
           ))}
         </div>
       </div>
@@ -256,6 +264,173 @@ export default function NewsArticlePage() {
     </div>
   )
 }
+
+interface CommentCardProps {
+  comment: Comment
+  index: number
+  articleId: string
+  replyingTo: string | null
+  replyText: string
+  onSetReplyingTo: (id: string | null) => void
+  onSetReplyText: (text: string) => void
+  onSubmitReply: (text: string, parentId: string) => void
+  onLike: (id: string) => void
+  isSubmitting: boolean
+  depth: number
+}
+
+function CommentCard({
+  comment: c, index, replyingTo, replyText, onSetReplyingTo,
+  onSetReplyText, onSubmitReply, onLike, isSubmitting, depth,
+}: CommentCardProps) {
+  const isReplying = replyingTo === c.id
+  const { user } = useAuth()
+
+  console.debug('[NewsArticlePage] render comment=%s replies=%d depth=%d', c.id, c.replies.length, depth)
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: Math.min(index * 0.04, 0.32) }}
+    >
+      <div style={{
+        padding: 14, borderRadius: 'var(--r-md)', background: 'var(--bg)',
+        border: '1px solid var(--border)',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0,
+          }}>
+            {c.username.charAt(0).toUpperCase()}
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{c.username}</span>
+          <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>
+            {new Date(c.created_at).toLocaleDateString('ru-RU')}
+          </span>
+        </div>
+
+        {/* Text */}
+        <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5, margin: '0 0 8px' }}>{c.text}</p>
+
+        {/* Action buttons */}
+        {user && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            {depth === 0 && (
+              <button
+                onClick={() => {
+                  onSetReplyingTo(isReplying ? null : c.id)
+                  onSetReplyText('')
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  fontSize: 12, color: isReplying ? 'var(--accent)' : 'var(--muted)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontFamily: 'var(--font)', padding: 0,
+                }}
+              >
+                <Reply size={13} strokeWidth={2} />
+                Ответить
+              </button>
+            )}
+            <button
+              onClick={() => onLike(c.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                fontSize: 12, color: 'var(--muted)',
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontFamily: 'var(--font)', padding: 0,
+              }}
+            >
+              <ThumbsUp size={13} strokeWidth={2} />
+              {c.likes > 0 && <span>{c.likes}</span>}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Inline reply form */}
+      <AnimatePresence>
+        {isReplying && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ overflow: 'hidden', marginTop: 8, marginLeft: 20 }}
+          >
+            <div style={{ borderLeft: '2px solid var(--accent)', paddingLeft: 12 }}>
+              <textarea
+                value={replyText}
+                onChange={(e) => onSetReplyText(e.target.value)}
+                placeholder={`Ответ для ${c.username}...`}
+                rows={2}
+                style={{
+                  width: '100%', padding: 10, borderRadius: 'var(--r-md)',
+                  border: '1px solid var(--border)', background: 'var(--bg)',
+                  fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font)',
+                  resize: 'none', outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+              <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                <button
+                  disabled={replyText.trim().length < 3 || isSubmitting}
+                  onClick={() => onSubmitReply(replyText.trim(), c.id)}
+                  style={{
+                    padding: '6px 16px', borderRadius: 999, border: 'none',
+                    background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 12,
+                    cursor: replyText.trim().length < 3 ? 'not-allowed' : 'pointer',
+                    opacity: replyText.trim().length < 3 ? 0.5 : 1,
+                    fontFamily: 'var(--font)',
+                  }}
+                >
+                  Отправить
+                </button>
+                <button
+                  onClick={() => { onSetReplyingTo(null); onSetReplyText('') }}
+                  style={{
+                    padding: '6px 14px', borderRadius: 999,
+                    border: '1px solid var(--border)', background: 'var(--white)',
+                    color: 'var(--muted)', fontWeight: 500, fontSize: 12,
+                    cursor: 'pointer', fontFamily: 'var(--font)',
+                  }}
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Nested replies (depth 1 only) */}
+      {depth === 0 && c.replies.length > 0 && (
+        <div style={{ marginLeft: 24, borderLeft: '2px solid var(--border)', paddingLeft: 12, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {c.replies.map((r, ri) => (
+            <CommentCard
+              key={r.id}
+              comment={r}
+              index={ri}
+              articleId=""
+              replyingTo={null}
+              replyText=""
+              onSetReplyingTo={() => {}}
+              onSetReplyText={() => {}}
+              onSubmitReply={() => {}}
+              onLike={onLike}
+              isSubmitting={false}
+              depth={1}
+            />
+          ))}
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
 
 function ReactionBtn({
   icon, count, active, color, onClick, label,

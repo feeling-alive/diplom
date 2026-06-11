@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlignLeft, Plus, Trash2, TrendingUp, Newspaper } from 'lucide-react'
+import { Bell, BellOff, Plus, Trash2, TrendingUp, Newspaper } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DashboardTabs from './DashboardTabs'
 import { SearchInput } from '../ui/SearchInput'
 import { EmptySearchState } from '../ui/EmptySearchState'
 import { useGlobalSearch } from '../../hooks/useGlobalSearch'
+import { useNotifications } from '../../hooks/useNotifications'
+import type { AppNotification } from '../../hooks/useNotifications'
 
 interface Props {
   onOpenWidgetMenu?: () => void
@@ -20,28 +22,47 @@ interface Props {
   onRemoveDashboard?: (id: string) => void
 }
 
+function formatRelativeTime(isoString: string): string {
+  const diff = (new Date(isoString).getTime() - Date.now()) / 1000
+  const rtf = new Intl.RelativeTimeFormat('ru', { numeric: 'auto' })
+  const abs = Math.abs(diff)
+  if (abs < 60)   return rtf.format(Math.round(diff), 'second')
+  if (abs < 3600) return rtf.format(Math.round(diff / 60), 'minute')
+  if (abs < 86400) return rtf.format(Math.round(diff / 3600), 'hour')
+  return rtf.format(Math.round(diff / 86400), 'day')
+}
+
 export default function DashboardHeader({
   onOpenWidgetMenu, onOpenPicker, onResetLayout, addButtonRef,
   dashboards, activeId, canAddDashboard, onSwitchDashboard, onAddDashboard, onRemoveDashboard,
 }: Props) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [notifOpen, setNotifOpen] = useState(false)
   const searchContainerRef = useRef<HTMLDivElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const { data, isLoading } = useGlobalSearch(searchQuery)
+  const { data: notifications = [], unreadCount, markAllRead, markRead } = useNotifications()
 
   const showDropdown = searchQuery.trim().length >= 2
   const isEmpty = showDropdown && !isLoading && data !== null && data.assets.length === 0 && data.news.length === 0
 
-  console.debug('[DashboardHeader] render searchQuery=%s', searchQuery)
+  console.debug('[DashboardHeader] render searchQuery=%s notifOpen=%s unread=%d', searchQuery, notifOpen, unreadCount)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
         setSearchQuery('')
       }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false)
+      }
     }
     function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') setSearchQuery('')
+      if (e.key === 'Escape') {
+        setSearchQuery('')
+        setNotifOpen(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     document.addEventListener('keydown', handleEscape)
@@ -252,19 +273,142 @@ export default function DashboardHeader({
           </motion.button>
         )}
 
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          style={{
-            width: 32, height: 32, borderRadius: '50%',
-            border: '1px solid var(--border)', background: 'var(--white)',
-            color: 'var(--muted)', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
-          }}
-          aria-label="Меню"
-        >
-          <AlignLeft size={14} strokeWidth={2} />
-        </motion.button>
+        <div ref={notifRef} style={{ position: 'relative' }}>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              console.debug('[DashboardHeader] notifOpen toggle to %s', !notifOpen)
+              setNotifOpen(o => !o)
+            }}
+            style={{
+              width: 32, height: 32, borderRadius: '50%',
+              border: '1px solid var(--border)', background: 'var(--white)',
+              color: unreadCount > 0 ? 'var(--accent)' : 'var(--muted)',
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+              position: 'relative',
+            }}
+            aria-label="Уведомления"
+          >
+            <Bell size={14} strokeWidth={2} />
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -4, right: -4,
+                background: 'var(--accent)', color: '#fff',
+                borderRadius: 999, minWidth: 16, height: 16,
+                fontSize: 9, fontWeight: 700, lineHeight: '16px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '0 3px', boxSizing: 'border-box',
+              }}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </motion.button>
+
+          <AnimatePresence>
+            {notifOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                transition={{ duration: 0.15 }}
+                style={{
+                  position: 'absolute',
+                  top: 40, right: 0,
+                  width: 320,
+                  background: 'var(--white)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 16,
+                  boxShadow: '0 6px 18px rgba(0,0,0,0.08), 0 2px 6px -2px rgba(0,0,0,0.05)',
+                  zIndex: 1001,
+                  overflow: 'hidden',
+                }}
+              >
+                {/* Header */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 14px 10px',
+                  borderBottom: '1px solid var(--border)',
+                }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
+                    Уведомления
+                  </span>
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={() => markAllRead()}
+                      style={{
+                        fontSize: 11, color: 'var(--accent)', background: 'none',
+                        border: 'none', cursor: 'pointer', fontFamily: 'var(--font)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Отметить все прочитанными
+                    </button>
+                  )}
+                </div>
+
+                {/* List */}
+                <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+                  {notifications.length === 0 ? (
+                    <div style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center',
+                      justifyContent: 'center', padding: '28px 16px', gap: 8,
+                    }}>
+                      <BellOff size={32} style={{ color: 'var(--soft)' }} />
+                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>Уведомлений нет</span>
+                    </div>
+                  ) : (
+                    notifications.map((n: AppNotification, i) => (
+                      <motion.div
+                        key={n.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        onClick={() => {
+                          markRead(n.id)
+                          navigate(n.link)
+                          setNotifOpen(false)
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'flex-start', gap: 10,
+                          padding: '10px 14px',
+                          background: n.is_read ? 'var(--white)' : 'var(--bg)',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid var(--border)',
+                          transition: 'background 0.1s',
+                        }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--bg)' }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = n.is_read ? 'var(--white)' : 'var(--bg)' }}
+                      >
+                        <div style={{
+                          width: 28, height: 28, borderRadius: '50%',
+                          background: 'var(--accent)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0,
+                        }}>
+                          {n.sender_username?.charAt(0).toUpperCase() ?? '?'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{
+                            margin: 0, fontSize: 12,
+                            fontWeight: n.is_read ? 400 : 600,
+                            color: 'var(--ink)', lineHeight: 1.4,
+                          }}>
+                            {n.message}
+                          </p>
+                          <span style={{ fontSize: 10, color: 'var(--muted)' }}>
+                            {formatRelativeTime(n.created_at)}
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         <motion.button
           ref={addButtonRef}

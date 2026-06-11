@@ -89,6 +89,12 @@ class User(Base):
     favorites: Mapped[list["Favorite"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    notifications: Mapped[list["Notification"]] = relationship(
+        "Notification",
+        foreign_keys="[Notification.user_id]",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class Subscription(Base):
@@ -159,7 +165,11 @@ class ChatSession(Base):
 
 
 class Comment(Base):
-    """A user comment on a news article, keyed by ``article_url``."""
+    """A user comment on a news article, keyed by ``article_url``.
+
+    ``parent_id`` is nullable — top-level comments have ``None``, replies
+    point to their parent comment (depth 1 only).
+    """
 
     __tablename__ = "comments"
 
@@ -170,11 +180,29 @@ class Comment(Base):
     article_url: Mapped[str] = mapped_column(String(2048), index=True, nullable=False)
     text: Mapped[str] = mapped_column(String(1000), nullable=False)
     likes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("comments.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     user: Mapped["User"] = relationship(back_populates="comments")
+    replies: Mapped[list["Comment"]] = relationship(
+        "Comment",
+        foreign_keys="[Comment.parent_id]",
+        back_populates="parent",
+        lazy="selectin",
+    )
+    parent: Mapped["Comment | None"] = relationship(
+        "Comment",
+        foreign_keys="[Comment.parent_id]",
+        back_populates="replies",
+        remote_side="Comment.id",
+    )
 
 
 class Favorite(Base):
@@ -270,5 +298,38 @@ class NewsFavorite(Base):
     article: Mapped["NewsArticle"] = relationship(back_populates="news_favorites")
 
 
+class Notification(Base):
+    """In-app notification for a user.
+
+    Created when:
+    - Someone replies to the user's comment (type='comment_reply')
+    - Someone likes the user's comment (type='reaction')
+
+    ``sender_id`` is nullable so the notification survives sender deletion.
+    """
+
+    __tablename__ = "notifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sender_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    type: Mapped[str] = mapped_column(String(32), nullable=False)
+    message: Mapped[str] = mapped_column(String(512), nullable=False)
+    link: Mapped[str] = mapped_column(String(2048), nullable=False)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    user: Mapped["User"] = relationship(
+        "User", foreign_keys=[user_id], back_populates="notifications"
+    )
+    sender: Mapped["User | None"] = relationship("User", foreign_keys=[sender_id])
+
+
 logger.debug("[models] registered %d tables: %s", len(Base.metadata.tables), list(Base.metadata.tables))
-logger.debug("[models] NewsArticle/NewsReaction/NewsFavorite defined")
+logger.debug("[models] NewsArticle/NewsReaction/NewsFavorite/Notification defined")
