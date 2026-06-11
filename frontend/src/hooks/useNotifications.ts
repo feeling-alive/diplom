@@ -27,7 +27,7 @@ export function useNotifications() {
     },
     enabled: !!user,
     refetchInterval: 30_000,
-    staleTime: 0,
+    staleTime: 30_000,
   })
 
   const unreadCount = query.data?.filter(n => !n.is_read).length ?? 0

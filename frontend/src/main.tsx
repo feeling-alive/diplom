@@ -19,9 +19,13 @@ const queryClient = new QueryClient({
       staleTime: 30_000,
       gcTime: 5 * 60_000,
       refetchOnWindowFocus: false,
+      // Reduce retry storm: 3 retries (default) × N simultaneous errors = request flood.
+      retry: 1,
+      retryDelay: 5000,
     },
   },
 })
+console.debug('[QueryClient] configured: retry=1 retryDelay=5000 staleTime=30s refetchOnWindowFocus=false')
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

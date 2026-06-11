@@ -5,7 +5,7 @@
 // (`fintrack_is_authenticated`, `fintrack_user`) because components we are asked
 // NOT to touch (AppSidebar display, AdminRoute, ProfilePage) still read them.
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { apiLogout, apiMe, type AuthUser } from '../lib/authApi'
 
@@ -51,6 +51,9 @@ function mirrorToStorage(user: AuthUser | null): void {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  // Guard against concurrent apiMe() calls (e.g. React StrictMode double-mount in dev
+  // fires the init useEffect twice, sending two /auth/me requests simultaneously).
+  const fetchingRef = useRef(false)
 
   const setUser = useCallback((next: AuthUser) => {
     console.debug('[useAuth] setUser', next.email)
@@ -77,6 +80,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const refresh = useCallback(async () => {
+    if (fetchingRef.current) {
+      console.debug('[useAuth] already fetching — skip duplicate refresh()')
+      return
+    }
+    fetchingRef.current = true
     setIsLoading(true)
     try {
       const me = await apiMe()
@@ -92,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.warn('[useAuth] refresh failed', err)
       clearUser()
     } finally {
+      fetchingRef.current = false
       setIsLoading(false)
     }
   }, [clearUser])
@@ -111,6 +120,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // this does not synchronously set state within the effect body.
   useEffect(() => {
     let active = true
+    if (fetchingRef.current) {
+      console.debug('[useAuth] already fetching — skip duplicate init effect')
+      return
+    }
+    fetchingRef.current = true
     void (async () => {
       try {
         const me = await apiMe()
@@ -131,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           mirrorToStorage(null)
         }
       } finally {
+        fetchingRef.current = false
         if (active) setIsLoading(false)
       }
     })()

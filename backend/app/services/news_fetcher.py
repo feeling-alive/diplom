@@ -2,12 +2,9 @@
 
 ``fetch_and_store_news`` runs every 4 hours and pulls articles from NewsAPI
 across four financial query buckets. New articles (deduped by URL) are stored in
-``news_articles`` with ``ai_processed=False``, then enriched asynchronously by
-``process_article_with_ai`` which calls OpenRouter (Llama 3.3 70B free) to
-produce Russian translations, category, symbols, keywords and market_impact.
-
-Rate-limit guard: a 0.5 s sleep between AI tasks prevents hammering the free
-OpenRouter endpoint when ~120 articles land at first startup.
+``news_articles`` with ``ai_processed=False``, then enriched sequentially by
+``_enrich_articles`` which limits concurrency via asyncio.Semaphore(3) and
+retries once on HTTP 429 with a 5-second backoff.
 """
 
 from __future__ import annotations
@@ -37,6 +34,9 @@ _QUERIES = [
     {"q": "stocks OR earnings OR S&P500", "pageSize": 30},
     {"q": "forex OR dollar OR euro OR Fed", "pageSize": 30},
 ]
+
+# Semaphore limits concurrent OpenRouter calls to 3 to avoid free-tier 429s.
+_ai_semaphore = asyncio.Semaphore(3)
 
 _AI_PROMPT_TEMPLATE = """Analyze this financial news article and return ONLY valid JSON, no other text:
 
@@ -135,77 +135,142 @@ async def fetch_and_store_news() -> None:
 
     logger.info("[news_fetcher] inserted %d new articles", len(inserted))
 
-    # Enrich each new article with AI, with a small delay to respect rate limits.
-    for article_id in inserted:
-        asyncio.create_task(process_article_with_ai(article_id))
-        await asyncio.sleep(0.5)
+    # Enrich articles sequentially via semaphore-bounded concurrency (max 3 parallel
+    # OpenRouter calls) with 1-second inter-request delay and retry on 429.
+    await _enrich_articles(inserted)
 
 
-async def process_article_with_ai(article_id: uuid.UUID) -> None:
-    """Call OpenRouter to translate + categorize one article, then update DB."""
+async def _enrich_articles(ids: list[uuid.UUID]) -> None:
+    """Enrich a batch of articles through OpenRouter with rate-limit protection."""
+    if not ids:
+        return
+
+    enriched = 0
+    skipped = 0
+    lock = asyncio.Lock()
+
+    async def _bounded(article_id: uuid.UUID) -> None:
+        nonlocal enriched, skipped
+        logger.debug("[news_fetcher] semaphore acquiring for %s", article_id)
+        async with _ai_semaphore:
+            logger.debug("[news_fetcher] semaphore acquired for %s", article_id)
+            success = await process_article_with_ai(article_id)
+            async with lock:
+                if success:
+                    enriched += 1
+                else:
+                    skipped += 1
+            # 1-second throttle between OpenRouter calls within the semaphore slot.
+            await asyncio.sleep(1)
+
+    await asyncio.gather(*[_bounded(aid) for aid in ids])
+    logger.info(
+        "[news_fetcher] enrichment done: enriched=%d skipped=%d total=%d",
+        enriched,
+        skipped,
+        len(ids),
+    )
+
+
+async def process_article_with_ai(article_id: uuid.UUID) -> bool:
+    """Call OpenRouter to translate + categorize one article, then update DB.
+
+    Returns True on success, False if the article was skipped (no API key, 429 after
+    retries, parse error, or network error). In all failure cases the article is marked
+    ai_processed=True to prevent indefinite retries on the next fetch cycle.
+    """
     logger.debug("[news_fetcher] ai processing article %s", article_id)
 
     if not settings.openrouter_api_key:
         logger.warning("[news_fetcher] OPENROUTER_API_KEY absent — skipping AI for %s", article_id)
         await _mark_processed(article_id)
-        return
+        return False
 
     async with AsyncSessionLocal() as session:
         article = await session.get(NewsArticle, article_id)
         if article is None:
             logger.warning("[news_fetcher] article %s not found", article_id)
-            return
+            return False
 
         prompt = _AI_PROMPT_TEMPLATE.format(
             title=article.title,
             description=article.description or "",
         )
 
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{settings.openrouter_base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.openrouter_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": settings.openrouter_model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.3,
-                },
-                timeout=30,
-            )
+    # Retry up to 2 times on HTTP 429 with 5-second backoff.
+    max_retries = 2
+    for attempt in range(1, max_retries + 2):  # attempts: 1, 2, 3 (initial + 2 retries)
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{settings.openrouter_base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.openrouter_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": settings.openrouter_model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.3,
+                    },
+                    timeout=30,
+                )
+
+            if resp.status_code == 429:
+                if attempt <= max_retries:
+                    logger.warning(
+                        "[news_fetcher] 429 rate limit for %s, retry %d/%d in 5s",
+                        article_id,
+                        attempt,
+                        max_retries,
+                    )
+                    await asyncio.sleep(5)
+                    continue
+                # Exhausted retries — save without AI enrichment.
+                logger.warning(
+                    "[news_fetcher] 429 exhausted retries for %s — saving without AI",
+                    article_id,
+                )
+                await _mark_processed(article_id)
+                return False
+
             resp.raise_for_status()
             raw = resp.json()
             content = raw["choices"][0]["message"]["content"]
 
-        # Strip markdown code fences if the model wrapped the JSON.
-        content = re.sub(r"^```(?:json)?\s*", "", content.strip())
-        content = re.sub(r"\s*```$", "", content)
-        data = json.loads(content)
+            # Strip markdown code fences if the model wrapped the JSON.
+            content = re.sub(r"^```(?:json)?\s*", "", content.strip())
+            content = re.sub(r"\s*```$", "", content)
+            data = json.loads(content)
 
-        async with AsyncSessionLocal() as session:
-            async with session.begin():
-                article = await session.get(NewsArticle, article_id)
-                if article is None:
-                    return
-                article.title_ru = data.get("title_ru")
-                article.description_ru = data.get("description_ru")
-                article.category = data.get("category", "general")
-                article.symbols = data.get("symbols", [])
-                article.keywords = data.get("keywords", [])
-                article.market_impact = data.get("market_impact")
-                article.ai_processed = True
+            async with AsyncSessionLocal() as session:
+                async with session.begin():
+                    article = await session.get(NewsArticle, article_id)
+                    if article is None:
+                        return False
+                    article.title_ru = data.get("title_ru")
+                    article.description_ru = data.get("description_ru")
+                    article.category = data.get("category", "general")
+                    article.symbols = data.get("symbols", [])
+                    article.keywords = data.get("keywords", [])
+                    article.market_impact = data.get("market_impact")
+                    article.ai_processed = True
 
-        logger.debug("[news_fetcher] ai done for %s category=%s", article_id, data.get("category"))
+            logger.debug("[news_fetcher] ai done for %s category=%s", article_id, data.get("category"))
+            return True
 
-    except (json.JSONDecodeError, KeyError, ValueError) as exc:
-        logger.warning("[news_fetcher] ai parse error for %s: %s", article_id, exc)
-        await _mark_processed(article_id)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("[news_fetcher] ai request error for %s: %s", article_id, exc)
-        await _mark_processed(article_id)
+        except (json.JSONDecodeError, KeyError, ValueError) as exc:
+            logger.warning("[news_fetcher] ai parse error for %s: %s", article_id, exc)
+            await _mark_processed(article_id)
+            return False
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[news_fetcher] ai request error for %s: %s", article_id, exc)
+            await _mark_processed(article_id)
+            return False
+
+    # Should not reach here, but satisfy the type checker.
+    await _mark_processed(article_id)
+    return False
 
 
 async def _mark_processed(article_id: uuid.UUID) -> None:
