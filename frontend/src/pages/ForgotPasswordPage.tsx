@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type FormEvent } from 'react'
 import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { apiForgotPassword } from '../lib/authApi'
 
 const inputStyle = (hasError: boolean, hasValue: boolean): CSSProperties => ({
@@ -21,11 +21,11 @@ const inputStyle = (hasError: boolean, hasValue: boolean): CSSProperties => ({
 })
 
 export default function ForgotPasswordPage() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState('')
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [sent, setSent] = useState(false)
 
   function validateEmail(value: string) {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -50,7 +50,10 @@ export default function ForgotPasswordPage() {
     setSubmitting(true)
     try {
       await apiForgotPassword(email)
-      setSent(true)
+      // Neutral by design: navigate regardless of whether the account exists, so
+      // the next screen never reveals account existence. Email is carried over to
+      // prefill the code-entry form.
+      navigate('/reset-password', { state: { email } })
     } catch (err) {
       console.warn('[ForgotPasswordPage] request failed', err)
       setFormError(err instanceof Error ? err.message : 'Не удалось отправить запрос')
@@ -87,26 +90,10 @@ export default function ForgotPasswordPage() {
             Восстановление пароля
           </h1>
           <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24 }}>
-            Укажите email — мы отправим ссылку для сброса пароля
+            Укажите email — мы отправим 6-значный код для сброса пароля
           </p>
 
-          {sent ? (
-            <div
-              role="status"
-              style={{
-                background: 'var(--accent-bg)',
-                border: '1px solid var(--accent)',
-                borderRadius: 'var(--r-md)',
-                padding: '14px 16px',
-                fontSize: 13,
-                color: 'var(--text)',
-                lineHeight: 1.5,
-              }}
-            >
-              Если аккаунт существует, письмо отправлено. Проверьте почту — ссылка действительна
-              15 минут.
-            </div>
-          ) : (
+          {(
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
                 <label
@@ -167,7 +154,7 @@ export default function ForgotPasswordPage() {
                   fontFamily: 'var(--font)',
                 }}
               >
-                {submitting ? 'Отправка…' : 'Отправить ссылку'}
+                {submitting ? 'Отправка…' : 'Отправить код'}
               </motion.button>
             </form>
           )}

@@ -63,15 +63,16 @@ export async function apiForgotPassword(email: string): Promise<{ message: strin
 }
 
 export async function apiResetPassword(
-  token: string,
+  email: string,
+  code: string,
   newPassword: string,
 ): Promise<{ message: string }> {
-  console.debug('[authApi] resetPassword token present=', Boolean(token))
+  console.debug('[authApi] resetPassword', email, 'code present=', Boolean(code))
   const res = await fetch('/auth/reset-password', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, new_password: newPassword }),
+    body: JSON.stringify({ email, code, new_password: newPassword }),
   })
   if (!res.ok) throw new Error(await parseError(res))
   return (await res.json()) as { message: string }

@@ -1,7 +1,7 @@
 """Email delivery for the password-reset flow (fastapi-mail / SMTP).
 
 Graceful degradation: when ``smtp_host`` is empty the service does not try to
-connect anywhere — it logs the reset link at DEBUG level instead, so the flow
+connect anywhere — it logs the reset CODE at DEBUG level instead, so the flow
 stays fully testable on a developer machine without a mailbox.
 """
 
@@ -20,8 +20,8 @@ logger = logging.getLogger("backend.email")
 _ACCENT = "#E11D48"
 
 
-def _build_reset_html(reset_link: str) -> str:
-    """Минимальный HTML-шаблон письма сброса пароля в палитре проекта."""
+def _build_reset_html(code: str) -> str:
+    """Минимальный HTML-шаблон письма с 6-значным кодом сброса в палитре проекта."""
     return f"""\
 <!DOCTYPE html>
 <html lang="ru">
@@ -34,15 +34,15 @@ def _build_reset_html(reset_link: str) -> str:
       <h2 style="margin:0 0 16px;font-size:18px;color:#0f172a;">Сброс пароля</h2>
       <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#475569;">
         Мы получили запрос на сброс пароля для вашего аккаунта.
-        Нажмите кнопку ниже, чтобы задать новый пароль.
+        Введите код ниже на странице сброса пароля.
       </p>
-      <a href="{reset_link}"
-         style="display:inline-block;background:{_ACCENT};color:#ffffff;text-decoration:none;
-                padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;">
-        Сбросить пароль
-      </a>
+      <div style="display:inline-block;background:#f8fafc;border:1px solid #e2e8f0;
+                  color:{_ACCENT};padding:14px 28px;border-radius:12px;font-size:30px;
+                  font-weight:700;letter-spacing:8px;">
+        {code}
+      </div>
       <p style="margin:24px 0 0;font-size:12px;line-height:1.6;color:#94a3b8;">
-        Ссылка действительна 15 минут. Если вы не запрашивали сброс пароля,
+        Код действителен 15 минут. Если вы не запрашивали сброс пароля,
         просто проигнорируйте это письмо — ваш пароль не изменится.
       </p>
     </div>
@@ -79,28 +79,28 @@ def _build_mailer() -> FastMail:
     return FastMail(config)
 
 
-async def send_reset_email(to: str, reset_link: str) -> None:
-    """Отправить письмо со ссылкой сброса пароля.
+async def send_reset_code(to: str, code: str) -> None:
+    """Отправить письмо с 6-значным кодом сброса пароля.
 
-    При пустом ``smtp_host`` письмо не отправляется — ссылка логируется в DEBUG
+    При пустом ``smtp_host`` письмо не отправляется — код логируется в DEBUG
     (graceful degradation для локальной разработки). Ошибки SMTP логируются и
     пробрасываются вызывающему коду.
     """
     if not _smtp_configured():
         logger.debug(
-            "[email_service] SMTP not configured; reset link for %s: %s",
+            "[email_service] SMTP not configured; reset code for %s: %s",
             to,
-            reset_link,
+            code,
         )
         return
 
-    logger.debug("[email_service] sending reset email to %s", to)
+    logger.debug("[email_service] sending reset code email to %s", to)
     message = MessageSchema(
-        subject="FinTrack — сброс пароля",
+        subject="FinTrack — код сброса пароля",
         recipients=[to],
-        body=_build_reset_html(reset_link),
+        body=_build_reset_html(code),
         subtype=MessageType.html,
     )
     mailer = _build_mailer()
     await mailer.send_message(message)
-    logger.info("[email_service] reset email sent to %s", to)
+    logger.info("[email_service] reset code email sent to %s", to)

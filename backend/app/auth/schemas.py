@@ -36,9 +36,10 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    """Смена пароля по токену из письма. Те же правила, что при регистрации."""
+    """Смена пароля по 6-значному коду из письма. Правила пароля — как при регистрации."""
 
-    token: str = Field(min_length=1)
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
     new_password: str = Field(min_length=8)
 
     @field_validator("new_password")

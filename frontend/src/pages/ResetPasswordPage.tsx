@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { motion } from 'framer-motion'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { apiResetPassword } from '../lib/authApi'
 
 const inputStyle = (hasError: boolean, hasValue: boolean): CSSProperties => ({
@@ -21,7 +21,7 @@ const inputStyle = (hasError: boolean, hasValue: boolean): CSSProperties => ({
 })
 
 /** Карточка ошибки с кнопкой возврата на /forgot-password. */
-function TokenError({ message }: { message: string }) {
+function CodeError({ message }: { message: string }) {
   return (
     <>
       <div
@@ -55,7 +55,7 @@ function TokenError({ message }: { message: string }) {
             fontFamily: 'var(--font)',
           }}
         >
-          Запросить новую ссылку
+          Запросить новый код
         </motion.div>
       </Link>
     </>
@@ -63,12 +63,18 @@ function TokenError({ message }: { message: string }) {
 }
 
 export default function ResetPasswordPage() {
-  const [searchParams] = useSearchParams()
-  const token = searchParams.get('token') ?? ''
   const navigate = useNavigate()
+  const location = useLocation()
+  // Email may be carried over from /forgot-password via router state; the field
+  // stays editable so the page also works on a direct visit.
+  const prefilledEmail = (location.state as { email?: string } | null)?.email ?? ''
 
+  const [email, setEmail] = useState(prefilledEmail)
+  const [code, setCode] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [emailError, setEmailError] = useState('')
+  const [codeError, setCodeError] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [confirmError, setConfirmError] = useState('')
   const [formError, setFormError] = useState('')
@@ -84,6 +90,29 @@ export default function ResetPasswordPage() {
     }, 3000)
     return () => clearTimeout(timer)
   }, [success, navigate])
+
+  function validateEmail(value: string) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!value) {
+      setEmailError('Введите email')
+      return false
+    }
+    if (!re.test(value)) {
+      setEmailError('Введите корректный email')
+      return false
+    }
+    setEmailError('')
+    return true
+  }
+
+  function validateCode(value: string) {
+    if (!/^\d{6}$/.test(value)) {
+      setCodeError('Код состоит из 6 цифр')
+      return false
+    }
+    setCodeError('')
+    return true
+  }
 
   function validatePassword(value: string) {
     if (!value) {
@@ -114,14 +143,16 @@ export default function ResetPasswordPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setFormError('')
+    const validEmail = validateEmail(email)
+    const validCode = validateCode(code)
     const validPassword = validatePassword(password)
     const validConfirm = validateConfirm(confirm)
-    if (!validPassword || !validConfirm) return
+    if (!validEmail || !validCode || !validPassword || !validConfirm) return
 
-    console.debug('[ResetPasswordPage] submit token present=', Boolean(token))
+    console.debug('[ResetPasswordPage] submit', email, 'code present=', Boolean(code))
     setSubmitting(true)
     try {
-      await apiResetPassword(token, password)
+      await apiResetPassword(email, code, password)
       setSuccess(true)
     } catch (err) {
       console.warn('[ResetPasswordPage] reset failed', err)
@@ -159,12 +190,10 @@ export default function ResetPasswordPage() {
             Новый пароль
           </h1>
           <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24 }}>
-            Придумайте новый пароль для вашего аккаунта
+            Введите код из письма и придумайте новый пароль
           </p>
 
-          {!token ? (
-            <TokenError message="Ссылка недействительна: отсутствует токен сброса. Запросите новую ссылку." />
-          ) : success ? (
+          {success ? (
             <div
               role="status"
               style={{
@@ -184,6 +213,54 @@ export default function ResetPasswordPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label
+                  htmlFor="reset-email"
+                  style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', display: 'block', marginBottom: 6 }}
+                >
+                  Email
+                </label>
+                <input
+                  id="reset-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    if (emailError) validateEmail(e.target.value)
+                  }}
+                  placeholder="example@mail.com"
+                  style={inputStyle(Boolean(emailError), Boolean(email))}
+                />
+                {emailError && (
+                  <p style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{emailError}</p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reset-code"
+                  style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', display: 'block', marginBottom: 6 }}
+                >
+                  Код из письма
+                </label>
+                <input
+                  id="reset-code"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={code}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
+                    setCode(digits)
+                    if (codeError) validateCode(digits)
+                  }}
+                  placeholder="6-значный код"
+                  style={{ ...inputStyle(Boolean(codeError), Boolean(code)), letterSpacing: 4, fontVariantNumeric: 'tabular-nums' }}
+                />
+                {codeError && (
+                  <p style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{codeError}</p>
+                )}
+              </div>
+
               <div>
                 <label
                   htmlFor="reset-password"
@@ -231,7 +308,7 @@ export default function ResetPasswordPage() {
                 )}
               </div>
 
-              {formError && <TokenError message={formError} />}
+              {formError && <CodeError message={formError} />}
 
               <motion.button
                 type="submit"

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 import secrets
-import uuid
 from urllib.parse import urlencode
 
 import httpx
@@ -30,9 +29,9 @@ from app.auth.schemas import (
 from app.auth.utils import create_access_token, hash_password, verify_password
 from app.config import settings
 from app.database import get_db
-from app.models import Subscription, SubscriptionPlan, User
+from app.models import User
 from app.services.cache import get_client as get_redis
-from app.services.email import send_reset_email
+from app.services.email import send_reset_code
 
 logger = logging.getLogger("backend.auth.router")
 
@@ -67,7 +66,7 @@ async def register(
     response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Create a user + free subscription, set the auth cookie, return the user."""
+    """Create a user, set the auth cookie, return the user."""
     logger.info("[auth] register email=%s username=%s", payload.email, payload.username)
 
     existing_email = (
@@ -92,8 +91,6 @@ async def register(
         password_hash=hash_password(payload.password),
     )
     db.add(user)
-    await db.flush()  # assign user.id before creating the subscription
-    db.add(Subscription(user_id=user.id, plan=SubscriptionPlan.free))
     await db.commit()
     await db.refresh(user)
 
@@ -142,12 +139,17 @@ async def me(current_user: User = Depends(get_current_user)) -> User:
 
 # --- Password reset ----------------------------------------------------------
 
-# Токен живёт в Redis под этим префиксом; TTL 15 минут.
-RESET_TOKEN_PREFIX = "password_reset:"
-RESET_TOKEN_TTL = 15 * 60
+# Код сброса живёт в Redis под ключом reset:{email}; TTL 15 минут.
+RESET_CODE_PREFIX = "reset:"
+RESET_CODE_TTL = 15 * 60
 
 # Нейтральный ответ: не раскрываем, существует ли аккаунт с таким email.
 _FORGOT_NEUTRAL_MESSAGE = "Если аккаунт существует, письмо отправлено"
+
+
+def _generate_reset_code() -> str:
+    """Сгенерировать криптостойкий 6-значный код (000000–999999)."""
+    return f"{secrets.randbelow(1_000_000):06d}"
 
 
 @router.post("/forgot-password")
@@ -155,7 +157,7 @@ async def forgot_password(
     payload: ForgotPasswordRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
-    """Сгенерировать токен сброса, сохранить в Redis (TTL 15 мин), отправить письмо.
+    """Сгенерировать 6-значный код, сохранить в Redis (TTL 15 мин), отправить на почту.
 
     Ответ всегда нейтральный — наличие аккаунта не раскрывается.
     """
@@ -168,20 +170,19 @@ async def forgot_password(
         logger.debug("[auth] forgot-password: email not found, returning neutral message")
         return {"message": _FORGOT_NEUTRAL_MESSAGE}
 
-    token = secrets.token_urlsafe(32)
+    code = _generate_reset_code()
     try:
-        await get_redis().set(f"{RESET_TOKEN_PREFIX}{token}", str(user.id), ex=RESET_TOKEN_TTL)
+        await get_redis().set(f"{RESET_CODE_PREFIX}{payload.email}", code, ex=RESET_CODE_TTL)
     except (RedisError, OSError) as err:
-        logger.error("[auth] forgot-password: Redis unavailable, token not stored: %s", err)
+        logger.error("[auth] forgot-password: Redis unavailable, code not stored: %s", err)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Сервис временно недоступен, попробуйте позже",
         )
-    logger.debug("[auth] forgot-password: token stored for user=%s ttl=%ds", user.id, RESET_TOKEN_TTL)
+    logger.debug("[auth] forgot-password: code stored for user=%s ttl=%ds", user.id, RESET_CODE_TTL)
 
-    reset_link = f"{settings.frontend_url}/reset-password?token={token}"
     try:
-        await send_reset_email(user.email, reset_link)
+        await send_reset_code(user.email, code)
     except Exception as err:  # noqa: BLE001 — письмо не должно ронять запрос
         logger.error("[auth] forgot-password: email send failed: %s", err)
 
@@ -193,10 +194,10 @@ async def reset_password(
     payload: ResetPasswordRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
-    """Проверить токен в Redis, обновить хэш пароля, удалить токен."""
-    key = f"{RESET_TOKEN_PREFIX}{payload.token}"
+    """Сверить код из Redis (ключ reset:{email}), обновить хэш пароля, удалить код."""
+    key = f"{RESET_CODE_PREFIX}{payload.email}"
     try:
-        user_id = await get_redis().get(key)
+        stored_code = await get_redis().get(key)
     except (RedisError, OSError) as err:
         logger.error("[auth] reset-password: Redis unavailable: %s", err)
         raise HTTPException(
@@ -204,28 +205,22 @@ async def reset_password(
             detail="Сервис временно недоступен, попробуйте позже",
         )
 
-    if user_id is None:
-        logger.debug("[auth] reset-password: token not found or expired")
+    # secrets.compare_digest защищает от тайминг-атак; код сравниваем как строки.
+    if stored_code is None or not secrets.compare_digest(str(stored_code), payload.code):
+        logger.debug("[auth] reset-password: code invalid or expired")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Токен недействителен или истёк",
+            detail="Код недействителен или истёк",
         )
 
-    try:
-        user_uuid = uuid.UUID(user_id)
-    except ValueError:
-        logger.warning("[auth] reset-password: stored value is not a UUID")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Токен недействителен или истёк",
-        )
-
-    user = (await db.execute(select(User).where(User.id == user_uuid))).scalar_one_or_none()
+    user = (
+        await db.execute(select(User).where(User.email == payload.email))
+    ).scalar_one_or_none()
     if user is None:
-        logger.warning("[auth] reset-password: token points to missing user=%s", user_id)
+        logger.warning("[auth] reset-password: code points to missing account")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Токен недействителен или истёк",
+            detail="Код недействителен или истёк",
         )
 
     user.password_hash = hash_password(payload.new_password)
@@ -234,8 +229,8 @@ async def reset_password(
     try:
         await get_redis().delete(key)
     except (RedisError, OSError) as err:
-        # Пароль уже сменён — токен сам истечёт по TTL, поэтому только warning.
-        logger.warning("[auth] reset-password: failed to delete token from Redis: %s", err)
+        # Пароль уже сменён — код сам истечёт по TTL, поэтому только warning.
+        logger.warning("[auth] reset-password: failed to delete code from Redis: %s", err)
 
     logger.info("[auth] reset-password: password updated for user=%s", user.id)
     return {"message": "Пароль успешно изменён"}
@@ -356,8 +351,6 @@ async def google_callback(
                 avatar_url=profile.get("picture"),
             )
             db.add(user)
-            await db.flush()
-            db.add(Subscription(user_id=user.id, plan=SubscriptionPlan.free))
             await db.commit()
             await db.refresh(user)
             action = "created"

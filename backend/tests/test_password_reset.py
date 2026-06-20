@@ -1,13 +1,12 @@
-"""Password-reset flow tests: forgot-password + reset-password endpoints.
+"""Password-reset flow tests: forgot-password + reset-password (6-digit code).
 
 Redis is replaced with an in-memory fake (monkeypatched ``get_redis`` inside the
-router module), and ``send_reset_email`` is replaced with a recorder — no real
+router module), and ``send_reset_code`` is replaced with a recorder — no real
 SMTP or Redis is touched.
 """
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -21,7 +20,7 @@ NEUTRAL = "Если аккаунт существует, письмо отпра
 
 
 class FakeRedis:
-    """Минимальный in-memory заменитель Redis для токенов сброса."""
+    """Минимальный in-memory заменитель Redis для кодов сброса."""
 
     def __init__(self) -> None:
         self.store: dict[str, str] = {}
@@ -48,7 +47,7 @@ def fake_redis(monkeypatch: pytest.MonkeyPatch) -> FakeRedis:
 @pytest.fixture
 def email_mock(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     mock = AsyncMock()
-    monkeypatch.setattr(auth_router, "send_reset_email", mock)
+    monkeypatch.setattr(auth_router, "send_reset_code", mock)
     return mock
 
 
@@ -66,52 +65,54 @@ async def test_forgot_password_user_not_found(
 async def test_forgot_password_user_exists(
     client: AsyncClient, fake_redis: FakeRedis, email_mock: AsyncMock
 ) -> None:
-    """Существующий пользователь → токен в Redis (TTL 900), письмо отправлено."""
+    """Существующий пользователь → 6-значный код в Redis под reset:{email} (TTL 900)."""
     await client.post("/auth/register", json=VALID)
 
     resp = await client.post("/auth/forgot-password", json={"email": VALID["email"]})
     assert resp.status_code == 200, resp.text
     assert resp.json()["message"] == NEUTRAL
 
-    assert len(fake_redis.store) == 1
+    key = f"reset:{VALID['email']}"
+    assert key in fake_redis.store
     assert fake_redis.last_ttl == 900
-    key = next(iter(fake_redis.store))
-    assert key.startswith("password_reset:")
+    code = fake_redis.store[key]
+    assert len(code) == 6 and code.isdigit()
 
+    # Письмо получает email + тот же код (не ссылку).
     email_mock.assert_awaited_once()
-    to_arg, link_arg = email_mock.await_args.args
+    to_arg, code_arg = email_mock.await_args.args
     assert to_arg == VALID["email"]
-    token = key.removeprefix("password_reset:")
-    assert f"/reset-password?token={token}" in link_arg
+    assert code_arg == code
 
 
-async def test_reset_password_invalid_token(
+async def test_reset_password_invalid_code(
     client: AsyncClient, fake_redis: FakeRedis
 ) -> None:
-    """Произвольный токен → 400 «Токен недействителен или истёк»."""
+    """Неверный код → 400 «Код недействителен или истёк»."""
+    await client.post("/auth/register", json=VALID)
     resp = await client.post(
         "/auth/reset-password",
-        json={"token": "bogus-token", "new_password": "newpass123"},
+        json={"email": VALID["email"], "code": "000000", "new_password": "newpass123"},
     )
     assert resp.status_code == 400
-    assert "Токен недействителен" in resp.json()["detail"]
+    assert "Код недействителен" in resp.json()["detail"]
 
 
 async def test_reset_password_success(
     client: AsyncClient, fake_redis: FakeRedis, email_mock: AsyncMock
 ) -> None:
-    """Валидный токен → пароль обновлён, токен удалён, логин по новому паролю работает."""
+    """Валидный код → пароль обновлён, код удалён, логин по новому паролю работает."""
     await client.post("/auth/register", json=VALID)
     await client.post("/auth/forgot-password", json={"email": VALID["email"]})
-    token = next(iter(fake_redis.store)).removeprefix("password_reset:")
+    code = fake_redis.store[f"reset:{VALID['email']}"]
 
     resp = await client.post(
         "/auth/reset-password",
-        json={"token": token, "new_password": "brandnew456"},
+        json={"email": VALID["email"], "code": code, "new_password": "brandnew456"},
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["message"] == "Пароль успешно изменён"
-    assert fake_redis.store == {}  # токен удалён
+    assert fake_redis.store == {}  # код удалён
 
     # Старый пароль больше не работает, новый — работает.
     old = await client.post(
@@ -134,24 +135,37 @@ async def test_reset_password_validation(
     """Слабый пароль → 422 validation error (не доходит до Redis)."""
     resp = await client.post(
         "/auth/reset-password",
-        json={"token": "whatever", "new_password": bad_password},
+        json={"email": VALID["email"], "code": "123456", "new_password": bad_password},
     )
     assert resp.status_code == 422
 
 
-async def test_reset_token_single_use(
+async def test_reset_password_bad_code_format(
+    client: AsyncClient, fake_redis: FakeRedis
+) -> None:
+    """Код не из 6 цифр → 422 (валидация схемы, не доходит до Redis)."""
+    resp = await client.post(
+        "/auth/reset-password",
+        json={"email": VALID["email"], "code": "12ab", "new_password": "newpass123"},
+    )
+    assert resp.status_code == 422
+
+
+async def test_reset_code_single_use(
     client: AsyncClient, fake_redis: FakeRedis, email_mock: AsyncMock
 ) -> None:
-    """Повторное использование токена → 400."""
+    """Повторное использование кода → 400."""
     await client.post("/auth/register", json=VALID)
     await client.post("/auth/forgot-password", json={"email": VALID["email"]})
-    token = next(iter(fake_redis.store)).removeprefix("password_reset:")
+    code = fake_redis.store[f"reset:{VALID['email']}"]
 
     first = await client.post(
-        "/auth/reset-password", json={"token": token, "new_password": "brandnew456"}
+        "/auth/reset-password",
+        json={"email": VALID["email"], "code": code, "new_password": "brandnew456"},
     )
     assert first.status_code == 200
     second = await client.post(
-        "/auth/reset-password", json={"token": token, "new_password": "another789"}
+        "/auth/reset-password",
+        json={"email": VALID["email"], "code": code, "new_password": "another789"},
     )
     assert second.status_code == 400
