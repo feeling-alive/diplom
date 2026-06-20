@@ -151,12 +151,16 @@ def test_rule_signal_returns_indicator_details() -> None:
     _, details = _rule_based_signal(_ohlcv_candles([200 - i for i in range(60)]))
     assert set(details) == {
         "rsi", "rsi_zone", "macd_cross", "macd_position", "trend", "price_vs_sma20",
+        "atr", "volume_zscore",
     }
     assert details["rsi_zone"] == "перепродан"
     assert details["trend"] == "нисходящий"
     assert details["macd_position"] == "ниже сигнальной"
     assert isinstance(details["rsi"], float)
     assert details["price_vs_sma20"] < 0  # price below its SMA20 in a decline
+    # ATR / volume z-score are informational LLM-only fields (not in the model input).
+    assert isinstance(details["atr"], (int, float))
+    assert isinstance(details["volume_zscore"], (int, float))
 
 
 def test_rule_signal_short_history_safe_details() -> None:

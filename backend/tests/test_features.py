@@ -13,9 +13,11 @@ from app.services.features import (
     FEATURE_ORDER,
     apply_scaler,
     build_feature_matrix,
+    compute_extra_indicators,
     compute_indicators,
     extract_ohlcv,
 )
+from app.services.features import _atr, _volume_zscore
 
 
 # ---------------------------------------------------------------------------
@@ -167,3 +169,71 @@ def test_apply_scaler_degrades_on_shape_mismatch(
 
 def test_apply_scaler_empty_returns_empty() -> None:
     assert apply_scaler([]) == []
+
+
+# ---------------------------------------------------------------------------
+# _atr / _volume_zscore / compute_extra_indicators (LLM-only indicators)
+# ---------------------------------------------------------------------------
+
+
+def test_atr_length_preserving_and_positive() -> None:
+    n = 40
+    highs = [10 + i + 1 for i in range(n)]
+    lows = [10 + i - 1 for i in range(n)]
+    closes = [10 + i for i in range(n)]
+    atr = _atr(highs, lows, closes, period=14)
+    assert len(atr) == n
+    # With a steady ~2-unit range, ATR converges to a positive value near 2.
+    assert atr[-1] > 0
+    assert 1.0 < atr[-1] < 3.0
+
+
+def test_atr_short_series_no_raise() -> None:
+    # Fewer bars than period+1 -> running-mean fallback, still length-preserving.
+    atr = _atr([2.0], [1.0], [1.5], period=14)
+    assert atr == [0.0]
+    atr2 = _atr([2.0, 3.0], [1.0, 1.0], [1.5, 2.5], period=14)
+    assert len(atr2) == 2
+    assert all(x >= 0 for x in atr2)
+
+
+def test_volume_zscore_flat_is_zero() -> None:
+    z = _volume_zscore([100.0] * 30, window=20)
+    assert len(z) == 30
+    assert all(abs(x) < 1e-9 for x in z)  # flat volume -> std 0 -> z 0
+
+
+def test_volume_zscore_spike_is_positive() -> None:
+    vols = [100.0] * 19 + [500.0]  # last bar spikes well above the window mean
+    z = _volume_zscore(vols, window=20)
+    assert z[-1] > 1.0
+
+
+def test_volume_zscore_short_window_zero() -> None:
+    assert _volume_zscore([], window=20) == []
+    assert _volume_zscore([5.0], window=20) == [0.0]  # <2 samples -> 0
+
+
+def test_compute_extra_indicators_keys_and_defaults() -> None:
+    closes = [100 + i for i in range(30)]
+    ohlcv = {
+        "open": closes,
+        "high": [c + 1 for c in closes],
+        "low": [c - 1 for c in closes],
+        "close": closes,
+        "volume": [10.0] * 29 + [40.0],
+    }
+    extra = compute_extra_indicators(ohlcv)
+    assert set(extra) == {"atr", "volume_zscore"}
+    assert extra["atr"] > 0
+    assert extra["volume_zscore"] > 0
+    # The extra indicators must NOT leak into the model feature order.
+    assert "atr" not in FEATURE_ORDER
+    assert "volume_zscore" not in FEATURE_ORDER
+
+
+def test_compute_extra_indicators_empty_safe() -> None:
+    extra = compute_extra_indicators(
+        {"open": [], "high": [], "low": [], "close": [], "volume": []}
+    )
+    assert extra == {"atr": 0.0, "volume_zscore": 0.0}

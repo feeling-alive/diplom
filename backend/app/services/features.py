@@ -246,6 +246,80 @@ def _bollinger(
     return bb_width, bb_pos
 
 
+def _atr(
+    highs: list[float],
+    lows: list[float],
+    closes: list[float],
+    period: int = 14,
+) -> list[float]:
+    """Wilder's Average True Range (ATR), length-preserving.
+
+    True Range at bar *i* = ``max(high-low, |high-prev_close|, |low-prev_close|)``.
+    The series is smoothed with Wilder's method (same recurrence as :func:`_rsi`).
+    Warmup positions (before the first full *period* of true ranges) default to
+    ``0.0`` so the series is always the same length as the inputs and never
+    ``None``. ATR is expressed in price units, not normalised.
+    """
+    n = len(closes)
+    out = [0.0] * n
+    if n < 2:
+        return out
+
+    # True range per bar; tr[0] has no previous close → high-low.
+    tr: list[float] = [highs[0] - lows[0] if highs and lows else 0.0]
+    for i in range(1, n):
+        prev_close = closes[i - 1]
+        tr.append(
+            max(
+                highs[i] - lows[i],
+                abs(highs[i] - prev_close),
+                abs(lows[i] - prev_close),
+            )
+        )
+
+    if n < period + 1:
+        # Not enough bars for a full Wilder seed — fall back to the running mean
+        # of available true ranges so the last value is still informative.
+        running = 0.0
+        for i in range(n):
+            running = (running * i + tr[i]) / (i + 1)
+            out[i] = running
+        return out
+
+    # Seed ATR with the simple average of the first `period` true ranges.
+    atr = sum(tr[1 : period + 1]) / period
+    out[period] = atr
+    for i in range(period + 1, n):
+        atr = (atr * (period - 1) + tr[i]) / period
+        out[i] = atr
+    return out
+
+
+def _volume_zscore(volumes: list[float], window: int = 20) -> list[float]:
+    """Rolling z-score of volume over the trailing *window*, length-preserving.
+
+    ``z = (v_i - mean_window) / std_window`` using the population std of the
+    trailing window (including the current bar). Returns ``0.0`` where the window
+    has fewer than two samples or a zero standard deviation (flat volume), so the
+    series never raises or yields ``inf``/``nan``.
+    """
+    n = len(volumes)
+    out = [0.0] * n
+    if n == 0:
+        return out
+
+    for i in range(n):
+        start = max(0, i + 1 - window)
+        win = volumes[start : i + 1]
+        if len(win) < 2:
+            continue
+        mean = sum(win) / len(win)
+        var = sum((v - mean) ** 2 for v in win) / len(win)
+        std = var**0.5
+        out[i] = (volumes[i] - mean) / std if std > 0 else 0.0
+    return out
+
+
 def compute_indicators(ohlcv: dict[str, list[float]]) -> dict[str, list[float]]:
     """Compute all technical indicators from an OHLCV column dict.
 
@@ -275,6 +349,32 @@ def compute_indicators(ohlcv: dict[str, list[float]]) -> dict[str, list[float]]:
         "bb_width": bb_width,
         "bb_pos": bb_pos,
     }
+
+
+def compute_extra_indicators(ohlcv: dict[str, list[float]]) -> dict[str, float]:
+    """Compute last-bar ATR(14) and volume z-score for the LLM context.
+
+    These two indicators are **NOT** part of :data:`FEATURE_ORDER` / the model
+    input (the PatchTST matrix stays 60×11) — they are surfaced only to the AI
+    assistant's prompt. Returns the most recent value of each, defaulting to
+    ``0.0`` on empty/short input so callers never get ``None``.
+    """
+    highs = ohlcv.get("high", [])
+    lows = ohlcv.get("low", [])
+    closes = ohlcv.get("close", [])
+    volumes = ohlcv.get("volume", [])
+
+    atr_series = _atr(highs, lows, closes)
+    vol_z_series = _volume_zscore(volumes)
+    atr = atr_series[-1] if atr_series else 0.0
+    vol_z = vol_z_series[-1] if vol_z_series else 0.0
+    logger.debug(
+        "[features] extra indicators atr=%.4f vol_z=%.3f n=%d",
+        atr,
+        vol_z,
+        len(closes),
+    )
+    return {"atr": atr, "volume_zscore": vol_z}
 
 
 # ---------------------------------------------------------------------------

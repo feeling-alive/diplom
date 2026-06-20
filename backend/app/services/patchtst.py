@@ -27,7 +27,11 @@ import numpy as np
 import torch
 
 from app.config import settings
-from app.services.features import compute_indicators, extract_ohlcv
+from app.services.features import (
+    compute_extra_indicators,
+    compute_indicators,
+    extract_ohlcv,
+)
 from app.services.patchtst_model import PatchTST
 
 logger = logging.getLogger("backend.patchtst")
@@ -369,6 +373,13 @@ def _rule_based_signal(candles: list[dict[str, Any]]) -> tuple[float, dict[str, 
     rule_score = (rsi_sig + macd_sig + trend_sig) / 3.0
     rule_score = max(-1.0, min(1.0, rule_score))
 
+    # ATR(14) and volume z-score are informational only — they feed the LLM
+    # prompt, NOT the model input (the 60×11 matrix is untouched). They never
+    # affect rule_score or the confidence gate.
+    extra = compute_extra_indicators(ohlcv)
+    atr = extra["atr"]
+    volume_zscore = extra["volume_zscore"]
+
     indicator_details: dict[str, Any] = {
         "rsi": round(last_rsi, 1),
         "rsi_zone": rsi_zone,
@@ -376,8 +387,14 @@ def _rule_based_signal(candles: list[dict[str, Any]]) -> tuple[float, dict[str, 
         "macd_position": macd_position,
         "trend": trend,
         "price_vs_sma20": price_vs_sma20,
+        # Round ATR by magnitude so cheap and expensive assets stay readable.
+        "atr": round(atr, 6 if atr < 1 else 4 if atr < 100 else 2),
+        "volume_zscore": round(volume_zscore, 2),
     }
 
+    logger.debug(
+        "[patchtst] extra indicators atr=%s vol_z=%s", indicator_details["atr"], indicator_details["volume_zscore"]
+    )
     logger.debug(
         "[patchtst] rule signals rsi=%.1f(%s) macd=%.2f(%s) trend=%s -> score=%.3f",
         last_rsi,
