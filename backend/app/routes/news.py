@@ -26,6 +26,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.auth.dependencies import get_current_user, get_optional_user
 from app.database import get_db
@@ -317,6 +318,7 @@ async def get_comments(
     rows = await session.scalars(
         select(Comment)
         .where(Comment.article_url == article.url, Comment.parent_id.is_(None))
+        .options(selectinload(Comment.replies))
         .order_by(Comment.created_at.desc())
     )
     result = []
