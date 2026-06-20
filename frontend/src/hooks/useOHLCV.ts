@@ -15,14 +15,15 @@ interface OHLCVBackendResponse {
   symbol: string
   timeframe: string
   candles: Array<{
-    t: number       // unix milliseconds (бэкенд нормализует для OKX и Finnhub)
+    t: number       // unix milliseconds (бэкенд нормализует для OKX/yfinance/Frankfurter)
     o: number
     h: number
     l: number
     c: number
     v: number
   }>
-  source: 'okx' | 'finnhub' | 'cache' | 'mock'
+  // Источник истории: крипта → OKX, акции → yfinance, форекс → Frankfurter.
+  source: 'okx' | 'yfinance' | 'frankfurter' | 'cache' | 'mock'
 }
 
 interface OHLCVResult {

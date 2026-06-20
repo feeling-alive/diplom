@@ -13,6 +13,9 @@ sqlalchemy[asyncio]>=2.0
 asyncpg
 alembic
 
+# --- Encryption (admin API keys stored encrypted with Fernet) ----------------
+cryptography>=42.0
+
 # --- Auth / uploads (Блок B: JWT + Google OAuth; аватары — позже) ------------
 # bcrypt напрямую (passlib 1.7.4 несовместим с bcrypt>=4.1/5.x).
 bcrypt
@@ -31,6 +34,11 @@ starlette>=0.40,<0.49
 
 # --- News scheduler / AI enrichment (Блок D) ---------------------------------
 apscheduler>=3.10
+
+# --- OHLCV history sources (charts) ------------------------------------------
+# yfinance — дневная/часовая история свечей по акциям (бесплатно, без ключа).
+# Импортируется лениво в services/candles.py; форекс идёт в Frankfurter /timeseries.
+yfinance>=0.2.40
 
 # --- AI / ML feature scaling (PatchTST preprocessing) ------------------------
 # numpy/joblib/scikit-learn are imported lazily in services/features.py and are
