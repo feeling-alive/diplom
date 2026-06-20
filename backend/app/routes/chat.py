@@ -20,7 +20,7 @@ from app.auth.dependencies import get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models import ChatSession, NewsArticle, User
-from app.services.cache import get_cached, set_cached
+from app.services.cache import check_rate_limit, get_cached, set_cached
 from app.services.candles import get_candles
 from app.services.groq_service import get_groq_response
 from app.services.patchtst import get_prediction
@@ -333,6 +333,10 @@ def _build_system_prompt(
     macd_cross = indicator_details.get("macd_cross", "нет данных")
     trend = indicator_details.get("trend", "нет данных")
     price_vs_sma20 = indicator_details.get("price_vs_sma20", 0.0)
+    atr = indicator_details.get("atr")
+    volume_zscore = indicator_details.get("volume_zscore")
+    atr_text = f"{atr}" if atr is not None else "нет данных"
+    vol_z_text = f"{volume_zscore:+.2f}" if isinstance(volume_zscore, (int, float)) else "нет данных"
     news_block = _build_news_block(news_context)
 
     return (
@@ -344,6 +348,8 @@ def _build_system_prompt(
         f"• RSI(14): {rsi} — {rsi_zone}\n"
         f"• MACD: {macd_position}, {macd_cross}\n"
         f"• Тренд: {trend} (цена {price_vs_sma20:+.1f}% от SMA20)\n"
+        f"• ATR(14): {atr_text}\n"
+        f"• Z-оценка объёма: {vol_z_text}\n"
         f"• Общий технический сигнал: {_rule_score_text(rule_score)}\n\n"
         f"{news_block}\n\n"
         "ЗАДАЧА: напиши технический анализ по структуре:\n"
@@ -402,6 +408,19 @@ async def chat_message(
         symbol,
         len(body.message),
     )
+
+    # Silent per-user AI rate limit (ПЗ requirement). Enforced before any
+    # expensive prediction/Groq call. Never surfaced in the UI; fail-open if
+    # Redis is down (see services.cache.check_rate_limit).
+    allowed = await check_rate_limit(
+        "ai", str(current_user.id), settings.ai_rate_limit_per_minute
+    )
+    if not allowed:
+        logger.warning("[chat] rate limit exceeded user=%s", current_user.id)
+        raise HTTPException(
+            status_code=429,
+            detail="Слишком много запросов к ИИ, попробуйте через минуту",
+        )
 
     prediction: dict[str, Any] | None = None
     is_general = symbol == "general"

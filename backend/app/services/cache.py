@@ -68,6 +68,35 @@ async def set_cached(key: str, data: dict[str, Any], ttl: int) -> None:
         logger.warning("[cache] unavailable on SET %s: %s", key, err)
 
 
+async def check_rate_limit(scope: str, identity: str, limit: int, window: int = 60) -> bool:
+    """Fixed-window rate limiter backed by a Redis counter.
+
+    Increments ``rate:{scope}:{identity}:{minute_bucket}`` and returns ``True``
+    while the count is within *limit*, ``False`` once it is exceeded. The key
+    expires after *window* seconds, so each window starts fresh.
+
+    Fails **open**: if Redis is unreachable the request is allowed (returns
+    ``True``) and a warning is logged — a demo must not lock users out when the
+    cache is down.
+    """
+    import time
+
+    bucket = int(time.time()) // window
+    key = f"rate:{scope}:{identity}:{bucket}"
+    try:
+        client = get_client()
+        count = await client.incr(key)
+        if count == 1:
+            # First hit in this window — set the TTL so the bucket self-expires.
+            await client.expire(key, window)
+        allowed = count <= limit
+        logger.debug("[cache] rate %s identity=%s count=%d/%d allowed=%s", scope, identity, count, limit, allowed)
+        return allowed
+    except (RedisError, OSError, RuntimeError) as err:
+        logger.warning("[cache] rate limit unavailable for %s:%s — failing open: %s", scope, identity, err)
+        return True
+
+
 async def close_client() -> None:
     """Close the Redis connection pool on shutdown."""
     global _client

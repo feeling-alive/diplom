@@ -13,11 +13,11 @@ import SizeIndicator from '../components/dashboard/SizeIndicator'
 import { WIDGET_REGISTRY } from '../constants/widgets.registry'
 import { COLS, generateId, findEmptySlot } from '../lib/dashboardLayout'
 import { useDashboardConfig } from '../hooks/useDashboardConfig'
-import { useSubscription } from '../hooks/useSubscription'
-import { PremiumModal } from '../components/ui/PremiumModal'
 import type { DashboardWidget, WidgetType, WidgetSize } from '../types/widgets.types'
 
-const FREE_DASHBOARD_LIMIT = 2
+// Max number of dashboard pages a user can create. Was a premium gate; premium
+// has been removed, so this is now a flat cap for everyone.
+const DASHBOARD_LIMIT = 5
 
 const ROW_HEIGHT = 110
 const GRID_MARGIN = 10
@@ -47,13 +47,9 @@ export default function Dashboard() {
     dashboards, activeId,
     switchDashboard, addDashboard, removeDashboard,
   } = useDashboardConfig()
-  const { data: subData } = useSubscription()
-  const isPremium = subData?.plan === 'premium'
-  const dashboardLimit = isPremium ? 5 : FREE_DASHBOARD_LIMIT
-  const canAddDashboard = dashboards.length < dashboardLimit
+  const canAddDashboard = dashboards.length < DASHBOARD_LIMIT
 
   const [isPickerOpen, setIsPickerOpen] = useState(false)
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [isResizing, setIsResizing] = useState<string | null>(null)
   const [resizeSize, setResizeSize] = useState<{ w: number; h: number } | null>(null)
 
@@ -187,14 +183,13 @@ export default function Dashboard() {
 
   const handleAddDashboard = useCallback((name: string) => {
     if (!canAddDashboard) {
-      console.debug('[Dashboard] addDashboard blocked — limit=%d, plan=%s', dashboardLimit, subData?.plan ?? 'unknown')
-      setShowUpgradeModal(true)
+      console.debug('[Dashboard] addDashboard blocked — limit=%d reached', DASHBOARD_LIMIT)
       return
     }
     addDashboard(name)
-  }, [canAddDashboard, dashboardLimit, subData?.plan, addDashboard])
+  }, [canAddDashboard, addDashboard])
 
-  console.debug('[Dashboard] render widgets=%d dashboards=%d isPremium=%s', widgets.length, dashboards.length, isPremium)
+  console.debug('[Dashboard] render widgets=%d dashboards=%d', widgets.length, dashboards.length)
 
   return (
     <div className="main-content" style={{ flex: 1 }}>
@@ -282,12 +277,6 @@ export default function Dashboard() {
           />
         )}
       </AnimatePresence>
-
-      <PremiumModal
-        open={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        dashboardLimit={dashboardLimit}
-      />
     </div>
   )
 }

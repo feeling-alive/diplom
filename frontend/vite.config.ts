@@ -16,6 +16,11 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      // Admin API — admin panel routes. Same-origin via proxy so auth cookie works.
+      '/admin': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       // Auth API (FastAPI). Proxying keeps requests same-origin (localhost:5173)
       // so the HttpOnly access_token cookie works without cross-site issues.
       '/auth': {

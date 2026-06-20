@@ -8,13 +8,22 @@ NOT run the lifespan, so no real PostgreSQL connection is attempted.
 
 from __future__ import annotations
 
+import pytest
 import pytest_asyncio
+from cryptography.fernet import Fernet
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.config import settings
 from app.database import Base, get_db
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def _set_test_encryption_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Inject a valid Fernet key so encryption tests pass without a real .env."""
+    monkeypatch.setattr(settings, "encryption_key", Fernet.generate_key().decode())
 
 
 @pytest_asyncio.fixture

@@ -11,10 +11,9 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
-import SubscriptionPage from './pages/SubscriptionPage'
 import AdminPanelPage from './pages/AdminPanelPage'
 import AppSidebar from './components/layout/AppSidebar'
-import PrivateRoute from './components/layout/RoutesGuard'
+import PrivateRoute, { AdminRoute } from './components/layout/RoutesGuard'
 import { useCurrency } from './context/CurrencyContext'
 
 function ProtectedLayout() {
@@ -52,8 +51,7 @@ export default function App() {
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/subscription" element={<SubscriptionPage />} />
-        <Route path="/admin" element={<AdminPanelPage />} />
+        <Route path="/admin" element={<AdminRoute><AdminPanelPage /></AdminRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

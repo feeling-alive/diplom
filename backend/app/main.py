@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from app.auth.router import router as auth_router
 from app.config import log_startup_config, settings
 from app.database import Base, engine
-from app.routes import chat, crypto, dashboard, forex, news, notifications, profile, quotes, search, subscription
+from app.routes import admin, chat, crypto, dashboard, forex, news, notifications, profile, quotes, search
 from app.services.cache import close_client
 from app.services.news_fetcher import fetch_and_store_news
 
@@ -117,13 +117,13 @@ app.include_router(crypto.router, prefix=API_PREFIX)
 app.include_router(forex.router, prefix=API_PREFIX)
 app.include_router(auth_router)  # carries its own /auth prefix
 app.include_router(profile.router)  # carries its own /users prefix
-app.include_router(subscription.router)  # carries its own /subscription prefix
 app.include_router(dashboard.router)  # carries its own /dashboard prefix
 app.include_router(news.router)        # carries its own /api/news prefix
 app.include_router(chat.router)          # carries its own /api/chat prefix
 app.include_router(search.router)        # carries its own /api/search prefix
 app.include_router(notifications.router) # carries its own /api/notifications prefix
-logger.info("[main] auth/users/subscription/dashboard/news/chat/search/notifications routes mounted")
+app.include_router(admin.router)         # carries its own /admin prefix
+logger.info("[main] auth/users/dashboard/news/chat/search/notifications/admin routes mounted")
 
 # Serve uploaded avatars under /uploads. The directory must exist before mount,
 # so create it eagerly (idempotent). Wrapped to degrade gracefully if the

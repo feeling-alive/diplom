@@ -520,18 +520,6 @@ ul, li { list-style: none; }
 }
 .avatar-uploader:hover .avatar-overlay { opacity: 1; }
 
-/* Shimmer gradient on the premium upgrade button. */
-@keyframes subShimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-.sub-shimmer {
-  background: linear-gradient(90deg, var(--accent), #f43f6e, var(--accent));
-  background-size: 200% auto;
-  color: #fff;
-}
-.sub-shimmer:hover { animation: subShimmer 2s linear infinite; }
-
 /* Generic spinner for lucide Loader2 icons. */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.8s linear infinite; }

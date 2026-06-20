@@ -14,7 +14,6 @@ import app.models as models
 
 EXPECTED_TABLES = {
     "users",
-    "subscriptions",
     "dashboard_configs",
     "chat_sessions",
     "comments",
@@ -22,6 +21,9 @@ EXPECTED_TABLES = {
     "news_articles",
     "news_reactions",
     "news_favorites",
+    "notifications",
+    "api_keys",
+    "admin_logs",
 }
 
 
@@ -44,9 +46,7 @@ def test_favorite_unique_constraint() -> None:
 
 def test_enum_names_present() -> None:
     role_type = models.User.__table__.columns["role"].type
-    plan_type = models.Subscription.__table__.columns["plan"].type
     assert role_type.name == "user_role"
-    assert plan_type.name == "subscription_plan"
 
 
 @pytest.mark.asyncio

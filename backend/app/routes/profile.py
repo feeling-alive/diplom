@@ -1,8 +1,8 @@
 """User profile routes (prefix ``/users``).
 
-Exposes the current user's profile together with a compact subscription summary,
-username editing with uniqueness validation, a live username-availability probe,
-and avatar upload (cropped to a 200x200 square via Pillow).
+Exposes the current user's profile, username editing with uniqueness validation,
+a live username-availability probe, and avatar upload (cropped to a 200x200
+square via Pillow).
 
 All endpoints require authentication through :func:`get_current_user`; the
 dependency raises 401 when the JWT cookie is missing or invalid.
@@ -24,15 +24,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import get_current_user
 from app.config import settings
 from app.database import get_db
-from app.models import Subscription, SubscriptionPlan, User
+from app.models import User
 
 logger = logging.getLogger("backend.routes.profile")
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-# Per-plan AI-request limits are derived here (not stored in the DB).
-AI_LIMIT_FREE = 5
-AI_LIMIT_PREMIUM = 9999
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]+$")
 AVATAR_MAX_BYTES = 5 * 1024 * 1024  # 5MB
@@ -42,17 +38,8 @@ AVATAR_SIZE = 200
 
 # --- Schemas ----------------------------------------------------------------
 
-class SubscriptionInfo(BaseModel):
-    """Compact subscription summary embedded in the profile response."""
-
-    plan: str
-    expires_at: str | None
-    ai_requests_used: int
-    ai_requests_limit: int
-
-
 class ProfileResponse(BaseModel):
-    """Profile + subscription returned by GET/PATCH ``/users/me``."""
+    """Profile returned by GET/PATCH ``/users/me``."""
 
     id: str
     email: str
@@ -60,7 +47,6 @@ class ProfileResponse(BaseModel):
     avatar_url: str | None
     role: str
     created_at: str
-    subscription: SubscriptionInfo
 
 
 class UpdateUsernameRequest(BaseModel):
@@ -79,16 +65,8 @@ class AvatarResponse(BaseModel):
 
 # --- Helpers ----------------------------------------------------------------
 
-def _ai_limit(plan: SubscriptionPlan) -> int:
-    """Derive the AI-request limit from the plan tier."""
-    return AI_LIMIT_PREMIUM if plan == SubscriptionPlan.premium else AI_LIMIT_FREE
-
-
-def _build_profile(user: User, subscription: Subscription | None) -> ProfileResponse:
-    """Assemble the profile DTO from a user and its (optional) subscription."""
-    plan = subscription.plan if subscription else SubscriptionPlan.free
-    used = subscription.ai_requests_used if subscription else 0
-    expires = subscription.expires_at if subscription and subscription.expires_at else None
+def _build_profile(user: User) -> ProfileResponse:
+    """Assemble the profile DTO from a user."""
     return ProfileResponse(
         id=str(user.id),
         email=user.email,
@@ -96,20 +74,7 @@ def _build_profile(user: User, subscription: Subscription | None) -> ProfileResp
         avatar_url=user.avatar_url,
         role=user.role.value,
         created_at=user.created_at.isoformat(),
-        subscription=SubscriptionInfo(
-            plan=plan.value,
-            expires_at=expires.isoformat() if expires else None,
-            ai_requests_used=used,
-            ai_requests_limit=_ai_limit(plan),
-        ),
     )
-
-
-async def _get_subscription(db: AsyncSession, user_id) -> Subscription | None:
-    """Load the user's subscription row (lazy relationship is unsafe in async)."""
-    return (
-        await db.execute(select(Subscription).where(Subscription.user_id == user_id))
-    ).scalar_one_or_none()
 
 
 def _validate_username(username: str) -> None:
@@ -129,14 +94,9 @@ async def get_me(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> ProfileResponse:
-    """Return the current user's profile and subscription summary."""
-    subscription = await _get_subscription(db, current_user.id)
-    logger.debug(
-        "[profile] get_me user=%s plan=%s",
-        current_user.id,
-        subscription.plan.value if subscription else "free(none)",
-    )
-    return _build_profile(current_user, subscription)
+    """Return the current user's profile."""
+    logger.debug("[profile] get_me user=%s", current_user.id)
+    return _build_profile(current_user)
 
 
 @router.patch("/me", response_model=ProfileResponse)
@@ -168,8 +128,7 @@ async def update_me(
         await db.refresh(current_user)
         logger.debug("[profile] username updated user=%s -> %s", current_user.id, new_username)
 
-    subscription = await _get_subscription(db, current_user.id)
-    return _build_profile(current_user, subscription)
+    return _build_profile(current_user)
 
 
 @router.get("/me/check-username", response_model=CheckUsernameResponse)

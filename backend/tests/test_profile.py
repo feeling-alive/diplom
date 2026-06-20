@@ -1,9 +1,9 @@
-"""Profile + subscription API tests.
+"""Profile API tests.
 
 Each test registers via ``/auth/register`` (which sets the auth cookie on the
-shared httpx client) and then calls the protected ``/users`` and
-``/subscription`` routes with that cookie. Registering a second user simply
-overwrites the cookie, which is how the "username taken" path is exercised.
+shared httpx client) and then calls the protected ``/users`` routes with that
+cookie. Registering a second user simply overwrites the cookie, which is how the
+"username taken" path is exercised.
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ async def test_get_profile_authenticated(client: AsyncClient) -> None:
     body = resp.json()
     assert body["username"] == "alice"
     assert body["email"] == "a@example.com"
-    assert body["subscription"]["plan"] == "free"
-    assert body["subscription"]["ai_requests_limit"] == 5
+    # Subscription/premium removed — the profile no longer carries that field.
+    assert "subscription" not in body
 
 
 async def test_get_profile_unauthorized(client: AsyncClient) -> None:
@@ -66,21 +66,8 @@ async def test_check_username_taken(client: AsyncClient) -> None:
     assert taken.json()["available"] is False
 
 
-async def test_upgrade_subscription(client: AsyncClient) -> None:
+async def test_subscription_routes_removed(client: AsyncClient) -> None:
+    """The /subscription surface was removed — its endpoints must 404."""
     await client.post("/auth/register", json=USER_A)
     resp = await client.post("/subscription/upgrade")
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert body["plan"] == "premium"
-    assert body["expires_at"] is not None
-    # The profile summary reflects the upgrade too.
-    profile = await client.get("/users/me")
-    assert profile.json()["subscription"]["plan"] == "premium"
-
-
-async def test_upgrade_already_premium(client: AsyncClient) -> None:
-    await client.post("/auth/register", json=USER_A)
-    first = await client.post("/subscription/upgrade")
-    assert first.status_code == 200
-    second = await client.post("/subscription/upgrade")
-    assert second.status_code == 400
+    assert resp.status_code == 404

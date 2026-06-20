@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 дней
 
+    # --- Admin API key encryption (Fernet) ------------------------------------
+    # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # Required for POST /admin/api-keys; graceful error if absent.
+    encryption_key: str = ""
+
     # --- Uploads ---------------------------------------------------------------
     uploads_dir: str = "uploads"
 
@@ -138,6 +143,12 @@ class Settings(BaseSettings):
 
     # --- External API timeout (seconds) ---------------------------------------
     http_timeout: float = 5.0
+
+    # --- AI chat rate limit ----------------------------------------------------
+    # Fixed silent cap on AI-assistant requests per user per minute (ПЗ: "ограничение
+    # числа обращений к ИИ-модулю"). Enforced via a Redis per-minute counter in
+    # routes/chat.py; never surfaced in the UI. Fail-open if Redis is unavailable.
+    ai_rate_limit_per_minute: int = 30
 
     @property
     def cors_origin_list(self) -> list[str]:

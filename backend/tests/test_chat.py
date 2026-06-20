@@ -78,6 +78,18 @@ def _mock_groq(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.routes.chat.get_groq_response", fake_groq_response)
 
 
+@pytest.fixture(autouse=True)
+def _allow_rate_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default: rate limiter allows every request (no real Redis in tests).
+
+    The dedicated 429 test overrides this with its own monkeypatch.
+    """
+    async def fake_check(scope: str, identity: str, limit: int, window: int = 60) -> bool:
+        return True
+
+    monkeypatch.setattr("app.routes.chat.check_rate_limit", fake_check)
+
+
 # ---------------------------------------------------------------------------
 # GET /api/chat/predict/{symbol}  — public, no auth required
 # ---------------------------------------------------------------------------
@@ -166,6 +178,34 @@ async def test_chat_with_symbol_returns_reply_and_prediction(client: AsyncClient
     assert body["prediction"] is not None
     assert body["prediction"]["direction"] == "UP"
     assert body["prediction"]["probability"] == 0.82
+
+
+async def test_chat_rate_limit_exceeded_returns_429(
+    monkeypatch: pytest.MonkeyPatch, client: AsyncClient
+) -> None:
+    await client.post("/auth/register", json=USER)
+
+    async def deny_rate(scope: str, identity: str, limit: int, window: int = 60) -> bool:
+        assert scope == "ai"
+        return False
+
+    monkeypatch.setattr("app.routes.chat.check_rate_limit", deny_rate)
+    resp = await client.post("/api/chat/message", json={"message": "q", "symbol": "BTC"})
+    assert resp.status_code == 429, resp.text
+    # The limit value must not leak into the user-facing error message.
+    detail = resp.json()["detail"]
+    assert "30" not in detail
+    assert "Слишком много запросов" in detail
+
+
+async def test_chat_rate_limit_fail_open_when_redis_down(client: AsyncClient) -> None:
+    """check_rate_limit fails open (returns True) when Redis is unreachable, so
+    the request still succeeds. Exercises the real helper against a (likely)
+    absent Redis without asserting on Redis state."""
+    from app.services.cache import check_rate_limit
+
+    allowed = await check_rate_limit("ai", "nobody", 1)
+    assert allowed is True  # fail-open regardless of Redis availability
 
 
 async def test_chat_general_returns_reply_no_prediction(client: AsyncClient) -> None:
@@ -290,6 +330,8 @@ _DETAILS_DOWN = {
     "macd_cross": "нет пересечения",
     "trend": "нисходящий",
     "price_vs_sma20": -3.4,
+    "atr": 12.34,
+    "volume_zscore": 2.1,
 }
 
 
@@ -306,6 +348,8 @@ def test_build_system_prompt_structure() -> None:
     assert "RSI(14): 32.0 — перепродан" in prompt
     assert "MACD: ниже сигнальной, нет пересечения" in prompt
     assert "Тренд: нисходящий (цена -3.4% от SMA20)" in prompt
+    assert "ATR(14): 12.34" in prompt
+    assert "Z-оценка объёма: +2.10" in prompt
     assert "бычьи" in prompt  # rule_score_text(0.5)
     assert "ЗАДАЧА" in prompt
     assert "Актуальные новости из базы:" in prompt

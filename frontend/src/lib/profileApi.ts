@@ -1,16 +1,7 @@
-// Thin fetch wrappers around the backend /users/* and /subscription/* endpoints.
-// All calls use credentials: 'include' so the HttpOnly access_token cookie is
-// sent. Requests go through the Vite proxy (/users, /subscription -> :8000), so
-// they are same-origin from the browser's perspective. Mirrors lib/authApi.ts.
-
-export type PlanId = 'free' | 'premium'
-
-export interface SubscriptionInfo {
-  plan: PlanId
-  expires_at: string | null
-  ai_requests_used: number
-  ai_requests_limit: number
-}
+// Thin fetch wrappers around the backend /users/* endpoints. All calls use
+// credentials: 'include' so the HttpOnly access_token cookie is sent. Requests
+// go through the Vite proxy (/users -> :8000), so they are same-origin from the
+// browser's perspective. Mirrors lib/authApi.ts.
 
 export interface ProfileData {
   id: string
@@ -19,21 +10,6 @@ export interface ProfileData {
   avatar_url: string | null
   role: string
   created_at: string
-  subscription: SubscriptionInfo
-}
-
-export interface SubscriptionFeatures {
-  ai_requests_per_day: number
-  ai_requests_used_today: number
-  advanced_charts: boolean
-  export_data: boolean
-  priority_updates: boolean
-}
-
-export interface SubscriptionStatus {
-  plan: PlanId
-  expires_at: string | null
-  features: SubscriptionFeatures
 }
 
 async function parseError(res: Response): Promise<string> {
@@ -92,33 +68,4 @@ export async function uploadAvatar(file: File): Promise<string> {
   if (!res.ok) throw new Error(await parseError(res))
   const data = (await res.json()) as { avatar_url: string }
   return data.avatar_url
-}
-
-// --- Subscription -----------------------------------------------------------
-
-export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
-  console.debug('[profileApi] getSubscriptionStatus')
-  const res = await fetch('/subscription/status', { credentials: 'include' })
-  if (!res.ok) throw new Error(await parseError(res))
-  return (await res.json()) as SubscriptionStatus
-}
-
-export async function upgradeSubscription(): Promise<SubscriptionStatus> {
-  console.debug('[profileApi] upgradeSubscription')
-  const res = await fetch('/subscription/upgrade', {
-    method: 'POST',
-    credentials: 'include',
-  })
-  if (!res.ok) throw new Error(await parseError(res))
-  return (await res.json()) as SubscriptionStatus
-}
-
-export async function cancelSubscription(): Promise<SubscriptionStatus> {
-  console.debug('[profileApi] cancelSubscription')
-  const res = await fetch('/subscription/cancel', {
-    method: 'POST',
-    credentials: 'include',
-  })
-  if (!res.ok) throw new Error(await parseError(res))
-  return (await res.json()) as SubscriptionStatus
 }

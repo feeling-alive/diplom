@@ -1,7 +1,8 @@
 """SQLAlchemy 2.0 ORM models for FinTrack (Блок A).
 
-Six domain tables: User, Subscription, DashboardConfig, ChatSession, Comment,
-Favorite. All models use the typed ``Mapped`` / ``mapped_column`` style and a
+Domain tables: User, DashboardConfig, ChatSession, Comment,
+Favorite (+ news/admin/notification tables). All models use the typed
+``Mapped`` / ``mapped_column`` style and a
 shared ``Base`` from :mod:`app.database`. UUID primary keys default to
 ``uuid4``; enums are given explicit ``name=`` so Alembic emits stable PostgreSQL
 ENUM types. Timestamps are timezone-aware and default to ``now()`` server-side.
@@ -22,6 +23,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     Uuid,
     func,
@@ -46,13 +48,6 @@ class UserRole(str, enum.Enum):
     admin = "admin"
 
 
-class SubscriptionPlan(str, enum.Enum):
-    """Billing plan tier."""
-
-    free = "free"
-    premium = "premium"
-
-
 class User(Base):
     """Application user. ``password_hash`` is nullable for Google-only accounts."""
 
@@ -74,9 +69,6 @@ class User(Base):
 
     # Relationships (1:1 where unique FK, 1:N otherwise). cascade keeps child
     # rows consistent when a user is deleted.
-    subscription: Mapped["Subscription | None"] = relationship(
-        back_populates="user", uselist=False, cascade="all, delete-orphan"
-    )
     dashboard_config: Mapped["DashboardConfig | None"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
@@ -97,30 +89,6 @@ class User(Base):
     )
 
 
-class Subscription(Base):
-    """A user's plan. One row per user (unique FK enforces 1:1)."""
-
-    __tablename__ = "subscriptions"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
-    )
-    plan: Mapped[SubscriptionPlan] = mapped_column(
-        Enum(SubscriptionPlan, name="subscription_plan"),
-        default=SubscriptionPlan.free,
-        nullable=False,
-    )
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # Demo AI-request counter. The per-plan limit and feature flags are derived in
-    # the route layer (free=5, premium=unlimited), not stored here. No daily reset
-    # in the demo — the value is exposed as "used today".
-    ai_requests_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-
-    user: Mapped["User"] = relationship(back_populates="subscription")
 
 
 class DashboardConfig(Base):
@@ -331,5 +299,46 @@ class Notification(Base):
     sender: Mapped["User | None"] = relationship("User", foreign_keys=[sender_id])
 
 
+class ApiKey(Base):
+    """Encrypted API key for an external service, stored per service name."""
+
+    __tablename__ = "api_keys"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    service: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    encrypted_value: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class AdminLog(Base):
+    """Audit log of admin actions.
+
+    ``admin_id`` is SET NULL on user deletion so the log entry survives.
+    """
+
+    __tablename__ = "admin_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    admin_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    admin_username: Mapped[str] = mapped_column(String(64), nullable=False)
+    action: Mapped[str] = mapped_column(String(128), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+
 logger.debug("[models] registered %d tables: %s", len(Base.metadata.tables), list(Base.metadata.tables))
-logger.debug("[models] NewsArticle/NewsReaction/NewsFavorite/Notification defined")
+logger.debug("[models] NewsArticle/NewsReaction/NewsFavorite/Notification/ApiKey/AdminLog defined")

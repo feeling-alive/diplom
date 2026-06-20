@@ -146,7 +146,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } finally {
         fetchingRef.current = false
-        if (active) setIsLoading(false)
+        // Unconditional: StrictMode double-mount leaves active=false on the
+        // first closure, which would keep isLoading stuck at true forever.
+        setIsLoading(false)
       }
     })()
     return () => {

@@ -10,9 +10,8 @@ import {
   Settings,
   LogOut,
   Sparkles,
-  Crown,
+  ShieldCheck,
 } from 'lucide-react'
-import { useSubscription } from '../../hooks/useSubscription'
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Дашборд', path: '/' },
@@ -25,8 +24,6 @@ export default function AppSidebar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
-  const { data: subData } = useSubscription()
-  const isPremium = subData?.plan === 'premium'
   const [activeTooltip, setActiveTooltip] = useState<{ label: string; x: number; y: number } | null>(null)
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -82,6 +79,18 @@ export default function AppSidebar() {
               </NavLink>
             )
           })}
+          {user?.role === 'admin' && (
+            <NavLink
+              to="/admin"
+              data-testid="rail-link-admin"
+              className={`rail-btn ${isActive('/admin') ? 'active' : ''}`}
+              onMouseEnter={(e) => showTooltip(e, 'Админ панель')}
+              onMouseLeave={hideTooltip}
+              style={{ color: 'var(--accent)' }}
+            >
+              <ShieldCheck size={18} strokeWidth={isActive('/admin') ? 2.5 : 2} />
+            </NavLink>
+          )}
         </nav>
 
         {/* Bottom */}
@@ -110,21 +119,6 @@ export default function AppSidebar() {
                 initial(username || 'Н')
               )}
             </div>
-            {isPremium && (
-              <div
-                title="Premium"
-                style={{
-                  position: 'absolute', top: -6, right: -6,
-                  width: 18, height: 18, borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #FFD25A 0%, #F5A623 100%)',
-                  boxShadow: '0 0 0 2px var(--white), 0 2px 8px rgba(245,166,35,0.6)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  pointerEvents: 'none',
-                }}
-              >
-                <Crown size={10} color="#fff" strokeWidth={2.5} />
-              </div>
-            )}
           </div>
           <button
             className="rail-btn"

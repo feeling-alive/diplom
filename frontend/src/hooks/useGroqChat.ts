@@ -52,6 +52,13 @@ export function useGroqChat({ symbol }: UseGroqChatOptions) {
         }),
       })
 
+      if (response.status === 429) {
+        // Silent AI rate limit (server-side). Show a clean message without
+        // exposing the limit value.
+        console.warn('[useGroqChat] rate limited (429)')
+        throw new Error('Слишком много запросов к ИИ, попробуйте через минуту')
+      }
+
       if (!response.ok) {
         const errText = await response.text()
         throw new Error(`Backend ${response.status}: ${errText.slice(0, 200)}`)
