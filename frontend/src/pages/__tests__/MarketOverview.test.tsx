@@ -27,6 +27,12 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => () => undefined,
 }))
 
+// AssetTable's SparklineCell uses useOHLCV (React Query). Mock it so tests don't
+// need a QueryClientProvider — sparklines aren't asserted here.
+vi.mock('../../hooks/useOHLCV', () => ({
+  useOHLCV: () => ({ data: [], isLoading: false, error: null }),
+}))
+
 // usePrices is async-first (isLoading=true on first render). Mock it with loaded data
 // so MarketSummaryBar/TopMovers/AssetTable render their content synchronously.
 vi.mock('../../hooks/usePrices', () => {

@@ -9,8 +9,11 @@ quote currency decides):
   ``o=h=l=c=rate`` candle).
 * **stock**  (``AAPL``, ``MSFT``)          -> yfinance daily/intraday history.
 
-Every source degrades gracefully: on any upstream error the route returns the
-mock fixture so charts never break. The response contract is stable:
+Graceful degradation is **asset-class aware**: a crypto failure falls back to the
+crypto mock fixture (cold-start safety), but a stock/forex failure returns an
+EMPTY candle set (``source="empty"``) — never the crypto mock. Serving $68k
+crypto candles under a $379 stock was bug #6; an empty set lets the frontend
+render a proper empty state instead. The response contract is stable:
 ``{symbol, timeframe, candles:[{t,o,h,l,c,v}], source}`` with ``t`` in unix ms,
 oldest candle first.
 """
@@ -95,6 +98,28 @@ def _mock_candles(symbol: str, timeframe: str, limit: int) -> dict[str, Any]:
     }
 
 
+def _empty_candles(symbol: str, timeframe: str) -> dict[str, Any]:
+    """Return an empty candle set so the frontend renders an empty state.
+
+    Used when a stock/forex upstream fails: serving the crypto mock fixture here
+    would paint misleading $68k candles under an unrelated symbol (bug #6).
+    """
+    logger.warning("[candles] no data for %s tf=%s — returning empty set", symbol, timeframe)
+    return {
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "candles": [],
+        "source": "empty",
+    }
+
+
+def _degraded_candles(symbol: str, timeframe: str, limit: int, kind: str) -> dict[str, Any]:
+    """Asset-class-aware fallback: crypto -> mock fixture, everything else -> empty."""
+    if kind == "crypto":
+        return _mock_candles(symbol, timeframe, limit)
+    return _empty_candles(symbol, timeframe)
+
+
 async def _fetch_okx(symbol: str, timeframe: str, limit: int) -> list[dict[str, Any]]:
     """Fetch from OKX and normalize into the canonical candle shape."""
     logger.info("[candles] OKX fetch %s tf=%s limit=%d", symbol, timeframe, limit)
@@ -148,6 +173,18 @@ def _fetch_yfinance_sync(symbol: str, timeframe: str, limit: int) -> list[dict[s
 
     ticker = yf.Ticker(symbol)
     frame = ticker.history(period=period, interval=interval, auto_adjust=False)
+    if frame is None or frame.empty:
+        # Ticker.history can come back empty (rate-limit/session quirks) while the
+        # batch download path still returns rows — try it before giving up.
+        logger.warning("[candles] yfinance Ticker.history empty for %s — trying download()", symbol)
+        frame = yf.download(
+            symbol, period=period, interval=interval,
+            auto_adjust=False, progress=False, threads=False,
+        )
+        # yf.download returns MultiIndex columns for a single ticker; flatten them.
+        if frame is not None and not frame.empty and hasattr(frame.columns, "nlevels"):
+            if frame.columns.nlevels > 1:
+                frame.columns = frame.columns.get_level_values(0)
     if frame is None or frame.empty:
         raise LookupError(f"yfinance returned no candles for {symbol}")
 
@@ -251,10 +288,10 @@ async def get_candles(symbol: str, timeframe: str, limit: int = 100) -> dict[str
             ttl = settings.ohlcv_stock_ttl
     except (httpx.HTTPError, LookupError, ValueError) as err:
         logger.warning("[candles] upstream failed for %s tf=%s (%s): %s", symbol, timeframe, kind, err)
-        return _mock_candles(symbol, timeframe, limit)
-    except Exception as err:  # noqa: BLE001 — yfinance can raise arbitrary errors; degrade to mock
+        return _degraded_candles(symbol, timeframe, limit, kind)
+    except Exception as err:  # noqa: BLE001 — yfinance can raise arbitrary errors; degrade gracefully
         logger.warning("[candles] unexpected error for %s tf=%s (%s): %s", symbol, timeframe, kind, err)
-        return _mock_candles(symbol, timeframe, limit)
+        return _degraded_candles(symbol, timeframe, limit, kind)
 
     result = {"symbol": symbol, "timeframe": timeframe, "candles": candles, "source": source}
     await set_cached(key, result, ttl)

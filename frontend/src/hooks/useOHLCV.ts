@@ -23,7 +23,9 @@ interface OHLCVBackendResponse {
     v: number
   }>
   // Источник истории: крипта → OKX, акции → yfinance, форекс → Frankfurter.
-  source: 'okx' | 'yfinance' | 'frankfurter' | 'cache' | 'mock'
+  // 'empty' — апстрим не отдал данных для акций/форекса (бэкенд НЕ подставляет
+  // крипто-mock не той категории), фронт показывает empty state.
+  source: 'okx' | 'yfinance' | 'frankfurter' | 'cache' | 'mock' | 'empty'
 }
 
 interface OHLCVResult {

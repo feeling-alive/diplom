@@ -90,22 +90,39 @@ async def test_get_candles_forex_routes_frankfurter(monkeypatch: pytest.MonkeyPa
     assert captured == {"base": "EUR", "quote": "USD", "limit": 30}
 
 
-async def test_get_candles_stock_failure_returns_mock(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_get_candles_stock_failure_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stock failures must NOT fall back to the crypto mock fixture (bug #6) —
+    an empty set lets the frontend show a proper empty state instead of $68k candles."""
+
     async def boom(symbol: str, tf: str, limit: int) -> list[dict[str, Any]]:
         raise LookupError("yfinance down")
 
     monkeypatch.setattr(candles, "_fetch_yfinance", boom)
     result = await get_candles("AAPL", "1D", 10)
-    assert result["source"] == "mock"
+    assert result["source"] == "empty"
+    assert result["candles"] == []
     assert result["symbol"] == "AAPL"
 
 
-async def test_get_candles_forex_http_error_returns_mock(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_get_candles_forex_http_error_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     async def boom(base: str, quote: str, limit: int) -> list[dict[str, Any]]:
         raise httpx.HTTPError("frankfurter down")
 
     monkeypatch.setattr(candles, "_fetch_frankfurter_series", boom)
     result = await get_candles("USD-JPY", "1D", 10)
+    assert result["source"] == "empty"
+    assert result["candles"] == []
+
+
+async def test_get_candles_crypto_failure_still_returns_mock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Crypto keeps the mock fixture fallback — the mock IS crypto data, so it is
+    a sensible cold-start placeholder for that asset class."""
+
+    async def boom(symbol: str, tf: str, limit: int) -> list[dict[str, Any]]:
+        raise LookupError("okx down")
+
+    monkeypatch.setattr(candles, "_fetch_okx", boom)
+    result = await get_candles("BTC-USDT", "1H", 10)
     assert result["source"] == "mock"
 
 

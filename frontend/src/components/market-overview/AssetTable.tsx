@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePrices } from '../../hooks/usePrices'
-import { getMockOHLCV } from '../../mock/ohlcv.mock'
+import { useOHLCV } from '../../hooks/useOHLCV'
 import { EmptySearchState } from '../ui/EmptySearchState'
 import type { Asset } from '../../types/market.types'
 
@@ -38,8 +38,19 @@ function formatTrillion(n: number): string {
 }
 
 function SparklineCell({ symbol, positive }: { symbol: string; positive: boolean }) {
-  const points = useMemo(() => getMockOHLCV(symbol, 20).map(p => p.close), [symbol])
+  // Single source of truth: the same /api/quotes/ohlcv hook the asset page chart uses,
+  // so the sparkline and SimpleChart never disagree (bug #7). React Query caches per
+  // [symbol, '1D'], so opening the asset page reuses this exact series.
+  const { data } = useOHLCV(symbol, '1D')
+  const points = useMemo(() => data.slice(-30).map((p) => p.close), [data])
   const color = positive ? 'var(--green)' : 'var(--accent)'
+
+  // Empty state: no data (e.g. stock upstream returned an empty set) → flat baseline,
+  // never a misleading mock shape.
+  if (points.length < 2) {
+    return <svg width={60} height={30} viewBox="0 0 60 30" style={{ display: 'block' }} aria-hidden />
+  }
+
   const min = Math.min(...points)
   const max = Math.max(...points)
   const range = max - min || 1
