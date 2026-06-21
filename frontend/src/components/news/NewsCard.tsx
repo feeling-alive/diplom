@@ -4,28 +4,11 @@ import { motion } from 'framer-motion'
 import { MessageCircle, Star, ThumbsDown, ThumbsUp } from 'lucide-react'
 import type { NewsArticle } from '../../hooks/useNews'
 import { reactToArticle, toggleFavorite } from '../../hooks/useNews'
+import MarketImpactBadge from './MarketImpactBadge'
 
 interface Props {
   article: NewsArticle
   index?: number
-}
-
-function MarketImpactBadge({ impact }: { impact: string | null }) {
-  if (!impact) return null
-  const map: Record<string, { label: string; color: string; bg: string }> = {
-    positive: { label: '📈 Позитивно', color: '#16a34a', bg: '#dcfce7' },
-    negative: { label: '📉 Негативно', color: '#dc2626', bg: '#fee2e2' },
-    neutral:  { label: '➡️ Нейтрально', color: '#6b7280', bg: '#f3f4f6' },
-  }
-  const style = map[impact] ?? map.neutral
-  return (
-    <span style={{
-      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-      color: style.color, background: style.bg, flexShrink: 0,
-    }}>
-      {style.label}
-    </span>
-  )
 }
 
 function ImageOrPlaceholder({ url, source }: { url: string | null; source: string }) {
@@ -113,14 +96,23 @@ export default function NewsCard({ article: a, index = 0 }: Props) {
           {a.source_name}
         </div>
 
-        {/* Symbol chips */}
+        {/* Symbol chips — click filters the feed by that ticker (?symbol=) */}
         {a.symbols && a.symbols.length > 0 && (
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {a.symbols.slice(0, 5).map((s) => (
-              <span key={s} style={{
-                fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999,
-                background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)',
-              }}>{s}</span>
+              <button
+                key={s}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  console.debug('[NewsCard] filter by symbol', s)
+                  navigate(`/news?symbol=${encodeURIComponent(s)}`)
+                }}
+                style={{
+                  fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999,
+                  background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)',
+                  cursor: 'pointer', fontFamily: 'var(--font)',
+                }}
+              >{s}</button>
             ))}
           </div>
         )}

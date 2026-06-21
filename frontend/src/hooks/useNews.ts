@@ -33,22 +33,27 @@ async function fetchNewsPage(
   page: number,
   query: string,
   category: string,
+  symbol: string,
   limit = 20,
 ): Promise<NewsFeedPage> {
-  console.debug('[useNews] fetch page', page, 'category', category, 'query', query)
+  console.debug('[useNews] fetch page', page, 'category', category, 'query', query, 'symbol', symbol)
   const params = new URLSearchParams({ page: String(page), limit: String(limit) })
   if (query) params.set('query', query)
   if (category && category !== 'all') params.set('category', category)
+  if (symbol) params.set('symbol', symbol)
   const res = await fetch(`/api/news?${params}`)
   if (!res.ok) throw new Error(`GET /api/news ${res.status}`)
   return res.json() as Promise<NewsFeedPage>
 }
 
-/** Infinite-scroll news feed, backed by our backend. */
-export function useNews(query = '', category = 'all') {
+/**
+ * Infinite-scroll news feed, backed by our backend.
+ * @param symbol — optional base-ticker filter (BTC, AAPL) matched against symbols[].
+ */
+export function useNews(query = '', category = 'all', symbol = '') {
   return useInfiniteQuery<NewsFeedPage, Error>({
-    queryKey: ['news', query, category],
-    queryFn: ({ pageParam }) => fetchNewsPage(pageParam as number, query, category),
+    queryKey: ['news', query, category, symbol],
+    queryFn: ({ pageParam }) => fetchNewsPage(pageParam as number, query, category, symbol),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => (lastPage.has_more ? lastPage.page + 1 : undefined),
     staleTime: 5 * 60 * 1000,

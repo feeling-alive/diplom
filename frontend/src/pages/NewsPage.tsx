@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useSearchParams } from 'react-router-dom'
+import { X } from 'lucide-react'
 import { useNews } from '../hooks/useNews'
 import NewsCard from '../components/news/NewsCard'
 import { SearchInput } from '../components/ui/SearchInput'
@@ -24,11 +26,20 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export default function NewsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const symbol = searchParams.get('symbol') ?? ''
   const [rawQuery, setRawQuery] = useState('')
   const [category, setCategory] = useState<Category>('all')
   const query = useDebounce(rawQuery, 400)
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useNews(query, category)
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useNews(query, category, symbol)
+
+  const clearSymbol = () => {
+    console.debug('[NewsPage] clear symbol filter')
+    const next = new URLSearchParams(searchParams)
+    next.delete('symbol')
+    setSearchParams(next)
+  }
 
   const sentinelRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -60,6 +71,24 @@ export default function NewsPage() {
           fullWidth
         />
       </div>
+
+      {/* Active symbol filter chip */}
+      {symbol && (
+        <div style={{ marginBottom: 12 }}>
+          <button
+            onClick={clearSymbol}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '5px 12px', borderRadius: 'var(--r-pill)', fontSize: 12,
+              fontWeight: 600, cursor: 'pointer', border: '1px solid var(--accent)',
+              background: 'var(--accent)', color: '#fff', fontFamily: 'var(--font)',
+            }}
+          >
+            {symbol}
+            <X size={12} />
+          </button>
+        </div>
+      )}
 
       {/* Category tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -102,7 +131,7 @@ export default function NewsPage() {
       {/* Articles with Framer Motion stagger */}
       <AnimatePresence mode="wait">
         <motion.div
-          key={query + category}
+          key={query + category + symbol}
           style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
         >
           {allArticles.map((article, i) => (

@@ -1,15 +1,15 @@
 import { motion } from 'framer-motion'
 import { useNews, type NewsArticle } from '../../hooks/useNews'
+import MarketImpactBadge from '../news/MarketImpactBadge'
 
 interface Props {
   symbol: string
   ticker?: string
 }
 
-function impactColor(impact: string | null): string {
-  if (impact === 'positive') return 'var(--green)'
-  if (impact === 'negative') return 'var(--red)'
-  return 'var(--muted)'
+// Base ticker for the symbols[] filter: BTC-USDT -> BTC, AAPL -> AAPL.
+function baseTicker(symbol: string): string {
+  return symbol.split('-')[0].toUpperCase()
 }
 
 function timeAgo(iso: string): string {
@@ -38,8 +38,9 @@ function NewsSkeleton() {
 }
 
 export default function NewsPanel({ symbol, ticker }: Props) {
-  // Search by symbol name on our backend.
-  const { data, isLoading } = useNews(symbol, 'all')
+  // Bridge market impact to the asset: filter the feed by the asset's base ticker
+  // against the enriched symbols[] array (bug #5) instead of a fuzzy text search.
+  const { data, isLoading } = useNews('', 'all', baseTicker(symbol))
   const news: NewsArticle[] = data?.pages[0]?.articles ?? []
   const label = ticker ?? symbol
 
@@ -90,13 +91,15 @@ export default function NewsPanel({ symbol, ticker }: Props) {
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg)'; e.currentTarget.style.borderColor = 'var(--border)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent' }}
               >
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: impactColor(item.market_impact), marginTop: 6, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>
                     {item.title_ru || item.title}
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>
-                    {item.source_name} · {timeAgo(item.published_at)}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    {item.market_impact && <MarketImpactBadge impact={item.market_impact} compact />}
+                    <span style={{ fontSize: 10, color: 'var(--muted)' }}>
+                      {item.source_name} · {timeAgo(item.published_at)}
+                    </span>
                   </div>
                 </div>
               </motion.a>

@@ -67,6 +67,27 @@ async def test_get_news_category_filter(client: AsyncClient, db_session: AsyncSe
         assert a["category"] == "crypto"
 
 
+async def test_get_news_symbol_filter(client: AsyncClient, db_session: AsyncSession) -> None:
+    """The symbol filter matches the base ticker inside the symbols[] JSON array (bug #5)."""
+    btc = NewsArticle(**_make_article(title="BTC rally", url=f"https://example.com/{uuid.uuid4()}"))
+    btc.symbols = ["BTC", "ETH"]
+    aapl = NewsArticle(**_make_article(title="Apple earnings", url=f"https://example.com/{uuid.uuid4()}"))
+    aapl.symbols = ["AAPL"]
+    db_session.add_all([btc, aapl])
+    await db_session.commit()
+
+    resp = await client.get("/api/news", params={"symbol": "BTC"})
+    assert resp.status_code == 200
+    titles = [a["title"] for a in resp.json()["articles"]]
+    assert "BTC rally" in titles
+    assert "Apple earnings" not in titles
+
+    # Case-insensitive and works for stocks too.
+    resp2 = await client.get("/api/news", params={"symbol": "aapl"})
+    titles2 = [a["title"] for a in resp2.json()["articles"]]
+    assert titles2 == ["Apple earnings"]
+
+
 # ---------------------------------------------------------------------------
 # Single article
 # ---------------------------------------------------------------------------
@@ -154,3 +175,125 @@ async def test_comment_add_and_list(client: AsyncClient, article: NewsArticle) -
     assert resp.status_code == 200
     comments = resp.json()
     assert any(c["text"] == "Great article!" for c in comments)
+
+
+# ---------------------------------------------------------------------------
+# Comment reactions: per-user like/dislike toggle (bug #9)
+# ---------------------------------------------------------------------------
+
+
+async def _add_comment(client: AsyncClient, article: NewsArticle, text: str = "hi there") -> str:
+    resp = await client.post(f"/api/news/{article.id}/comments", json={"text": text})
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
+
+
+async def test_comment_react_requires_auth(client: AsyncClient, article: NewsArticle) -> None:
+    # Create a comment as an authed user, then drop auth.
+    await client.post("/auth/register", json=USER_NEWS)
+    cid = await _add_comment(client, article)
+    client.cookies.clear()
+    resp = await client.post(f"/api/news/comments/{cid}/react", json={"type": "like"})
+    assert resp.status_code == 401
+
+
+async def test_comment_react_toggle_and_switch(client: AsyncClient, article: NewsArticle) -> None:
+    await client.post("/auth/register", json=USER_NEWS)
+    cid = await _add_comment(client, article)
+
+    # Add like
+    r1 = await client.post(f"/api/news/comments/{cid}/react", json={"type": "like"})
+    assert r1.status_code == 200, r1.text
+    b1 = r1.json()
+    assert b1["status"] == "added"
+    assert b1["likes_count"] == 1 and b1["dislikes_count"] == 0
+    assert b1["user_reaction"] == "like"
+
+    # Same type again toggles off (no infinite counter — the bug being fixed)
+    r2 = await client.post(f"/api/news/comments/{cid}/react", json={"type": "like"})
+    assert r2.json()["status"] == "removed"
+    assert r2.json()["likes_count"] == 0
+    assert r2.json()["user_reaction"] is None
+
+    # Switch like -> dislike
+    await client.post(f"/api/news/comments/{cid}/react", json={"type": "like"})
+    r3 = await client.post(f"/api/news/comments/{cid}/react", json={"type": "dislike"})
+    b3 = r3.json()
+    assert b3["status"] == "updated"
+    assert b3["likes_count"] == 0 and b3["dislikes_count"] == 1
+    assert b3["user_reaction"] == "dislike"
+
+
+async def test_comment_react_invalid_type(client: AsyncClient, article: NewsArticle) -> None:
+    await client.post("/auth/register", json=USER_NEWS)
+    cid = await _add_comment(client, article)
+    resp = await client.post(f"/api/news/comments/{cid}/react", json={"type": "love"})
+    assert resp.status_code == 422
+
+
+async def test_comment_react_reflected_in_list(client: AsyncClient, article: NewsArticle) -> None:
+    await client.post("/auth/register", json=USER_NEWS)
+    cid = await _add_comment(client, article)
+    await client.post(f"/api/news/comments/{cid}/react", json={"type": "like"})
+
+    resp = await client.get(f"/api/news/{article.id}/comments")
+    assert resp.status_code == 200
+    target = next(c for c in resp.json() if c["id"] == cid)
+    assert target["likes_count"] == 1
+    assert target["user_reaction"] == "like"
+
+
+# ---------------------------------------------------------------------------
+# AI enrichment: OpenRouter -> Groq fallback (bug #5)
+# ---------------------------------------------------------------------------
+
+
+def test_parse_enrichment_strips_code_fences() -> None:
+    from app.services.news_fetcher import _parse_enrichment
+
+    fenced = '```json\n{"title_ru": "Привет", "category": "crypto"}\n```'
+    data = _parse_enrichment(fenced)
+    assert data["title_ru"] == "Привет"
+    assert data["category"] == "crypto"
+
+
+async def test_enrich_complete_prefers_openrouter(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services import news_fetcher
+
+    async def fake_or(prompt: str) -> str:
+        return '{"from": "openrouter"}'
+
+    async def fake_groq(prompt: str) -> str:
+        raise AssertionError("Groq must not be called when OpenRouter succeeds")
+
+    monkeypatch.setattr(news_fetcher, "_openrouter_complete", fake_or)
+    monkeypatch.setattr(news_fetcher, "_groq_complete", fake_groq)
+    result = await news_fetcher._enrich_complete("prompt")
+    assert result == '{"from": "openrouter"}'
+
+
+async def test_enrich_complete_falls_back_to_groq(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When OpenRouter is unavailable (returns None), Groq is used (bug #5)."""
+    from app.services import news_fetcher
+
+    async def fake_or(prompt: str) -> None:
+        return None
+
+    async def fake_groq(prompt: str) -> str:
+        return '{"from": "groq"}'
+
+    monkeypatch.setattr(news_fetcher, "_openrouter_complete", fake_or)
+    monkeypatch.setattr(news_fetcher, "_groq_complete", fake_groq)
+    result = await news_fetcher._enrich_complete("prompt")
+    assert result == '{"from": "groq"}'
+
+
+async def test_enrich_complete_none_when_both_fail(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services import news_fetcher
+
+    async def fake_none(prompt: str) -> None:
+        return None
+
+    monkeypatch.setattr(news_fetcher, "_openrouter_complete", fake_none)
+    monkeypatch.setattr(news_fetcher, "_groq_complete", fake_none)
+    assert await news_fetcher._enrich_complete("prompt") is None

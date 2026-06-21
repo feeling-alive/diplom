@@ -24,13 +24,21 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.auth.dependencies import get_current_user, get_optional_user
+from app.auth.dependencies import get_current_user, get_optional_user, require_admin
 from app.database import get_db
-from app.models import Comment, NewsArticle, NewsFavorite, NewsReaction, Notification, User
+from app.models import (
+    Comment,
+    CommentReaction,
+    NewsArticle,
+    NewsFavorite,
+    NewsReaction,
+    Notification,
+    User,
+)
 from app.services.cache import get_cached, set_cached
 
 logger = logging.getLogger("backend.news")
@@ -82,7 +90,10 @@ class CommentOut(BaseModel):
     text: str
     created_at: str
     parent_id: uuid.UUID | None = None
-    likes: int = 0
+    likes: int = 0  # legacy; kept for backward compatibility, mirrors likes_count
+    likes_count: int = 0
+    dislikes_count: int = 0
+    user_reaction: str | None = None  # 'like' | 'dislike' | None for current user
     replies: list["CommentOut"] = []
 
     model_config = {"from_attributes": True}
@@ -182,14 +193,20 @@ async def _build_summary(
 async def get_news(
     query: str | None = Query(None),
     category: str | None = Query(None),
+    symbol: str | None = Query(None, description="Filter by base ticker present in symbols[] (e.g. BTC, AAPL)"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     session: AsyncSession = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ) -> FeedResponse:
-    logger.debug("[news] GET /api/news page=%d category=%s query=%s", page, category, query)
+    logger.debug(
+        "[news] GET /api/news page=%d category=%s query=%s symbol=%s",
+        page, category, query, symbol,
+    )
 
-    cache_key = _cache_key({"query": query, "category": category, "page": page, "limit": limit})
+    cache_key = _cache_key(
+        {"query": query, "category": category, "symbol": symbol, "page": page, "limit": limit}
+    )
     cached = await get_cached(cache_key)
     if cached and not user:
         # Cache hit only for anonymous requests (user-specific fields would be wrong).
@@ -198,9 +215,13 @@ async def get_news(
     stmt = select(NewsArticle).order_by(NewsArticle.published_at.desc())
     if category and category != "all":
         stmt = stmt.where(NewsArticle.category == category)
+    if symbol:
+        # symbols is a JSON array of bare tickers (["BTC","ETH"]). Match the quoted
+        # token in the serialized JSON — portable across SQLite (tests) and Postgres.
+        token = f'%"{symbol.strip().upper()}"%'
+        stmt = stmt.where(cast(NewsArticle.symbols, String).ilike(token))
     if query:
         q = f"%{query}%"
-        from sqlalchemy import or_
         stmt = stmt.where(
             or_(NewsArticle.title.ilike(q), NewsArticle.description.ilike(q),
                 NewsArticle.title_ru.ilike(q))
@@ -279,38 +300,65 @@ async def _create_notification(
     logger.debug("[news] notification created type=%s recipient=%s sender=%s", notif_type, recipient_id, sender_id)
 
 
-async def _build_comment_out(session: AsyncSession, c: "Comment") -> CommentOut:
-    """Build a CommentOut from a Comment ORM object, loading author and replies."""
-    author = await session.get(User, c.user_id)
-    reply_outs: list[CommentOut] = []
-    for r in c.replies:
-        reply_author = await session.get(User, r.user_id)
-        reply_outs.append(CommentOut(
-            id=r.id,
-            username=reply_author.username if reply_author else "unknown",
-            avatar_url=reply_author.avatar_url if reply_author else None,
-            text=r.text,
-            created_at=r.created_at.isoformat(),
-            parent_id=r.parent_id,
-            likes=r.likes,
-            replies=[],
-        ))
-    return CommentOut(
-        id=c.id,
-        username=author.username if author else "unknown",
-        avatar_url=author.avatar_url if author else None,
-        text=c.text,
-        created_at=c.created_at.isoformat(),
-        parent_id=c.parent_id,
-        likes=c.likes,
-        replies=reply_outs,
+async def _comment_reaction_data(
+    session: AsyncSession, comment_id: uuid.UUID, user: User | None
+) -> tuple[int, int, str | None]:
+    """Return (likes_count, dislikes_count, user_reaction) for a comment."""
+    likes = await session.scalar(
+        select(func.count()).where(
+            CommentReaction.comment_id == comment_id,
+            CommentReaction.reaction_type == "like",
+        )
     )
+    dislikes = await session.scalar(
+        select(func.count()).where(
+            CommentReaction.comment_id == comment_id,
+            CommentReaction.reaction_type == "dislike",
+        )
+    )
+    user_reaction: str | None = None
+    if user is not None:
+        user_reaction = await session.scalar(
+            select(CommentReaction.reaction_type).where(
+                CommentReaction.comment_id == comment_id,
+                CommentReaction.user_id == user.id,
+            )
+        )
+    return likes or 0, dislikes or 0, user_reaction
+
+
+async def _build_comment_out(
+    session: AsyncSession, c: "Comment", user: User | None = None
+) -> CommentOut:
+    """Build a CommentOut (with per-user reaction data, including replies)."""
+    async def _one(node: "Comment", replies: list[CommentOut]) -> CommentOut:
+        author = await session.get(User, node.user_id)
+        likes_count, dislikes_count, user_reaction = await _comment_reaction_data(
+            session, node.id, user
+        )
+        return CommentOut(
+            id=node.id,
+            username=author.username if author else "unknown",
+            avatar_url=author.avatar_url if author else None,
+            text=node.text,
+            created_at=node.created_at.isoformat(),
+            parent_id=node.parent_id,
+            likes=likes_count,  # legacy mirror
+            likes_count=likes_count,
+            dislikes_count=dislikes_count,
+            user_reaction=user_reaction,
+            replies=replies,
+        )
+
+    reply_outs: list[CommentOut] = [await _one(r, []) for r in c.replies]
+    return await _one(c, reply_outs)
 
 
 @router.get("/{article_id}/comments", response_model=list[CommentOut])
 async def get_comments(
     article_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
 ) -> list[CommentOut]:
     article = await session.get(NewsArticle, article_id)
     if not article:
@@ -323,7 +371,7 @@ async def get_comments(
     )
     result = []
     for c in rows:
-        result.append(await _build_comment_out(session, c))
+        result.append(await _build_comment_out(session, c, user))
     logger.debug("[news] get_comments article=%s total=%d", article_id, len(result))
     return result
 
@@ -391,27 +439,72 @@ async def delete_comment(
     logger.debug("[news] comment deleted %s by user=%s", comment_id, user.id)
 
 
-@router.post("/comments/{comment_id}/like", status_code=200)
-async def like_comment(
+@router.post("/comments/{comment_id}/react", status_code=200)
+async def react_to_comment(
     comment_id: uuid.UUID,
+    body: ReactionIn,
     session: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> dict[str, object]:
+    """Toggle a like/dislike on a comment (bug #9).
+
+    Mirrors ``react_to_article``: same type again removes the reaction, a different
+    type switches it, no row yet adds it. Returns fresh counts + the user's reaction.
+    A notification is created only when a 'like' is added."""
+    if body.type not in ("like", "dislike"):
+        raise HTTPException(status_code=422, detail="type must be 'like' or 'dislike'")
+
     comment = await session.get(Comment, comment_id)
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    comment.likes = (comment.likes or 0) + 1
-    await _create_notification(
-        session,
-        recipient_id=comment.user_id,
-        sender_id=user.id,
-        notif_type="reaction",
-        message=f"{user.username} поставил реакцию на ваш комментарий",
-        link=f"/news/comments#{comment_id}",
+
+    existing = await session.scalar(
+        select(CommentReaction).where(
+            CommentReaction.comment_id == comment_id,
+            CommentReaction.user_id == user.id,
+        )
     )
+    notify = False
+    if existing is not None:
+        if existing.reaction_type == body.type:
+            await session.delete(existing)
+            action = "removed"
+        else:
+            existing.reaction_type = body.type
+            action = "updated"
+            notify = body.type == "like"
+    else:
+        session.add(
+            CommentReaction(user_id=user.id, comment_id=comment_id, reaction_type=body.type)
+        )
+        action = "added"
+        notify = body.type == "like"
+
+    # Notify the comment author when someone likes their comment (not on self-like).
+    if notify and comment.user_id != user.id:
+        await _create_notification(
+            session,
+            recipient_id=comment.user_id,
+            sender_id=user.id,
+            notif_type="reaction",
+            message=f"{user.username} оценил ваш комментарий",
+            link=f"/news/comments#{comment_id}",
+        )
+
     await session.commit()
-    logger.debug("[news] like_comment id=%s user=%s new_likes=%d", comment_id, user.id, comment.likes)
-    return {"likes": comment.likes}
+    likes_count, dislikes_count, user_reaction = await _comment_reaction_data(
+        session, comment_id, user
+    )
+    logger.info(
+        "[news] comment reaction %s %s comment=%s user=%s likes=%d dislikes=%d",
+        body.type, action, comment_id, user.id, likes_count, dislikes_count,
+    )
+    return {
+        "status": action,
+        "likes_count": likes_count,
+        "dislikes_count": dislikes_count,
+        "user_reaction": user_reaction,
+    }
 
 
 @router.post("/{article_id}/react", status_code=200)
@@ -473,3 +566,17 @@ async def toggle_favorite(
     await session.commit()
     logger.info("[news] favorite %s article=%s user=%s", action, article_id, user.id)
     return {"status": action}
+
+
+@router.post("/reenrich", status_code=200)
+async def reenrich_news(
+    limit: int = Query(200, ge=1, le=500),
+    current_admin: User = Depends(require_admin),
+) -> dict[str, int]:
+    """Admin-only: backfill AI enrichment for articles still missing a Russian
+    translation (title_ru IS NULL). Use after the OpenRouter→Groq fallback landed
+    to enrich the existing raw articles."""
+    from app.services.news_fetcher import reenrich_unprocessed
+
+    logger.info("[news] reenrich requested by %s limit=%d", current_admin.username, limit)
+    return await reenrich_unprocessed(limit)
