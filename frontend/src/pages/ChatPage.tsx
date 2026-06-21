@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Sparkles, Lightbulb, Globe, Bot, User, TrendingUp, BookOpen, BarChart3, Shield } from 'lucide-react'
+import { Send, Lightbulb, Globe, Bot, User, TrendingUp, BookOpen, BarChart3, Shield } from 'lucide-react'
 import { useGroqChat } from '../hooks/useGroqChat'
+import ChatLinkCard from '../components/chat/ChatLinkCard'
 
 const PLACEHOLDERS = [
   'Спроси про криптовалюты...',
@@ -109,25 +110,12 @@ export default function ChatPage() {
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px', scrollbarWidth: 'thin' }}>
         {messages.length === 0 ? (
+          // No auto-greeting message (bug #4): start clean. Keep only the optional
+          // suggestion shortcuts as a hint — the animated input placeholder remains.
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', height: '100%', gap: 24,
           }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: '50%',
-              background: 'var(--accent-bg)', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Sparkles size={28} color="var(--accent)" />
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
-                Чем могу помочь?
-              </h2>
-              <p style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 360 }}>
-                Задай вопрос о финансах, инвестициях или рынке
-              </p>
-            </div>
             <div style={{
               display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, width: '100%', maxWidth: 400,
             }}>
@@ -176,15 +164,25 @@ export default function ChatPage() {
                   </div>
                   <div style={{
                     maxWidth: '70%',
-                    padding: '10px 16px',
-                    borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    background: msg.role === 'user' ? 'var(--accent)' : 'var(--bg)',
-                    color: msg.role === 'user' ? '#fff' : 'var(--text)',
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                    whiteSpace: 'pre-wrap',
+                    display: 'flex', flexDirection: 'column', gap: 8,
+                    alignItems: msg.role === 'user' ? 'flex-end' : 'stretch',
                   }}>
-                    {msg.content}
+                    <div style={{
+                      padding: '10px 16px',
+                      borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                      background: msg.role === 'user' ? 'var(--accent)' : 'var(--bg)',
+                      color: msg.role === 'user' ? '#fff' : 'var(--text)',
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      whiteSpace: 'pre-wrap',
+                    }}>
+                      {msg.content}
+                    </div>
+                    {msg.cards && msg.cards.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {msg.cards.map((c, ci) => <ChatLinkCard key={ci} card={c} />)}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               ))}

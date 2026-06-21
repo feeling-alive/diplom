@@ -1,8 +1,18 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
+
+export interface ChatLinkCard {
+  type: 'news' | 'asset'
+  title: string
+  subtitle?: string | null
+  href: string
+}
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  // Navigation cards returned by chat tools (bug #11.3). Only present on fresh
+  // assistant replies — not persisted in the saved history.
+  cards?: ChatLinkCard[]
 }
 
 export interface PredictionInfo {
@@ -21,6 +31,7 @@ interface UseGroqChatOptions {
 interface ChatApiResponse {
   reply: string
   prediction?: PredictionInfo
+  link_cards?: ChatLinkCard[]
 }
 
 export function useGroqChat({ symbol }: UseGroqChatOptions) {
@@ -30,8 +41,37 @@ export function useGroqChat({ symbol }: UseGroqChatOptions) {
   const [prediction, setPrediction] = useState<PredictionInfo | null>(null)
   const messagesRef = useRef<ChatMessage[]>([])
 
+  // Rehydrate the saved dialog on mount / symbol change so it survives reloads and
+  // navigation (bug #11.1). The backend persists every exchange per (user, symbol);
+  // without this the UI started blank even though the model "remembered" context.
+  const currentSymbol = symbol || 'general'
+  useEffect(() => {
+    let active = true
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/chat/history?symbol=${encodeURIComponent(currentSymbol)}`,
+          { credentials: 'include' },
+        )
+        if (!res.ok) {
+          // 401 (not logged in) or transient — leave the dialog empty, don't error.
+          console.debug('[useGroqChat] history load skipped status=%d symbol=%s', res.status, currentSymbol)
+          return
+        }
+        const json = (await res.json()) as { messages: ChatMessage[] }
+        if (!active) return
+        const loaded = json.messages ?? []
+        messagesRef.current = loaded
+        setMessages(loaded)
+        console.debug('[useGroqChat] history loaded symbol=%s count=%d', currentSymbol, loaded.length)
+      } catch (err) {
+        console.warn('[useGroqChat] history load failed', err)
+      }
+    })()
+    return () => { active = false }
+  }, [currentSymbol])
+
   const send = useCallback(async (userMessage: string) => {
-    const currentSymbol = symbol || 'general'
     console.debug('[useGroqChat] POST /api/chat/message symbol=%s msg=%s', currentSymbol, userMessage.slice(0, 60))
 
     const userMsg: ChatMessage = { role: 'user', content: userMessage }
@@ -71,9 +111,10 @@ export function useGroqChat({ symbol }: UseGroqChatOptions) {
         setPrediction(json.prediction)
       }
 
-      console.debug('[useGroqChat] reply received len=%d', reply.length)
+      console.debug('[useGroqChat] reply received len=%d cards=%d', reply.length, json.link_cards?.length ?? 0)
 
-      const updated = [...history, { role: 'assistant' as const, content: reply }]
+      const assistantMsg: ChatMessage = { role: 'assistant', content: reply, cards: json.link_cards ?? [] }
+      const updated = [...history, assistantMsg]
       messagesRef.current = updated
       setMessages(updated)
     } catch (err) {
@@ -83,14 +124,27 @@ export function useGroqChat({ symbol }: UseGroqChatOptions) {
     } finally {
       setLoading(false)
     }
-  }, [symbol])
+  }, [currentSymbol])
 
+  // Clear must also wipe the server-side session (bug #11.1) — otherwise the
+  // accumulated context lived on in the DB and "Очистить" only reset the UI.
   const clear = useCallback(() => {
     messagesRef.current = []
     setMessages([])
     setError(null)
     setPrediction(null)
-  }, [])
+    void (async () => {
+      try {
+        await fetch(`/api/chat/history?symbol=${encodeURIComponent(currentSymbol)}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+        console.debug('[useGroqChat] cleared server history symbol=%s', currentSymbol)
+      } catch (err) {
+        console.warn('[useGroqChat] clear server history failed', err)
+      }
+    })()
+  }, [currentSymbol])
 
   return { messages, loading, error, prediction, send, clear }
 }
