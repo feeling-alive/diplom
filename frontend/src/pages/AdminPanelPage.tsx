@@ -4,7 +4,7 @@ import {
   ShieldCheck, Users, Newspaper, Star, MessageSquare,
   Key, FileText, Search, Ban, CheckCircle, Trash2, Play,
   RefreshCw, ChevronLeft, ChevronRight, Plus, Eye, EyeOff,
-  Activity,
+  Activity, Bot, ThumbsUp,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAdminStats } from '../hooks/useAdminStats'
@@ -99,8 +99,13 @@ function StatsSection() {
 
   const cards = data ? [
     { label: 'Пользователей', value: data.total_users, icon: <Users size={18} />, color: 'var(--accent)' },
+    { label: 'Активных', value: data.active_users, icon: <CheckCircle size={18} />, color: '#16a34a' },
+    { label: 'Заблокировано', value: data.blocked_users, icon: <Ban size={18} />, color: '#dc2626' },
     { label: 'Новых за 7 дней', value: data.new_users_7d, icon: <Star size={18} />, color: '#8b5cf6' },
     { label: 'Новостей', value: data.total_news, icon: <Newspaper size={18} />, color: '#0ea5e9' },
+    { label: 'Комментариев', value: data.total_comments, icon: <MessageSquare size={18} />, color: '#0891b2' },
+    { label: 'Реакций', value: data.total_reactions, icon: <ThumbsUp size={18} />, color: '#f59e0b' },
+    { label: 'Обращений к ИИ', value: data.ai_chat_sessions, icon: <Bot size={18} />, color: '#7c3aed' },
   ] : []
 
   return (
@@ -119,7 +124,7 @@ function StatsSection() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
         {isLoading
-          ? Array.from({ length: 3 }).map((_, i) => (
+          ? Array.from({ length: 8 }).map((_, i) => (
             <div key={i} style={{ background: 'var(--bg)', borderRadius: 'var(--r-md)', padding: '18px 20px', border: '1px solid var(--border)', minHeight: 80 }} />
           ))
           : cards.map((card, i) => (
@@ -143,6 +148,11 @@ function StatsSection() {
       {data?.last_news_fetch && (
         <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)' }}>
           Последнее обновление новостей: {new Date(data.last_news_fetch).toLocaleString('ru-RU')}
+        </div>
+      )}
+      {data?.last_activity && (
+        <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }}>
+          Последняя активность (комментарий): {new Date(data.last_activity).toLocaleString('ru-RU')}
         </div>
       )}
     </div>

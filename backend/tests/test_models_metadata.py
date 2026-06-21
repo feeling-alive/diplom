@@ -17,6 +17,7 @@ EXPECTED_TABLES = {
     "dashboard_configs",
     "chat_sessions",
     "comments",
+    "comment_reactions",
     "favorites",
     "news_articles",
     "news_reactions",

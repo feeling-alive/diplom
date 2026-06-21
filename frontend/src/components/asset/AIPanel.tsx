@@ -113,7 +113,9 @@ export default function AIPanel({ symbol }: Props) {
             {SUGGESTIONS.map((s) => (
               <motion.button
                 key={s.label}
-                whileHover={{ scale: 1.02, borderColor: 'var(--accent)' }}
+                // Contained hover (no scale) so the block never spills past the
+                // panel frame on hover (bug #10).
+                whileHover={{ borderColor: 'var(--accent)', backgroundColor: 'var(--accent-bg)' }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handlePromptClick(s.label)}
                 style={{

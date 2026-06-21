@@ -222,7 +222,10 @@ export default function TradingViewModal({ open, onClose, asset }: Props) {
                     {SUGGESTIONS.map((s) => (
                       <motion.button
                         key={s.label}
-                        whileHover={{ scale: 1.02, borderColor: 'var(--accent)' }}
+                        // No scale on hover — the panel is overflow:hidden, so a scaled
+                        // block was clipped / pushed past the frame (bug #10). Use a
+                        // contained highlight (border + background) instead.
+                        whileHover={{ borderColor: 'var(--accent)', backgroundColor: 'var(--accent-bg)' }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handlePromptClick(s.label)}
                         style={{

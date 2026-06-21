@@ -16,6 +16,13 @@ export interface AdminStats {
   new_users_7d: number
   total_news: number
   last_news_fetch: string | null
+  // Extended metrics (bug #3)
+  active_users: number
+  blocked_users: number
+  total_comments: number
+  total_reactions: number
+  ai_chat_sessions: number
+  last_activity: string | null
 }
 
 export interface AdminUser {

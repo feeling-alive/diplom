@@ -13,7 +13,9 @@ interface Comment {
   text: string
   created_at: string
   parent_id: string | null
-  likes: number
+  likes_count: number
+  dislikes_count: number
+  user_reaction: 'like' | 'dislike' | null
   replies: Comment[]
 }
 
@@ -77,9 +79,13 @@ export default function NewsArticlePage() {
     },
   })
 
-  async function handleLike(commentId: string) {
-    console.debug('[NewsArticlePage] like comment=%s', commentId)
-    await fetch(`/api/news/comments/${commentId}/like`, { method: 'POST' })
+  async function handleReactComment(commentId: string, type: 'like' | 'dislike') {
+    console.debug('[NewsArticlePage] react comment=%s type=%s', commentId, type)
+    await fetch(`/api/news/comments/${commentId}/react`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type }),
+    })
     qc.invalidateQueries({ queryKey: ['news', 'comments', id] })
   }
 
@@ -208,14 +214,20 @@ export default function NewsArticlePage() {
           <div style={{ marginBottom: 20 }}>
             <textarea
               value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
+              onChange={(e) => {
+                setCommentText(e.target.value)
+                // Auto-grow: fit height to content (bug #8), no manual corner drag.
+                e.target.style.height = 'auto'
+                e.target.style.height = Math.min(e.target.scrollHeight, 240) + 'px'
+              }}
               placeholder="Напишите комментарий..."
               rows={3}
               style={{
                 width: '100%', padding: 12, borderRadius: 'var(--r-md)',
                 border: '1px solid var(--border)', background: 'var(--bg)',
                 fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font)',
-                resize: 'vertical', outline: 'none', boxSizing: 'border-box',
+                resize: 'none', outline: 'none', boxSizing: 'border-box',
+                minHeight: 72, maxHeight: 240, overflowY: 'auto',
               }}
             />
             <button
@@ -253,7 +265,7 @@ export default function NewsArticlePage() {
               onSetReplyingTo={setReplyingTo}
               onSetReplyText={setReplyText}
               onSubmitReply={(text, parentId) => submitComment.mutate({ text, parent_id: parentId })}
-              onLike={handleLike}
+              onReact={handleReactComment}
               isSubmitting={submitComment.isPending}
               depth={0}
             />
@@ -274,14 +286,14 @@ interface CommentCardProps {
   onSetReplyingTo: (id: string | null) => void
   onSetReplyText: (text: string) => void
   onSubmitReply: (text: string, parentId: string) => void
-  onLike: (id: string) => void
+  onReact: (id: string, type: 'like' | 'dislike') => void
   isSubmitting: boolean
   depth: number
 }
 
 function CommentCard({
   comment: c, index, replyingTo, replyText, onSetReplyingTo,
-  onSetReplyText, onSubmitReply, onLike, isSubmitting, depth,
+  onSetReplyText, onSubmitReply, onReact, isSubmitting, depth,
 }: CommentCardProps) {
   const isReplying = replyingTo === c.id
   const { user } = useAuth()
@@ -337,16 +349,28 @@ function CommentCard({
               </button>
             )}
             <button
-              onClick={() => onLike(c.id)}
+              onClick={() => onReact(c.id, 'like')}
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
-                fontSize: 12, color: 'var(--muted)',
+                fontSize: 12, color: c.user_reaction === 'like' ? 'var(--green)' : 'var(--muted)',
                 background: 'none', border: 'none', cursor: 'pointer',
                 fontFamily: 'var(--font)', padding: 0,
               }}
             >
               <ThumbsUp size={13} strokeWidth={2} />
-              {c.likes > 0 && <span>{c.likes}</span>}
+              {c.likes_count > 0 && <span>{c.likes_count}</span>}
+            </button>
+            <button
+              onClick={() => onReact(c.id, 'dislike')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                fontSize: 12, color: c.user_reaction === 'dislike' ? 'var(--red)' : 'var(--muted)',
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontFamily: 'var(--font)', padding: 0,
+              }}
+            >
+              <ThumbsDown size={13} strokeWidth={2} />
+              {c.dislikes_count > 0 && <span>{c.dislikes_count}</span>}
             </button>
           </div>
         )}
@@ -365,7 +389,11 @@ function CommentCard({
             <div style={{ borderLeft: '2px solid var(--accent)', paddingLeft: 12 }}>
               <textarea
                 value={replyText}
-                onChange={(e) => onSetReplyText(e.target.value)}
+                onChange={(e) => {
+                  onSetReplyText(e.target.value)
+                  e.target.style.height = 'auto'
+                  e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
+                }}
                 placeholder={`Ответ для ${c.username}...`}
                 rows={2}
                 style={{
@@ -420,7 +448,7 @@ function CommentCard({
               onSetReplyingTo={() => {}}
               onSetReplyText={() => {}}
               onSubmitReply={() => {}}
-              onLike={onLike}
+              onReact={onReact}
               isSubmitting={false}
               depth={1}
             />

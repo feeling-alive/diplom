@@ -35,8 +35,11 @@ from app.database import get_db
 from app.models import (
     AdminLog,
     ApiKey,
+    ChatSession,
     Comment,
+    CommentReaction,
     NewsArticle,
+    NewsReaction,
     User,
     UserRole,
 )
@@ -81,6 +84,13 @@ class AdminStatsResponse(BaseModel):
     new_users_7d: int
     total_news: int
     last_news_fetch: str | None
+    # Extended metrics (bug #3)
+    active_users: int = 0
+    blocked_users: int = 0
+    total_comments: int = 0
+    total_reactions: int = 0  # comment + news reactions combined
+    ai_chat_sessions: int = 0  # обращения к ИИ (диалоги)
+    last_activity: str | None = None  # most recent comment timestamp
 
 
 class AdminUserItem(BaseModel):
@@ -167,15 +177,46 @@ async def get_stats(
     ).scalar_one()
     last_news_fetch = last_news_dt.isoformat() if last_news_dt else None
 
+    active_users = (
+        await db.execute(select(func.count()).select_from(User).where(User.is_active.is_(True)))
+    ).scalar_one()
+    blocked_users = total_users - active_users
+
+    total_comments = (await db.execute(select(func.count()).select_from(Comment))).scalar_one()
+
+    comment_reactions = (
+        await db.execute(select(func.count()).select_from(CommentReaction))
+    ).scalar_one()
+    news_reactions = (
+        await db.execute(select(func.count()).select_from(NewsReaction))
+    ).scalar_one()
+    total_reactions = comment_reactions + news_reactions
+
+    ai_chat_sessions = (
+        await db.execute(select(func.count()).select_from(ChatSession))
+    ).scalar_one()
+
+    last_comment_dt: datetime | None = (
+        await db.execute(select(func.max(Comment.created_at)))
+    ).scalar_one()
+    last_activity = last_comment_dt.isoformat() if last_comment_dt else None
+
     logger.debug(
-        "[admin] stats: users=%d new7d=%d news=%d",
-        total_users, new_users_7d, total_news,
+        "[admin] stats: users=%d active=%d blocked=%d new7d=%d news=%d comments=%d reactions=%d ai=%d",
+        total_users, active_users, blocked_users, new_users_7d,
+        total_news, total_comments, total_reactions, ai_chat_sessions,
     )
     return AdminStatsResponse(
         total_users=total_users,
         new_users_7d=new_users_7d,
         total_news=total_news,
         last_news_fetch=last_news_fetch,
+        active_users=active_users,
+        blocked_users=blocked_users,
+        total_comments=total_comments,
+        total_reactions=total_reactions,
+        ai_chat_sessions=ai_chat_sessions,
+        last_activity=last_activity,
     )
 
 

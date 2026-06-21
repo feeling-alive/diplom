@@ -173,6 +173,29 @@ class Comment(Base):
     )
 
 
+class CommentReaction(Base):
+    """Like or dislike on a comment. One reaction per (user, comment).
+
+    Mirrors NewsReaction. Replaces the old free-running ``Comment.likes`` integer
+    counter (which incremented on every click) so reactions are per-user and
+    toggleable, with separate like/dislike counts (bug #9)."""
+
+    __tablename__ = "comment_reactions"
+    __table_args__ = (UniqueConstraint("user_id", "comment_id", name="uq_comment_reaction"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    comment_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("comments.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    reaction_type: Mapped[str] = mapped_column(String(16), nullable=False)  # like | dislike
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class Favorite(Base):
     """A user's favorited asset symbol. Unique per (user, symbol)."""
 
