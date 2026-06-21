@@ -266,9 +266,12 @@ async def _unique_username(db: AsyncSession, base: str) -> str:
 async def google_login() -> RedirectResponse:
     """Redirect the browser to Google's OAuth consent screen."""
     _require_google_configured()
+    # redirect_uri MUST point at the frontend proxy origin (vite proxies /auth -> :8000),
+    # not the backend origin directly. Otherwise the callback response sets the auth cookie
+    # for localhost:8000, which the SPA on localhost:5173 never sends back -> /auth/me 401.
     params = {
         "client_id": settings.google_client_id,
-        "redirect_uri": f"{settings.backend_url}/auth/google/callback",
+        "redirect_uri": f"{settings.frontend_url}/auth/google/callback",
         "response_type": "code",
         "scope": "email profile",
         "access_type": "offline",
@@ -301,7 +304,8 @@ async def google_callback(
                     "client_secret": settings.google_client_secret,
                     "code": code,
                     "grant_type": "authorization_code",
-                    "redirect_uri": f"{settings.backend_url}/auth/google/callback",
+                    # Must match the redirect_uri sent in google_login() exactly (Google checks it).
+                    "redirect_uri": f"{settings.frontend_url}/auth/google/callback",
                 },
             )
             token_resp.raise_for_status()

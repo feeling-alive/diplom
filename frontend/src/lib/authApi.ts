@@ -83,12 +83,30 @@ export async function apiLogout(): Promise<void> {
   await fetch('/auth/logout', { method: 'POST', credentials: 'include' })
 }
 
+// Resolve the current session.
+//   - returns AuthUser  → session is valid
+//   - returns null      → confirmed unauthenticated (HTTP 401)
+//   - THROWS            → transient/unknown (network error or non-401 HTTP failure)
+// Callers MUST treat a throw as "don't know" and keep the existing user — only a
+// returned null means the user should be logged out. Conflating network errors with
+// 401 was the root cause of getting kicked to /login on reload (bug #2).
 export async function apiMe(): Promise<AuthUser | null> {
-  const res = await fetch('/auth/me', { credentials: 'include' })
-  if (res.status === 401) return null
-  if (!res.ok) {
-    console.warn('[authApi] /auth/me failed', res.status)
+  let res: Response
+  try {
+    res = await fetch('/auth/me', { credentials: 'include' })
+  } catch (err) {
+    // Network failure / proxy down — transient, NOT a logout signal.
+    console.warn('[authApi] /auth/me network error', err)
+    throw err
+  }
+  if (res.status === 401) {
+    console.debug('[authApi] /auth/me 401 — no session')
     return null
+  }
+  if (!res.ok) {
+    // 5xx / proxy hiccup — transient, do not interpret as logged out.
+    console.warn('[authApi] /auth/me failed', res.status)
+    throw new Error(`/auth/me failed: ${res.status}`)
   }
   return (await res.json()) as AuthUser
 }

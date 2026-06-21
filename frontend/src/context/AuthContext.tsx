@@ -29,9 +29,12 @@ function mirrorToStorage(user: AuthUser | null): void {
     if (user) {
       localStorage.setItem(LS_AUTH, 'true')
       // Keep `username` for new readers and `nickname` for legacy ones.
+      // `id` is also stored so the session can be optimistically rehydrated on
+      // reload (see readMirroredUser) — legacy readers simply ignore it.
       localStorage.setItem(
         LS_USER,
         JSON.stringify({
+          id: user.id,
           nickname: user.username,
           username: user.username,
           email: user.email,
@@ -45,6 +48,29 @@ function mirrorToStorage(user: AuthUser | null): void {
     }
   } catch {
     // storage may be unavailable (private mode) — non-fatal
+  }
+}
+
+// Optimistically reconstruct the last-known user from the localStorage mirror so a
+// page reload doesn't flash the login screen while /auth/me is still in flight (and
+// stays signed in if the probe fails on a transient network error). Returns null
+// when nothing usable is stored. The server probe is still the source of truth.
+function readMirroredUser(): AuthUser | null {
+  try {
+    if (localStorage.getItem(LS_AUTH) !== 'true') return null
+    const raw = localStorage.getItem(LS_USER)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<AuthUser> & { nickname?: string }
+    if (!parsed.id || !parsed.email) return null
+    return {
+      id: parsed.id,
+      email: parsed.email,
+      username: parsed.username ?? parsed.nickname ?? '',
+      avatar_url: parsed.avatar_url ?? null,
+      role: parsed.role ?? 'user',
+    }
+  } catch {
+    return null
   }
 }
 
@@ -93,12 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserState(me)
         mirrorToStorage(me)
       } else {
-        console.debug('[useAuth] no active session')
+        // null == confirmed 401 → really log out.
+        console.debug('[useAuth] no active session (401)')
         clearUser()
       }
     } catch (err) {
-      console.warn('[useAuth] refresh failed', err)
-      clearUser()
+      // Transient/network error — keep the current user, do NOT clear (bug #2).
+      console.warn('[useAuth] refresh failed (transient) — keeping session', err)
     } finally {
       fetchingRef.current = false
       setIsLoading(false)
@@ -125,6 +152,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     fetchingRef.current = true
+    // Optimistically restore the last-known session so reload doesn't flash /login
+    // before the probe resolves; the server probe below corrects it if needed.
+    const mirrored = readMirroredUser()
+    if (mirrored) {
+      console.debug('[useAuth] optimistic hydrate from mirror', mirrored.email)
+      setUserState(mirrored)
+    }
     void (async () => {
       try {
         const me = await apiMe()
@@ -134,15 +168,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUserState(me)
           mirrorToStorage(me)
         } else {
-          console.debug('[useAuth] no active session')
+          // null == confirmed 401 → drop the optimistic session.
+          console.debug('[useAuth] no active session (401)')
           setUserState(null)
           mirrorToStorage(null)
         }
       } catch (err) {
+        // Transient/network error — keep the optimistic session, do NOT clear (bug #2).
         if (active) {
-          console.warn('[useAuth] init failed', err)
-          setUserState(null)
-          mirrorToStorage(null)
+          console.warn('[useAuth] init failed (transient) — keeping session', err)
         }
       } finally {
         fetchingRef.current = false
