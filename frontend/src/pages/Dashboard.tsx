@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef } from 'react'
 import GridLayout, { WidthProvider, type Layout, type LayoutItem } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
-import 'react-resizable/css/styles.css'
+// react-resizable/css/styles.css не импортируем: его background-image-SVG-глиф нам не нужен
+// (мы рисуем прозрачную хит-зону в index.css), а уголки/шевроны гасятся переопределением ниже.
 import { motion, AnimatePresence } from 'framer-motion'
 
 import DashboardHeader from '../components/dashboard/DashboardHeader'

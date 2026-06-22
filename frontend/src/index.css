@@ -276,25 +276,40 @@ ul, li { list-style: none; }
    ============================================ */
 
 /* [FIX] Resize handles: 20×20 transparent hit-area at every direction.
-   The native cursor change (nwse-resize / ns-resize / ew-resize) signals where to grab. */
+   Единственная подсказка — смена курсора при наведении на край (ew/ns/nwse/nesw-resize).
+   Никаких видимых глифов: ни background-image-SVG (react-resizable), ни уголка-«скобки»
+   через ::after (react-grid-layout/css/styles.css). opacity:0 !important перебивает
+   RGL-правило `.react-grid-item:hover > .react-resizable-handle { opacity: 1 }`. */
 .react-grid-item > .react-resizable-handle {
   background: transparent !important;
   background-image: none !important;
   border: none !important;
   padding: 0;
-  opacity: 0;
+  opacity: 0 !important;
   width: 20px;
   height: 20px;
   z-index: 4;
 }
 
-/* Cursor hints per side — sizes already 20×20 from the base rule above */
-.react-grid-item > .react-resizable-handle-se { bottom: 0; right: 0; cursor: nwse-resize; }
-.react-grid-item > .react-resizable-handle-sw { bottom: 0; left: 0; cursor: nesw-resize; }
-.react-grid-item > .react-resizable-handle-ne { top: 0; right: 0; cursor: nesw-resize; }
-.react-grid-item > .react-resizable-handle-nw { top: 0; left: 0; cursor: nwse-resize; }
-.react-grid-item > .react-resizable-handle-s  { bottom: 0; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-.react-grid-item > .react-resizable-handle-e  { right: 0; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+/* Гасим глиф-«скобку»/шеврон, который RGL рисует псевдоэлементом ::after на ручке
+   (border-right/border-bottom + per-direction transform:rotate). ::before — на всякий случай. */
+.react-grid-item > .react-resizable-handle::after,
+.react-grid-item > .react-resizable-handle::before {
+  content: none !important;
+  display: none !important;
+  border: none !important;
+  background: none !important;
+}
+
+/* Cursor hints per side. Компаунд-селекторы (.handle.handle-XX) повторяют специфичность RGL
+   и идут с !important, чтобы наши курсоры/позиции не перебивались дефолтными стилями RGL,
+   которые импортируются позже по каскаду. transform:none снимает rotate с невидимой хит-зоны. */
+.react-grid-item > .react-resizable-handle.react-resizable-handle-se { bottom: 0; right: 0; cursor: nwse-resize !important; transform: none !important; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-sw { bottom: 0; left: 0; cursor: nesw-resize !important; transform: none !important; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-ne { top: 0; right: 0; cursor: nesw-resize !important; transform: none !important; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-nw { top: 0; left: 0; cursor: nwse-resize !important; transform: none !important; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-s  { bottom: 0; left: 50%; transform: translateX(-50%) !important; cursor: ns-resize !important; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-e  { right: 0; top: 50%; transform: translateY(-50%) !important; cursor: ew-resize !important; }
 
 /* iPhone-style drag: neighbours glide smoothly, no ghost placeholder */
 .react-grid-item {
