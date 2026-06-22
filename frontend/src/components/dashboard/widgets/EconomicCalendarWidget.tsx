@@ -69,10 +69,10 @@ export default function EconomicCalendarWidget({ gridW = 3, gridH = 2 }: Props) 
               background: 'var(--bg)', color: 'var(--ink)', flexShrink: 0,
             }}>{e.country}</span>
             <span
-              title={e.title}
+              aria-label={e.title}
               style={{ fontSize: 11, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >{e.title}</span>
-            <span style={{ display: 'flex', gap: 2, flexShrink: 0 }} title={`Impact: ${e.impact}/3`}>
+            <span style={{ display: 'flex', gap: 2, flexShrink: 0 }} aria-label={`Impact: ${e.impact}/3`}>
               {[1, 2, 3].map((d) => (
                 <span key={d} style={{
                   width: 5, height: 5, borderRadius: '50%',

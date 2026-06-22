@@ -41,7 +41,7 @@ export default function DashboardTabs({ dashboards, activeId, canAdd, onSwitch, 
             layout
             role="tab"
             aria-selected={active}
-            title={d.name}
+            aria-label={d.name}
             animate={{
               width: active ? 40 : 12,
               background: active ? '#E11D48' : 'rgba(0,0,0,0.12)',
@@ -79,7 +79,7 @@ export default function DashboardTabs({ dashboards, activeId, canAdd, onSwitch, 
 
       {/* Add button — always clickable; parent decides whether to add or show upgrade modal */}
       <motion.div
-        title={canAdd ? 'Новый дашборд' : 'Достигнут лимит дашбордов'}
+        aria-label={canAdd ? 'Новый дашборд' : 'Достигнут лимит дашбордов'}
         animate={{ width: 12, background: 'rgba(0,0,0,0.10)' }}
         whileHover={{ width: 22, background: 'rgba(0,0,0,0.20)' }}
         transition={SPRING}

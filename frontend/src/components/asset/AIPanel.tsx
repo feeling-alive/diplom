@@ -165,7 +165,7 @@ export default function AIPanel({ symbol }: Props) {
             {error && (
               <div style={{
                 padding: '6px 10px', borderRadius: 8,
-                background: '#FEF2F2', color: '#991B1B', fontSize: 10,
+                background: 'var(--neg-bg)', color: 'var(--neg)', fontSize: 10,
               }}>
                 {error}
               </div>

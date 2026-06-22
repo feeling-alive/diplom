@@ -17,7 +17,7 @@ export default function SizeIndicator({ w, h }: Props) {
         top: -28,
         left: '50%',
         transform: 'translateX(-50%)',
-        background: '#fff',
+        background: 'var(--white)',
         borderRadius: 999,
         padding: '3px 12px',
         boxShadow: '0 2px 10px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',

@@ -266,7 +266,7 @@ function UsersSection() {
                         <div style={{ display: 'flex', gap: 5 }}>
                           <button
                             onClick={() => void handleBlock(user.id, user.is_active)}
-                            title={user.is_active ? 'Заблокировать' : 'Разблокировать'}
+                            aria-label={user.is_active ? 'Заблокировать' : 'Разблокировать'}
                             style={{ padding: '4px 8px', borderRadius: 'var(--r-sm)', border: `1px solid ${user.is_active ? 'var(--red)' : 'var(--green)'}`, background: 'transparent', color: user.is_active ? 'var(--red)' : 'var(--green)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}
                           >
                             {user.is_active ? <Ban size={11} /> : <CheckCircle size={11} />}
@@ -282,7 +282,7 @@ function UsersSection() {
                             : (
                               <button
                                 onClick={() => setConfirmDelete(user.id)}
-                                title="Удалить"
+                                aria-label="Удалить"
                                 style={{ padding: '4px 8px', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center' }}
                               >
                                 <Trash2 size={11} />
@@ -591,7 +591,7 @@ function ApiKeysSection() {
                   <button
                     onClick={() => void handleTest(svc.key)}
                     disabled={testingService === svc.key}
-                    title="Проверить ключ"
+                    aria-label="Проверить ключ"
                     style={{ padding: '9px 12px', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', background: 'var(--white)', color: 'var(--text)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 500, flexShrink: 0 }}
                   >
                     {testingService === svc.key ? <SpinnerIcon /> : <Play size={12} />}

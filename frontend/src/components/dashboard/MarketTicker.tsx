@@ -100,8 +100,8 @@ function AssetCell({ asset, onClick }: { asset: Asset; onClick: () => void }) {
         style={{
           fontSize: 10,
           fontWeight: 600,
-          color: positive ? 'var(--green)' : 'var(--accent)',
-          background: positive ? '#E8F8EF' : 'var(--accent-bg)',
+          color: positive ? 'var(--pos)' : 'var(--neg)',
+          background: positive ? 'var(--pos-bg)' : 'var(--neg-bg)',
           padding: '2px 6px',
           borderRadius: 999,
           flexShrink: 0,

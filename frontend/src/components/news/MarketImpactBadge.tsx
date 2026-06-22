@@ -4,9 +4,9 @@ import { TrendingDown, TrendingUp, Minus } from 'lucide-react'
 // news bridge (NewsPanel). lucide icons only — no emoji in production code
 // (.ai-factory/RULES.md / rules/base.md).
 const MAP: Record<string, { label: string; color: string; bg: string; Icon: typeof TrendingUp }> = {
-  positive: { label: 'Позитивно', color: '#16a34a', bg: '#dcfce7', Icon: TrendingUp },
-  negative: { label: 'Негативно', color: '#dc2626', bg: '#fee2e2', Icon: TrendingDown },
-  neutral:  { label: 'Нейтрально', color: '#6b7280', bg: '#f3f4f6', Icon: Minus },
+  positive: { label: 'Позитивно', color: 'var(--pos)', bg: 'var(--pos-bg)', Icon: TrendingUp },
+  negative: { label: 'Негативно', color: 'var(--neg)', bg: 'var(--neg-bg)', Icon: TrendingDown },
+  neutral:  { label: 'Нейтрально', color: 'var(--muted)', bg: 'var(--bg)', Icon: Minus },
 }
 
 interface Props {
@@ -21,7 +21,7 @@ export default function MarketImpactBadge({ impact, compact = false }: Props) {
   const { Icon } = style
   return (
     <span
-      title={style.label}
+      aria-label={style.label}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 4,
         fontSize: 10, fontWeight: 700, padding: compact ? '2px 6px' : '2px 8px',

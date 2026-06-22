@@ -277,7 +277,7 @@ export default function TradingViewModal({ open, onClose, asset }: Props) {
                     {error && (
                       <div style={{
                         padding: '8px 12px', borderRadius: 10,
-                        background: '#FEF2F2', color: '#991B1B', fontSize: 11,
+                        background: 'var(--neg-bg)', color: 'var(--neg)', fontSize: 11,
                       }}>
                         {error}
                       </div>

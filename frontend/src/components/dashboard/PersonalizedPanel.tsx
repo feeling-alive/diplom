@@ -57,8 +57,8 @@ export default function PersonalizedPanel({ gridW = 4, gridH = 1 }: Props) {
           <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{formatPrice(first)}</span>
         </div>
         <span style={{
-          background: isPositive ? '#E8F8EF' : 'var(--accent-bg)',
-          color: isPositive ? 'var(--green)' : 'var(--accent)',
+          background: isPositive ? 'var(--pos-bg)' : 'var(--neg-bg)',
+          color: isPositive ? 'var(--pos)' : 'var(--neg)',
           borderRadius: 'var(--r-pill)', padding: '2px 8px', fontSize: 11, fontWeight: 600, flexShrink: 0,
         }}>
           {isPositive ? '▲' : '▼'} {Math.abs(first.change24h).toFixed(1)}%

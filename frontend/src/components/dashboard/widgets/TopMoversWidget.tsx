@@ -41,7 +41,7 @@ export default function TopMoversWidget({ gridW = 2, gridH = 2 }: Props) {
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/asset/' + encodeURIComponent(s.symbol)) } }}
               role="button"
               tabIndex={0}
-              title={`Открыть ${s.name}`}
+              aria-label={`Открыть ${s.name}`}
               style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
@@ -66,7 +66,7 @@ export default function TopMoversWidget({ gridW = 2, gridH = 2 }: Props) {
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/asset/' + encodeURIComponent(s.symbol)) } }}
               role="button"
               tabIndex={0}
-              title={`Открыть ${s.name}`}
+              aria-label={`Открыть ${s.name}`}
               style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>

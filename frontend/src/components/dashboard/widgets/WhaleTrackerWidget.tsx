@@ -30,8 +30,8 @@ export default function WhaleTrackerWidget({ gridW = 2, gridH = 2 }: Props) {
           }}>
             <span style={{
               width: 16, height: 16, borderRadius: 4,
-              background: t.kind === 'in' ? '#dcfce7' : '#fee2e2',
-              color: t.kind === 'in' ? '#16a34a' : '#dc2626',
+              background: t.kind === 'in' ? 'var(--pos-bg)' : 'var(--neg-bg)',
+              color: t.kind === 'in' ? 'var(--pos)' : 'var(--neg)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 10, fontWeight: 800, flexShrink: 0,
             }}>{t.kind === 'in' ? '↓' : '↑'}</span>

@@ -62,7 +62,19 @@ const DEFAULTS: SettingsState = {
 
 const SettingsContext = createContext<SettingsContextValue | null>(null)
 
+// Системная тема как дефолт ПЕРВОГО входа (нет сохранённого выбора). Сохранённый
+// пользователем theme всегда имеет приоритет.
+function prefersDarkTheme(): boolean {
+  try {
+    return typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-color-scheme: dark)').matches === true
+  } catch {
+    return false
+  }
+}
+
 function loadSettings(): SettingsState {
+  const systemTheme: Theme = prefersDarkTheme() ? 'dark' : 'light'
   try {
     const raw = localStorage.getItem(LS_SETTINGS)
     if (raw) {
@@ -70,11 +82,14 @@ function loadSettings(): SettingsState {
       return {
         ...DEFAULTS,
         ...parsed,
+        // Если в сохранённых настройках темы нет — берём системную.
+        theme: parsed.theme ?? systemTheme,
         notifications: { ...DEFAULTS.notifications, ...parsed.notifications },
       }
     }
   } catch { /* ignore */ }
-  return DEFAULTS
+  console.debug('[SettingsContext] no saved settings — default theme from prefers-color-scheme=%s', systemTheme)
+  return { ...DEFAULTS, theme: systemTheme }
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {

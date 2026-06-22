@@ -150,8 +150,8 @@ export default function TechnicalAnalysisWidget({ gridW = 2, gridH = 2 }: Props)
             <span key={ind.label} style={{
               padding: '1px 5px',
               borderRadius: 4,
-              background: ind.status === 'buy' ? '#dcfce7' : ind.status === 'sell' ? '#fee2e2' : 'var(--bg)',
-              color: ind.status === 'buy' ? '#16a34a' : ind.status === 'sell' ? '#dc2626' : 'var(--muted)',
+              background: ind.status === 'buy' ? 'var(--pos-bg)' : ind.status === 'sell' ? 'var(--neg-bg)' : 'var(--bg)',
+              color: ind.status === 'buy' ? 'var(--pos)' : ind.status === 'sell' ? 'var(--neg)' : 'var(--muted)',
             }}>
               {ind.label}: {ind.status === 'buy' ? '▲' : ind.status === 'sell' ? '▼' : '—'}
             </span>

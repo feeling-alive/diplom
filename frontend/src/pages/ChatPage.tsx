@@ -221,7 +221,7 @@ export default function ChatPage() {
             {error && (
               <div style={{
                 padding: '10px 16px', borderRadius: 12,
-                background: '#FEF2F2', color: '#991B1B', fontSize: 12,
+                background: 'var(--neg-bg)', color: 'var(--neg)', fontSize: 12,
               }}>
                 {error}
               </div>

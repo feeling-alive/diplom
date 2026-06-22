@@ -34,9 +34,9 @@ function useComments(articleId: string) {
 function MarketImpactBadge({ impact }: { impact: string | null }) {
   if (!impact) return null
   const map: Record<string, { label: string; color: string; bg: string }> = {
-    positive: { label: '📈 Позитивно', color: '#16a34a', bg: '#dcfce7' },
-    negative: { label: '📉 Негативно', color: '#dc2626', bg: '#fee2e2' },
-    neutral:  { label: '➡️ Нейтрально', color: '#6b7280', bg: '#f3f4f6' },
+    positive: { label: '📈 Позитивно', color: 'var(--pos)', bg: 'var(--pos-bg)' },
+    negative: { label: '📉 Негативно', color: 'var(--neg)', bg: 'var(--neg-bg)' },
+    neutral:  { label: '➡️ Нейтрально', color: 'var(--muted)', bg: 'var(--bg)' },
   }
   const s = map[impact] ?? map.neutral
   return (

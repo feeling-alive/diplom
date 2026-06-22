@@ -105,8 +105,8 @@ function MoverSection({ title, items, positive }: SectionProps) {
             <span
               className="badge"
               style={{
-                background: asset.change24h >= 0 ? '#E8F8EF' : 'var(--accent-bg)',
-                color: asset.change24h >= 0 ? 'var(--green)' : 'var(--accent)',
+                background: asset.change24h >= 0 ? 'var(--pos-bg)' : 'var(--neg-bg)',
+                color: asset.change24h >= 0 ? 'var(--pos)' : 'var(--neg)',
               }}
             >
               {asset.change24h >= 0 ? '+' : ''}{asset.change24h.toFixed(2)}%

@@ -46,7 +46,7 @@ export default function HeatmapWidget({ gridW = 4, gridH = 2 }: Props) {
             key={c.symbol} 
             whileHover={{ scale: 1.05, zIndex: 10 }}
             onClick={() => navigate(`/asset/${c.symbol}`)}
-            title={`${c.name} • ${formatPrice(c.price, c.type)} • ${c.change24h > 0 ? '+' : ''}${c.change24h.toFixed(2)}%`}
+            aria-label={`${c.name} • ${formatPrice(c.price, c.type)} • ${c.change24h > 0 ? '+' : ''}${c.change24h.toFixed(2)}%`}
             style={{
               background: bgColor(c.change24h),
               borderRadius: 4,

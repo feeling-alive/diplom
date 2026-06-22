@@ -25,7 +25,7 @@ export default function AiSignalWidget({ gridW = 2, gridH = 2, symbol = DEFAULT_
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <div style={{
           width: 20, height: 20, borderRadius: 6,
-          background: '#f3e8ff', display: 'flex',
+          background: 'var(--accent-bg)', display: 'flex',
           alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
           <Sparkles size={12} color={ACCENT} strokeWidth={2.5} />
@@ -35,7 +35,7 @@ export default function AiSignalWidget({ gridW = 2, gridH = 2, symbol = DEFAULT_
           <span style={{
             marginLeft: 'auto',
             padding: '2px 6px', borderRadius: 999,
-            background: '#f3e8ff', color: ACCENT,
+            background: 'var(--accent-bg)', color: ACCENT,
             fontSize: 9, fontWeight: 700,
           }}>AI</span>
         )}
@@ -61,7 +61,7 @@ function AiSignalBody({
 }) {
   const isWeak = data.low_confidence || data.direction === 'SIDEWAYS'
   const trend = isWeak ? 'Боковик' : data.direction === 'UP' ? 'Восходящий' : 'Нисходящий'
-  const trendColor = isWeak ? '#6b7280' : data.direction === 'UP' ? '#16a34a' : '#dc2626'
+  const trendColor = isWeak ? 'var(--muted)' : data.direction === 'UP' ? 'var(--pos)' : 'var(--neg)'
   const Icon = isWeak ? Minus : data.direction === 'UP' ? TrendingUp : TrendingDown
   const pct = Math.round(data.probability * 100)
 

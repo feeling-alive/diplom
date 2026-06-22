@@ -44,13 +44,13 @@ export default function CurrencyConverterWidget({ gridW = 2, gridH = 2 }: Props)
       </div>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6,
-        background: '#dcfce7', padding: '6px 8px', borderRadius: 8,
+        background: 'var(--pos-bg)', padding: '6px 8px', borderRadius: 8,
       }}>
-        <select value={to} onChange={(e) => setTo(e.target.value)} style={{ ...selectStyle, color: '#16a34a' }}>
+        <select value={to} onChange={(e) => setTo(e.target.value)} style={{ ...selectStyle, color: 'var(--pos)' }}>
           {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <span style={{
-          flex: 1, fontSize: 14, fontWeight: 700, color: '#16a34a',
+          flex: 1, fontSize: 14, fontWeight: 700, color: 'var(--pos)',
           textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{result.toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</span>
       </div>

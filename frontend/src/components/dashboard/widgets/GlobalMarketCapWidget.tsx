@@ -140,8 +140,8 @@ export default function GlobalMarketCapWidget({ gridW = 2, gridH = 1 }: Props) {
       )}
       <div style={{
         padding: '3px 8px', borderRadius: 999,
-        background: positive ? '#dcfce7' : '#fee2e2',
-        color: positive ? '#16a34a' : '#dc2626',
+        background: positive ? 'var(--pos-bg)' : 'var(--neg-bg)',
+        color: positive ? 'var(--pos)' : 'var(--neg)',
         fontSize: 10, fontWeight: 700, flexShrink: 0,
         fontVariantNumeric: 'tabular-nums',
       }}>

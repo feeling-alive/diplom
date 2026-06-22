@@ -154,7 +154,6 @@ export default function WidgetCard({ widget, onRemove }: Props) {
         }}
         onMouseDown={(e) => e.stopPropagation()}
         aria-label="Удалить виджет"
-        title="Удалить виджет"
       >
         <X size={12} strokeWidth={2.5} />
       </motion.button>

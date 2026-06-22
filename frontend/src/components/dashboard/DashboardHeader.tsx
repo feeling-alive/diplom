@@ -267,7 +267,6 @@ export default function DashboardHeader({
               justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
             }}
             aria-label="Очистить все виджеты"
-            title="Очистить все виджеты"
           >
             <Trash2 size={14} strokeWidth={2} />
           </motion.button>

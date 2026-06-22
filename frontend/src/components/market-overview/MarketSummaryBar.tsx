@@ -87,7 +87,6 @@ export default function MarketSummaryBar() {
           role="button"
           tabIndex={0}
           aria-label={stat.label}
-          title={stat.navTo ? 'Открыть BTC' : 'Подробнее'}
           style={{ padding: '14px 16px', cursor: 'pointer', position: 'relative' }}
         >
           <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 500, marginBottom: 6 }}>
@@ -100,8 +99,8 @@ export default function MarketSummaryBar() {
             <span
               className="badge"
               style={{
-                background: stat.changePositive ? '#E8F8EF' : 'var(--accent-bg)',
-                color: stat.changePositive ? 'var(--green)' : 'var(--accent)',
+                background: stat.changePositive ? 'var(--pos-bg)' : 'var(--neg-bg)',
+                color: stat.changePositive ? 'var(--pos)' : 'var(--neg)',
               }}
             >
               {stat.change}
