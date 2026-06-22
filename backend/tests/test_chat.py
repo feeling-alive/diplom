@@ -385,7 +385,8 @@ async def test_tool_get_asset_builds_card(monkeypatch: pytest.MonkeyPatch) -> No
     content, card = await chat_module._tool_get_asset({"symbol": "btc"})
     assert card is not None
     assert card["type"] == "asset"
-    assert card["href"] == "/asset/BTC"
+    # bare crypto ticker is normalised to its OKX pair (bug #3)
+    assert card["href"] == "/asset/BTC-USDT"
     assert "+10.00%" in card["subtitle"]
 
 
