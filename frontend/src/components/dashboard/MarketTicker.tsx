@@ -91,6 +91,7 @@ function AssetCell({ asset, onClick }: { asset: Asset; onClick: () => void }) {
           fontWeight: 700,
           color: 'var(--text)',
           marginLeft: 'auto',
+          flexShrink: 0,
           fontVariantNumeric: 'tabular-nums',
         }}
       >

@@ -1,14 +1,14 @@
 import { useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Star, BarChart2, PieChart, Users, Newspaper,
+  Star, BarChart2, PieChart, Newspaper,
   Grid3x3, Bot, Activity, TrendingUp, Gauge,
   Calendar, Briefcase, X, ChevronLeft, ChevronRight,
   LayoutDashboard
 } from 'lucide-react'
 
 export type WidgetId =
-  | 'watchlist' | 'priceChart' | 'allocation' | 'community'
+  | 'watchlist' | 'priceChart' | 'allocation'
   | 'news' | 'heatmap' | 'aiChat' | 'ticker'
   | 'topMovers' | 'fearGreed' | 'calendar' | 'portfolio'
 
@@ -18,7 +18,6 @@ const WIDGETS = [
   { id: 'watchlist' as WidgetId, label: 'Вотч-лист', icon: Star, description: 'Отслеживаемые активы', sizes: ['S', 'M', 'L'] as WidgetSize[] },
   { id: 'priceChart' as WidgetId, label: 'График цены', icon: BarChart2, description: 'Динамика с таймфреймами', sizes: ['M', 'L', 'XL'] as WidgetSize[] },
   { id: 'allocation' as WidgetId, label: 'Распределение', icon: PieChart, description: 'Доли портфеля по активам', sizes: ['S', 'M'] as WidgetSize[] },
-  { id: 'community' as WidgetId, label: 'Идеи сообщества', icon: Users, description: 'Посты трейдеров', sizes: ['M', 'L'] as WidgetSize[] },
   { id: 'news' as WidgetId, label: 'Новости рынка', icon: Newspaper, description: 'Лента новостей', sizes: ['M', 'L'] as WidgetSize[] },
   { id: 'heatmap' as WidgetId, label: 'Тепловая карта', icon: Grid3x3, description: 'Изменения по секторам', sizes: ['M', 'L'] as WidgetSize[] },
   { id: 'aiChat' as WidgetId, label: 'ИИ-ассистент', icon: Bot, description: 'Чат с ИИ-аналитиком', sizes: ['M', 'L'] as WidgetSize[] },

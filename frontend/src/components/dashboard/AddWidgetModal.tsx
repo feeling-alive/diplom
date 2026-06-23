@@ -194,21 +194,23 @@ export default function AddWidgetModal({ open, onClose, onAdd, onDragStart }: Pr
                               <WidgetPreview type={def.type} gridW={selected.w} gridH={selected.h} />
                             </motion.div>
 
-                            {/* Bottom bar: название + размеры */}
+                            {/* Bottom bar: название СВЕРХУ (на всю ширину, с ellipsis),
+                                подписи размера (2×2…) — ПОД ним, с переносом (6.2). */}
                             <div style={{
                               display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
+                              flexDirection: 'column',
+                              alignItems: 'flex-start',
                               padding: '10px 14px',
-                              gap: 8,
+                              gap: 6,
                             }}>
                               <span style={{
                                 fontSize: 12, fontWeight: 600, color: 'var(--ink)',
                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                maxWidth: '100%',
                               }}>
                                 {def.title}
                               </span>
-                              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                                 {def.availableSizes.map((size) => (
                                   <button
                                     key={size.label}

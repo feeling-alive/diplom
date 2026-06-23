@@ -1,5 +1,5 @@
 import {
-  TrendingUp, Star, BarChart2, PieChart, Users,
+  TrendingUp, Star, BarChart2, PieChart,
   Newspaper, ArrowUpDown, DollarSign, Gauge,
   Activity, Flame,
   Grid, AlertTriangle,
@@ -71,21 +71,6 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     ],
     defaultSize: { w: 2, h: 2, label: '2×2' },
     minW: 2, minH: 2, maxW: 2, maxH: 3,
-  },
-  {
-    type: 'community',
-    title: 'Сообщество',
-    description: 'Посты трейдеров',
-    icon: Users,
-    color: '#06b6d4',
-    availableSizes: [
-      { w: 2, h: 2, label: '2×2' },
-      { w: 2, h: 3, label: '2×3' },
-      { w: 3, h: 2, label: '3×2' },
-      { w: 3, h: 3, label: '3×3' },
-    ],
-    defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 2, minH: 2, maxW: 3, maxH: 3,
   },
   {
     type: 'news',

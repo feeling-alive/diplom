@@ -15,7 +15,6 @@ const PREVIEW_HEIGHTS: Record<string, number> = {
   watchlist: 220,
   price_chart: 180,
   allocation: 200,
-  community: 200,
   news: 200,
   top_movers: 200,
   forex_rates: 200,

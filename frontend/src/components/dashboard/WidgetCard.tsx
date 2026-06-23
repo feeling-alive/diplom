@@ -5,7 +5,6 @@ import { WIDGET_REGISTRY } from '../../constants/widgets.registry'
 import WatchlistPanel from './WatchlistPanel'
 import PriceChartWidget from './PriceChartWidget'
 import AllocationChart from './AllocationChart'
-import CommunityWidget from './CommunityWidget'
 import NewsWidget from './NewsWidget'
 import MarketTicker from './MarketTicker'
 import TopMoversWidget from './widgets/TopMoversWidget'
@@ -34,7 +33,6 @@ export function renderWidgetContent(type: WidgetType, gridW: number, gridH: numb
     case 'watchlist': return <WatchlistPanel gridW={gridW} gridH={gridH} />
     case 'price_chart': return <PriceChartWidget gridW={gridW} gridH={gridH} />
     case 'allocation': return <AllocationChart gridW={gridW} gridH={gridH} />
-    case 'community': return <CommunityWidget gridW={gridW} gridH={gridH} />
     case 'news': return <NewsWidget gridW={gridW} gridH={gridH} />
     case 'market_ticker': return <MarketTicker gridW={gridW} gridH={gridH} />
     case 'top_movers': return <TopMoversWidget gridW={gridW} gridH={gridH} />

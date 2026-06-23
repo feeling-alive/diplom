@@ -4,7 +4,6 @@ export type WidgetId =
   | 'watchlist'
   | 'priceChart'
   | 'allocation'
-  | 'community'
   | 'news'
   | 'heatmap'
   | 'aiChat'

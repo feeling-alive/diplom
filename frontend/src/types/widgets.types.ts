@@ -4,7 +4,6 @@ export type WidgetType =
   | 'watchlist'
   | 'price_chart'
   | 'allocation'
-  | 'community'
   | 'news'
   | 'market_ticker'
   | 'top_movers'

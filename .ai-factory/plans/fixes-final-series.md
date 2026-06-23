@@ -61,7 +61,7 @@
 - [x] **#9** feat(admin): отображение API-ключей из БД + переход к комментарию (5.1/5.2) — поле ключа: value=черновик, маскированный ключ из БД как placeholder («Сохранён: ••••1f1…»), пустой ввод не меняет; комментарии админки кликабельны → deep-link /news/{article_id}#comment-{id} (бэкенд резолвит article_id из article_url)
 
 ### Фаза 6 — 🟢 Чистка и раскладка
-- **#10** chore(widgets): удалить CommunityWidget + починить раскладку названий/тикеров (6.1/6.2)
+- [x] **#10** chore(widgets): удалить CommunityWidget + починить раскладку названий/тикеров (6.1/6.2) — CommunityWidget удалён полностью (компонент, тест, реестр, типы, features, превью, рендер-свитч); clampWidgets дропает осиротевший тип из localStorage. В AddWidgetModal подписи размера перенесены ПОД название (title на всю ширину + ellipsis, чипы с wrap); MarketTicker — цена flexShrink:0, тикер с ellipsis
 
 ### Фаза 7 — 🟡 Отказоустойчивость перевода
 - **#11** feat(news): 3-й fallback-провайдер перевода Polza AI (7.1)
