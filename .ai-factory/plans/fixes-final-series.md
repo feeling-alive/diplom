@@ -64,7 +64,7 @@
 - [x] **#10** chore(widgets): удалить CommunityWidget + починить раскладку названий/тикеров (6.1/6.2) — CommunityWidget удалён полностью (компонент, тест, реестр, типы, features, превью, рендер-свитч); clampWidgets дропает осиротевший тип из localStorage. В AddWidgetModal подписи размера перенесены ПОД название (title на всю ширину + ellipsis, чипы с wrap); MarketTicker — цена flexShrink:0, тикер с ellipsis
 
 ### Фаза 7 — 🟡 Отказоустойчивость перевода
-- **#11** feat(news): 3-й fallback-провайдер перевода Polza AI (7.1)
+- [x] **#11** feat(news): 3-й fallback-провайдер перевода Polza AI (7.1) — _polza_complete (OpenAI-совместимый) встроен третьей веткой _enrich_complete (OpenRouter→Groq→Polza); config polza_api_key/base_url/model; get_api_key("polza"); ключ в backend/.env (gitignored) + плейсхолдеры в .env.example; реальным вызовом не тестировался (платный)
 
 ## Commit Plan
 

@@ -96,6 +96,12 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = "meta-llama/llama-3.3-70b-instruct:free"
+    # Polza AI — третий резервный провайдер обогащения новостей (OpenAI-совместимый
+    # API). Цепочка: OpenRouter -> Groq -> Polza. Ключ резолвится через
+    # get_api_key("polza") (БД -> .env). Платный — не тестировать вызовом без баланса.
+    polza_api_key: str = ""
+    polza_base_url: str = "https://api.polza.ai/api/v1"
+    polza_model: str = "openai/gpt-4o-mini"
     # Max AI-enrichment attempts before an article is given up on (flagged
     # ai_processed). Transient provider failures retry on later passes until this.
     enrich_max_attempts: int = 3

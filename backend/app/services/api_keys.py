@@ -34,6 +34,7 @@ _SERVICE_SETTINGS_ATTR: dict[str, str] = {
     "finnhub": "finnhub_api_key",
     "newsapi": "news_api_key",
     "openrouter": "openrouter_api_key",
+    "polza": "polza_api_key",
 }
 
 # Cache resolved plaintext keys per service. Empty string is a valid cached

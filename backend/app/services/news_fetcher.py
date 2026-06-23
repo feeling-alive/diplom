@@ -208,6 +208,29 @@ def _parse_enrichment(content: str) -> dict:
     return json.loads(content)
 
 
+def _retry_after_seconds(resp: "httpx.Response", default: float = 5.0) -> float:
+    """Extract the server-requested wait before retrying a 429.
+
+    Prefers the standard ``Retry-After`` header, then OpenRouter's JSON
+    ``error.metadata.retry_after_seconds``; clamps to a sane [1, 30] range and
+    falls back to *default* when neither is present.
+    """
+    raw = resp.headers.get("Retry-After")
+    if raw:
+        try:
+            return max(1.0, min(30.0, float(raw)))
+        except ValueError:
+            pass
+    try:
+        meta = resp.json().get("error", {}).get("metadata", {})
+        val = meta.get("retry_after_seconds") or meta.get("retry_after_seconds_raw")
+        if val is not None:
+            return max(1.0, min(30.0, float(val)))
+    except Exception:  # noqa: BLE001 — body may not be JSON
+        pass
+    return default
+
+
 async def _openrouter_complete(prompt: str) -> str | None:
     """Enrichment completion via OpenRouter. Returns content, or None when the key
     is absent / rate-limited / failing so the caller can fall back to Groq."""
@@ -234,15 +257,34 @@ async def _openrouter_complete(prompt: str) -> str | None:
                 )
             if resp.status_code == 429:
                 if attempt <= max_retries:
-                    logger.warning("[news_fetcher] openrouter 429, retry %d/%d in 5s", attempt, max_retries)
-                    await asyncio.sleep(5)
+                    # Respect the server's Retry-After (header or JSON metadata)
+                    # instead of a fixed 5s — free models often ask for a few seconds.
+                    delay = _retry_after_seconds(resp, default=5.0)
+                    logger.warning(
+                        "[news_fetcher] openrouter 429, retry %d/%d in %.1fs",
+                        attempt, max_retries, delay,
+                    )
+                    await asyncio.sleep(delay)
                     continue
                 logger.warning("[news_fetcher] openrouter 429 exhausted — falling back")
                 return None
-            resp.raise_for_status()
-            return resp.json()["choices"][0]["message"]["content"]
+            if resp.status_code >= 400:
+                # Surface the real reason (invalid key, bad model id, etc.) instead
+                # of swallowing it — previously this hid 401s and made it look like
+                # OpenRouter "was never called".
+                logger.warning(
+                    "[news_fetcher] openrouter HTTP %s: %s",
+                    resp.status_code, resp.text[:300],
+                )
+                return None
+            content = resp.json()["choices"][0]["message"]["content"]
+            logger.info(
+                "[news_fetcher] openrouter OK (model=%s, len=%d)",
+                settings.openrouter_model, len(content),
+            )
+            return content
         except Exception as exc:  # noqa: BLE001 — any failure means "try the fallback"
-            logger.warning("[news_fetcher] openrouter error: %s", exc)
+            logger.warning("[news_fetcher] openrouter error: %s: %s", type(exc).__name__, exc)
             return None
     return None
 
@@ -288,13 +330,71 @@ async def _groq_complete(prompt: str) -> str | None:
     return None
 
 
+async def _polza_complete(prompt: str) -> str | None:
+    """Enrichment completion via Polza AI (third fallback after OpenRouter→Groq).
+
+    Polza is an OpenAI-compatible API (POST /chat/completions, ``Authorization:
+    Bearer``, model as ``provider/model``), so the request/response shape mirrors
+    :func:`_groq_complete`. Returns content or None on failure. NB: Polza is paid —
+    not exercised by tests; only wired into the chain.
+    """
+    polza_key = await get_api_key("polza")
+    if not polza_key:
+        return None
+
+    max_retries = 2
+    for attempt in range(1, max_retries + 2):  # attempts: 1, 2, 3 (initial + 2 retries)
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    f"{settings.polza_base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {polza_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": settings.polza_model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.3,
+                        "response_format": {"type": "json_object"},
+                    },
+                )
+            if resp.status_code == 429:
+                if attempt <= max_retries:
+                    delay = _retry_after_seconds(resp, default=5.0)
+                    logger.warning(
+                        "[news_fetcher] polza 429, retry %d/%d in %.1fs",
+                        attempt, max_retries, delay,
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+                logger.warning("[news_fetcher] polza 429 exhausted — giving up")
+                return None
+            if resp.status_code >= 400:
+                logger.warning(
+                    "[news_fetcher] polza HTTP %s: %s", resp.status_code, resp.text[:300],
+                )
+                return None
+            content = resp.json()["choices"][0]["message"]["content"]
+            logger.info("[news_fetcher] polza OK (model=%s, len=%d)", settings.polza_model, len(content))
+            return content
+        except Exception as exc:  # noqa: BLE001 — any failure means "no third fallback"
+            logger.warning("[news_fetcher] polza error: %s: %s", type(exc).__name__, exc)
+            return None
+    return None
+
+
 async def _enrich_complete(prompt: str) -> str | None:
-    """OpenRouter first, Groq fallback. Returns raw model content or None if both fail."""
+    """OpenRouter → Groq → Polza. Returns raw model content or None if all fail."""
     content = await _openrouter_complete(prompt)
     if content is not None:
         return content
     logger.info("[news_fetcher] OpenRouter unavailable — falling back to Groq")
-    return await _groq_complete(prompt)
+    content = await _groq_complete(prompt)
+    if content is not None:
+        return content
+    logger.info("[news_fetcher] Groq unavailable — falling back to Polza")
+    return await _polza_complete(prompt)
 
 
 async def process_article_with_ai(article_id: uuid.UUID) -> bool:
@@ -312,9 +412,13 @@ async def process_article_with_ai(article_id: uuid.UUID) -> bool:
     """
     logger.debug("[news_fetcher] ai processing article %s", article_id)
 
-    if not await get_api_key("openrouter") and not await get_api_key("groq"):
+    if (
+        not await get_api_key("openrouter")
+        and not await get_api_key("groq")
+        and not await get_api_key("polza")
+    ):
         logger.warning(
-            "[news_fetcher] no enrichment key (openrouter/groq, panel/.env) — skipping %s",
+            "[news_fetcher] no enrichment key (openrouter/groq/polza, panel/.env) — skipping %s",
             article_id,
         )
         await _mark_processed(article_id)
