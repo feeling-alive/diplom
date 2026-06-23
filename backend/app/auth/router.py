@@ -13,7 +13,7 @@ from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from redis.exceptions import RedisError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -282,12 +282,31 @@ async def google_login() -> RedirectResponse:
     return RedirectResponse(url)
 
 
+# Minimal HTML returned by the OAuth callback. The cookie is set on THIS 200
+# response (same origin as the SPA via the Vite proxy), then JS performs the
+# redirect. A 200 cookie is stored reliably by browsers, unlike a Set-Cookie on
+# a proxied 307 redirect (which Chromium dropped — that was the OAuth login bug).
+_OAUTH_CALLBACK_HTML = (
+    "<!doctype html><html><head><meta charset=\"utf-8\">"
+    "<title>Вход выполнен</title></head>"
+    "<body><script>window.location.replace('/');</script>"
+    "<noscript>Вход выполнен. <a href=\"/\">Продолжить</a>.</noscript>"
+    "</body></html>"
+)
+
+
 @router.get("/google/callback")
 async def google_callback(
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> RedirectResponse:
-    """Handle the OAuth callback: exchange code, upsert user, set cookie, redirect."""
+) -> Response:
+    """Handle the OAuth callback: exchange code, upsert user, set cookie on a 200
+    HTML page that JS-redirects to ``/``.
+
+    Returns an ``HTMLResponse`` (200) — not a 307 redirect — because the browser
+    only reliably persists the ``access_token`` cookie when it arrives on a normal
+    200 response of the same origin. Cookie attributes are unchanged.
+    """
     _require_google_configured()
 
     code = request.query_params.get("code")
@@ -359,7 +378,7 @@ async def google_callback(
             await db.refresh(user)
             action = "created"
 
-    redirect = RedirectResponse(f"{settings.frontend_url}/")
-    _set_auth_cookie(redirect, user)
-    logger.info("[auth] google callback: %s user=%s", action, user.id)
-    return redirect
+    response = HTMLResponse(content=_OAUTH_CALLBACK_HTML, status_code=status.HTTP_200_OK)
+    _set_auth_cookie(response, user)
+    logger.info("[auth] google callback: %s user=%s — set-cookie via 200 html", action, user.id)
+    return response
