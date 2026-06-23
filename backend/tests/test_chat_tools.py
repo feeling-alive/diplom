@@ -208,3 +208,46 @@ async def test_search_news_no_match_returns_none(db_session: AsyncSession) -> No
     content, card = await _tool_search_news(db_session, {"query": "absolutelynothing-xyz"})
     assert card is None
     assert "не найдено" in content
+
+
+# ---------------------------------------------------------------------------
+# General-chat disclaimer stripping (pure function)
+# ---------------------------------------------------------------------------
+
+
+def test_strip_general_disclaimer() -> None:
+    from app.routes.chat import _strip_general_disclaimer
+
+    assert _strip_general_disclaimer(
+        "Биткоин ~$94000.\n\nДИСКЛАЙМЕР: только для общих целей..."
+    ) == "Биткоин ~$94000."
+    assert _strip_general_disclaimer("Дисклаймер: не инвест-совет") == ""
+    assert _strip_general_disclaimer("Обычный ответ") == "Обычный ответ"
+
+
+# ---------------------------------------------------------------------------
+# Card persistence: link cards survive a reload (saved in session.messages)
+# ---------------------------------------------------------------------------
+
+
+async def test_link_cards_persist_in_history(monkeypatch, client) -> None:
+    """A tool card returned for a general message must be saved on the assistant
+    turn and reappear via GET /history (not only in the fresh response)."""
+    card = {"type": "asset", "title": "BTC", "subtitle": "$94000", "href": "/asset/BTC-USDT"}
+
+    async def fake_tools(system_prompt, user_message, history, tools, tool_runner, max_rounds=3):
+        return "Курс биткоина ~$94000.", [card]
+
+    monkeypatch.setattr("app.routes.chat.get_groq_response_with_tools", fake_tools)
+
+    await client.post("/auth/register", json={"email": "c@e.com", "username": "cuser", "password": "secret123"})
+    resp = await client.post("/api/chat/message", json={"message": "курс биткоина", "symbol": "general"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["link_cards"][0]["href"] == "/asset/BTC-USDT"
+
+    # Reload: history must carry the card on the assistant message.
+    hist = await client.get("/api/chat/history", params={"symbol": "general"})
+    msgs = hist.json()["messages"]
+    assistant = [m for m in msgs if m["role"] == "assistant"][0]
+    assert assistant.get("cards"), "cards lost on reload"
+    assert assistant["cards"][0]["href"] == "/asset/BTC-USDT"

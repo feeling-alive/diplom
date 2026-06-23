@@ -360,18 +360,45 @@ async def test_tool_search_news_returns_card(db_session: AsyncSession) -> None:
     db_session.add(art)
     await db_session.commit()
 
-    content, card = await _tool_search_news(db_session, {"query": "ETF"})
-    assert card is not None
-    assert card["type"] == "news"
-    assert card["href"] == f"/news/{art.id}"
+    # search_news now returns a LIST of cards (several fresh articles, bug 4.1).
+    content, cards = await _tool_search_news(db_session, {"query": "ETF"})
+    assert isinstance(cards, list) and cards
+    assert cards[0]["type"] == "news"
+    assert cards[0]["href"] == f"/news/{art.id}"
     assert "Биткоин ETF одобрен" in content
+
+
+async def test_tool_search_news_returns_multiple_cards(db_session: AsyncSession) -> None:
+    """Several matching articles → several cards in one answer."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.models import NewsArticle
+    from app.routes.chat import _tool_search_news
+
+    now = datetime.now(tz=timezone.utc)
+    for i in range(3):
+        db_session.add(NewsArticle(
+            title=f"Bitcoin story {i}",
+            title_ru=f"Биткоин новость {i}",
+            description="d",
+            url=f"http://news.test/btc-{i}",
+            source_name="Wire",
+            published_at=now - timedelta(hours=i),
+            category="crypto",
+        ))
+    await db_session.commit()
+
+    content, cards = await _tool_search_news(db_session, {"query": "Bitcoin"})
+    assert isinstance(cards, list)
+    assert len(cards) >= 3
+    assert all(c["type"] == "news" for c in cards)
 
 
 async def test_tool_search_news_no_match(db_session: AsyncSession) -> None:
     from app.routes.chat import _tool_search_news
 
-    content, card = await _tool_search_news(db_session, {"query": "nonexistent-xyz"})
-    assert card is None
+    content, cards = await _tool_search_news(db_session, {"query": "nonexistent-xyz"})
+    assert cards is None
     assert "не найдено" in content
 
 
@@ -512,7 +539,8 @@ def test_build_system_prompt_structure() -> None:
     assert "ТЕХНИЧЕСКИЙ АНАЛИЗ: BTC-USDT" in prompt
     assert "RSI(14): 32.0 — перепродан" in prompt
     assert "MACD: ниже сигнальной, нет пересечения" in prompt
-    assert "Тренд: нисходящий (цена -3.4% от SMA20)" in prompt
+    # 2-decimal percent, matching the asset page UI (bug 4.2).
+    assert "Тренд: нисходящий (цена -3.40% от SMA20)" in prompt
     assert "ATR(14): 12.34" in prompt
     assert "Z-оценка объёма: +2.10" in prompt
     assert "бычьи" in prompt  # rule_score_text(0.5)

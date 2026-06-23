@@ -18,12 +18,19 @@ from typing import Any, Awaitable, Callable
 import httpx
 
 from app.config import settings
+from app.services.api_keys import get_api_key
 
 logger = logging.getLogger("backend.groq_service")
 
 # A tool runner executes one tool call and returns (content_for_model, card_or_None).
 # ``card`` is an arbitrary dict the route turns into a frontend link card.
-ToolRunner = Callable[[str, dict[str, Any]], Awaitable[tuple[str, dict[str, Any] | None]]]
+# A tool returns (text_for_model, card_or_cards). The card slot may be a single
+# card dict, a LIST of card dicts (e.g. search_news returning several fresh
+# articles), or None.
+ToolRunner = Callable[
+    [str, dict[str, Any]],
+    Awaitable[tuple[str, "dict[str, Any] | list[dict[str, Any]] | None"]],
+]
 
 _GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 _GROQ_MODEL = "llama-3.3-70b-versatile"
@@ -117,12 +124,25 @@ def _sanitize_history(
         clean = _strip_function_syntax(content)
         if clean != content:
             stripped += 1
-        item = dict(msg)
-        item["content"] = clean
-        sanitized.append(item)
+        # Project to the API-allowed shape only: persisted turns may carry extra
+        # keys (e.g. ``cards``) that the Groq chat API rejects.
+        sanitized.append({"role": msg.get("role", "user"), "content": clean})
     if stripped:
         logger.debug("[groq] sanitized %d/%d history msgs", stripped, len(history))
     return sanitized
+
+
+def _extend_cards(
+    cards: list[dict[str, Any]],
+    card: dict[str, Any] | list[dict[str, Any]] | None,
+) -> None:
+    """Append a tool's card result, accepting either a single card or a list."""
+    if card is None:
+        return
+    if isinstance(card, list):
+        cards.extend(card)
+    else:
+        cards.append(card)
 
 
 def _dedupe_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -148,15 +168,17 @@ async def get_groq_response(
     Handles missing API keys, transport errors, and malformed responses
     transparently — the caller always gets a string.
     """
-    if not settings.groq_api_key:
-        logger.warning("[groq] GROQ_API_KEY absent — returning fallback")
+    groq_api_key = await get_api_key("groq")
+    if not groq_api_key:
+        logger.warning("[groq] no groq key (panel/.env) — returning fallback")
         return _MISSING_KEY_MESSAGE
 
-    messages: list[dict[str, str]] = [
+    messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
     ]
-    if history:
-        messages.extend(history)
+    # Project to role/content only — persisted turns may carry extra keys
+    # (e.g. ``cards``) the chat API rejects, and old leaks must be stripped.
+    messages.extend(_sanitize_history(history))
     messages.append({"role": "user", "content": user_message})
 
     logger.info(
@@ -171,7 +193,7 @@ async def get_groq_response(
             resp = await client.post(
                 _GROQ_API_URL,
                 headers={
-                    "Authorization": f"Bearer {settings.groq_api_key}",
+                    "Authorization": f"Bearer {groq_api_key}",
                     "Content-Type": "application/json",
                 },
                 json={
@@ -211,8 +233,9 @@ async def get_groq_response_with_tools(
     collected from executed tools (frontend renders them as clickable cards).
     Falls back gracefully to a plain string + empty cards on any failure.
     """
-    if not settings.groq_api_key:
-        logger.warning("[groq] GROQ_API_KEY absent — returning fallback")
+    groq_api_key = await get_api_key("groq")
+    if not groq_api_key:
+        logger.warning("[groq] no groq key (panel/.env) — returning fallback")
         return _MISSING_KEY_MESSAGE, []
 
     messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
@@ -223,6 +246,10 @@ async def get_groq_response_with_tools(
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             for round_no in range(max_rounds):
+                # On the final round force a textual answer (tool_choice="none")
+                # so the model can no longer loop on tool calls and exhaust the
+                # budget into the generic "Не удалось" fallback (bug: error replies).
+                is_last = round_no == max_rounds - 1
                 payload: dict[str, Any] = {
                     "model": _GROQ_MODEL,
                     "messages": messages,
@@ -232,16 +259,16 @@ async def get_groq_response_with_tools(
                     "temperature": _TOOLS_TEMPERATURE,
                     "max_tokens": 700,
                     "tools": tools,
-                    "tool_choice": "auto",
+                    "tool_choice": "none" if is_last else "auto",
                 }
                 logger.debug(
-                    "[groq] tools payload temperature=%.2f round=%d msg_count=%d",
-                    _TOOLS_TEMPERATURE, round_no, len(messages),
+                    "[groq] tools payload temperature=%.2f round=%d msg_count=%d tool_choice=%s",
+                    _TOOLS_TEMPERATURE, round_no, len(messages), payload["tool_choice"],
                 )
                 resp = await client.post(
                     _GROQ_API_URL,
                     headers={
-                        "Authorization": f"Bearer {settings.groq_api_key}",
+                        "Authorization": f"Bearer {groq_api_key}",
                         "Content-Type": "application/json",
                     },
                     json=payload,
@@ -268,8 +295,7 @@ async def get_groq_response_with_tools(
                         for name, args in leaked:
                             logger.debug("[groq] leaked tool_call name=%s args=%s", name, args)
                             content, card = await tool_runner(name, args)
-                            if card is not None:
-                                cards.append(card)
+                            _extend_cards(cards, card)
                             tool_outputs.append(f"{name}: {content}")
                         messages.append({"role": "assistant", "content": cleaned or "(вызов инструмента)"})
                         messages.append({
@@ -299,8 +325,7 @@ async def get_groq_response_with_tools(
                         args = {}
                     logger.debug("[groq] tool_call name=%s args=%s", name, args)
                     content, card = await tool_runner(name, args)
-                    if card is not None:
-                        cards.append(card)
+                    _extend_cards(cards, card)
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tc.get("id"),
