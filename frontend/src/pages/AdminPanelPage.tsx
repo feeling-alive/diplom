@@ -542,7 +542,10 @@ function ApiKeysSection() {
   }
 
   async function handleTest(service: string) {
-    const result = await testKey(service)
+    // Pass the typed draft value (if any); otherwise the backend tests the
+    // resolved key (DB→.env). `saved` is a masked placeholder, never sent.
+    const typed = draft[service]
+    const result = await testKey(service, typed)
     setTestResults((p) => ({ ...p, [service]: result }))
   }
 

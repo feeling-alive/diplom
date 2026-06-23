@@ -15,7 +15,7 @@ export interface UseAdminApiKeysResult {
   error: Error | null
   refetch: () => Promise<void>
   saveKeys: (body: Record<string, string>) => Promise<void>
-  testKey: (service: string) => Promise<AdminApiKeyTestResult>
+  testKey: (service: string, key?: string) => Promise<AdminApiKeyTestResult>
   testingService: string | null
 }
 
@@ -67,11 +67,11 @@ export function useAdminApiKeys(): UseAdminApiKeysResult {
     await refetch()
   }, [refetch])
 
-  const testKey = useCallback(async (service: string): Promise<AdminApiKeyTestResult> => {
-    console.debug('[useAdminApiKeys] testKey service=%s', service)
+  const testKey = useCallback(async (service: string, key?: string): Promise<AdminApiKeyTestResult> => {
+    console.debug('[useAdminApiKeys] testKey service=%s typed=%s', service, Boolean(key))
     setTestingService(service)
     try {
-      const result = await testAdminApiKey(service)
+      const result = await testAdminApiKey(service, key)
       console.debug('[useAdminApiKeys] testKey result=%o', result)
       return result
     } finally {

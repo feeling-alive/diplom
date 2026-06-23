@@ -26,6 +26,17 @@ def _set_test_encryption_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "encryption_key", Fernet.generate_key().decode())
 
 
+@pytest.fixture(autouse=True)
+def _clear_api_key_cache() -> None:
+    """Reset the module-level API-key resolver cache between tests so a key
+    resolved (or saved) in one test never leaks into the next."""
+    from app.services.api_keys import invalidate_cache
+
+    invalidate_cache()
+    yield
+    invalidate_cache()
+
+
 @pytest_asyncio.fixture
 async def client():
     engine = create_async_engine(

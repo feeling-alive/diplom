@@ -23,7 +23,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -43,6 +43,7 @@ from app.models import (
     User,
     UserRole,
 )
+from app.services.api_keys import get_api_key, invalidate_cache
 from app.utils_crypto import decrypt_value, encrypt_value, mask_value
 
 logger = logging.getLogger("backend.routes.admin")
@@ -534,7 +535,11 @@ async def save_api_keys(
             db, current_admin, "save_api_key", "api_key", service,
         )
     await db.commit()
-    logger.debug("[admin] api-keys upserted for: %s", list(body.keys()))
+    # Drop the resolver cache so services pick up the new keys without a restart.
+    for service in body:
+        if body[service]:
+            invalidate_cache(service)
+    logger.debug("[admin] api-keys upserted (cache invalidated) for: %s", list(body.keys()))
 
 
 # ---------------------------------------------------------------------------
@@ -557,24 +562,28 @@ _SERVICE_AUTH_HEADER: dict[str, str] = {
 @router.post("/api-keys/test/{service}")
 async def test_api_key(
     service: str,
+    body: dict[str, str] = Body(default_factory=dict),
     current_admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
+    """Test a key for *service*. If the request supplies a non-empty ``key`` it is
+    tested directly (the value the admin just typed); otherwise the resolved key
+    (DB→.env) is tested. The masked placeholder the panel renders for a saved key
+    is treated as "no input" by the frontend, so it sends an empty value here."""
     logger.debug("[admin] test_api_key service=%s by %s", service, current_admin.username)
 
     if service not in _SERVICE_TEST_MAP:
         raise HTTPException(status_code=400, detail=f"Неизвестный сервис: {service}")
 
-    row = (
-        await db.execute(select(ApiKey).where(ApiKey.service == service))
-    ).scalar_one_or_none()
-    if row is None:
-        return {"success": False, "message": "Ключ не сохранён"}
-
-    try:
-        key = decrypt_value(row.encrypted_value)
-    except HTTPException:
-        return {"success": False, "message": "Не удалось расшифровать ключ"}
+    candidate = (body.get("key") or "").strip()
+    if candidate:
+        key = candidate
+        logger.debug("[admin] test_api_key service=%s using typed key", service)
+    else:
+        key = await get_api_key(service)
+        logger.debug("[admin] test_api_key service=%s using resolved key present=%s", service, bool(key))
+    if not key:
+        return {"success": False, "message": "Ключ не задан"}
 
     url_template = _SERVICE_TEST_MAP[service]
     url = url_template.format(key=key)

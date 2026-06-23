@@ -182,11 +182,18 @@ export async function saveAdminApiKeys(body: Record<string, string>): Promise<vo
   if (!res.ok) throw new Error(await parseError(res))
 }
 
-export async function testAdminApiKey(service: string): Promise<AdminApiKeyTestResult> {
-  console.debug('[adminApi] testAdminApiKey service=%s', service)
+export async function testAdminApiKey(
+  service: string,
+  key?: string,
+): Promise<AdminApiKeyTestResult> {
+  // Send the typed key when the admin entered one; otherwise send an empty body
+  // so the backend tests the resolved key (DB→.env).
+  console.debug('[adminApi] testAdminApiKey service=%s typed=%s', service, Boolean(key))
   const res = await fetch(`/admin/api-keys/test/${service}`, {
     method: 'POST',
     credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: key ?? '' }),
   })
   if (!res.ok) throw new Error(await parseError(res))
   return (await res.json()) as AdminApiKeyTestResult

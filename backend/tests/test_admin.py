@@ -211,12 +211,80 @@ async def test_api_keys_test_unknown_service(admin_client: AsyncClient) -> None:
     assert resp.status_code == 400
 
 
-async def test_api_keys_test_not_saved(admin_client: AsyncClient) -> None:
+async def test_api_keys_test_no_key_anywhere(
+    admin_client: AsyncClient, monkeypatch
+) -> None:
+    """No typed key, nothing saved, and no .env fallback → 'не задан'."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "finnhub_api_key", "")
     resp = await admin_client.post("/admin/api-keys/test/finnhub")
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is False
-    assert "не сохранён" in body["message"].lower()
+    assert "не задан" in body["message"].lower()
+
+
+class _FakeTestResp:
+    status_code = 200
+
+
+class _FakeTestClient:
+    """Fake httpx.AsyncClient capturing the URL/headers the key-test sends."""
+
+    last_url: str = ""
+    last_headers: dict = {}
+
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return None
+
+    async def get(self, url, headers=None, **kwargs):
+        _FakeTestClient.last_url = url
+        _FakeTestClient.last_headers = headers or {}
+        return _FakeTestResp()
+
+
+async def test_api_keys_test_falls_back_to_env(
+    admin_client: AsyncClient, monkeypatch
+) -> None:
+    """Nothing typed, nothing saved → the .env-resolved key is what gets tested
+    (proven by the bogus env key landing in the outbound Finnhub URL)."""
+    import app.routes.admin as admin_mod
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "finnhub_api_key", "env-fallback-key")
+    monkeypatch.setattr(admin_mod.httpx, "AsyncClient", _FakeTestClient)
+
+    resp = await admin_client.post("/admin/api-keys/test/finnhub", json={"key": ""})
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    # The resolved .env key reached the outbound request → fallback works.
+    assert "env-fallback-key" in _FakeTestClient.last_url
+
+
+async def test_api_keys_test_uses_typed_key(
+    admin_client: AsyncClient, monkeypatch
+) -> None:
+    """A typed key is tested directly, taking precedence over the .env fallback."""
+    import app.routes.admin as admin_mod
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "finnhub_api_key", "env-fallback-key")
+    monkeypatch.setattr(admin_mod.httpx, "AsyncClient", _FakeTestClient)
+
+    resp = await admin_client.post(
+        "/admin/api-keys/test/finnhub", json={"key": "typed-candidate-key"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    assert "typed-candidate-key" in _FakeTestClient.last_url
+    assert "env-fallback-key" not in _FakeTestClient.last_url
 
 
 # ---------------------------------------------------------------------------

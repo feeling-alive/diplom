@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from app.config import settings
+from app.services.api_keys import get_api_key
 from app.services.cache import get_cached, set_cached
 from app.utils import safe_float
 
@@ -33,17 +34,18 @@ async def get_quote(symbol: str) -> dict[str, Any]:
     if cached is not None:
         return cached
 
-    if not settings.finnhub_api_key:
+    api_key = await get_api_key("finnhub")
+    if not api_key:
         # Without a key we cannot fetch; return zeros and do NOT cache so the
-        # value refreshes as soon as a key is configured.
-        logger.warning("[finnhub] FINNHUB_API_KEY absent; returning empty quote for %s", symbol)
+        # value refreshes as soon as a key is configured (panel or .env).
+        logger.warning("[finnhub] no finnhub key (panel/.env); returning empty quote for %s", symbol)
         return _empty_quote(symbol)
 
     logger.info("[finnhub] fetch %s", symbol)
     async with httpx.AsyncClient(timeout=settings.http_timeout, follow_redirects=True) as client:
         resp = await client.get(
             f"{_BASE_URL}/quote",
-            params={"symbol": symbol, "token": settings.finnhub_api_key},
+            params={"symbol": symbol, "token": api_key},
         )
         resp.raise_for_status()
         raw: dict[str, Any] = resp.json()
