@@ -4,7 +4,10 @@ import type { WidgetSizeProps } from '../../../types/widgets.types'
 
 type Props = WidgetSizeProps
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'RUB', 'JPY', 'CNY']
+// Только валюты, которые реально отдаёт Frankfurter (данные ЕЦБ). RUB убран —
+// ЕЦБ перестал публиковать рубль, USD->RUB возвращал 502 и конвертер показывал 0
+// (Задача A4). Это был дефолтный целевой курс, поэтому виджет «не работал».
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'CNY', 'CHF', 'AUD', 'CAD']
 
 const selectStyle: CSSProperties = {
   fontSize: 11, fontWeight: 700, color: 'var(--muted)', border: 'none',
@@ -14,7 +17,7 @@ const selectStyle: CSSProperties = {
 export default function CurrencyConverterWidget({ gridW = 2, gridH = 2 }: Props) {
   const [amount, setAmount] = useState('100')
   const [from, setFrom] = useState('USD')
-  const [to, setTo] = useState('RUB')
+  const [to, setTo] = useState('EUR')
 
   const { rate, isLoading } = useForexRate(from, to)
   const result = (parseFloat(amount) || 0) * rate

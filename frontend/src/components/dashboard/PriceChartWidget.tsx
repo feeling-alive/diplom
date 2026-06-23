@@ -10,7 +10,6 @@ import {
 import { useOHLCV } from '../../hooks/useOHLCV'
 import { useAssetPrice } from '../../hooks/useAssetPrice'
 import { formatPrice } from '../../utils/format'
-import { MOCK_PRICES } from '../../mock/prices.mock'
 import type { Timeframe } from '../../types/market.types'
 import type { WidgetSizeProps } from '../../types/widgets.types'
 
@@ -78,7 +77,10 @@ export default function PriceChartWidget({ gridW = 3, gridH = 2 }: Props) {
   const { data: ohlcvData, isLoading } = useOHLCV(selected.symbol, timeframe)
   const { price, change24h } = useAssetPrice(selected.symbol, selected.type)
 
-  const assetMeta = MOCK_PRICES.find((a) => a.symbol === selected.symbol)
+  // Реальная цена из useAssetPrice (бэкенд-прокси, mock — только его внутренний
+  // fallback). Раньше показ цены гейтился наличием символа в MOCK_PRICES — статичный
+  // mock-вид (Задача A3). Теперь: есть валидная цена → показываем, иначе '—'.
+  const hasPrice = Number.isFinite(price) && price > 0
   const isPositive = change24h >= 0
   const showTimeframes = gridH >= 2
 
@@ -132,7 +134,7 @@ export default function PriceChartWidget({ gridW = 3, gridH = 2 }: Props) {
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
           <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {assetMeta ? formatPrice(price, selected.type) : '—'}
+            {hasPrice ? formatPrice(price, selected.type) : '—'}
           </span>
           <span
             style={{

@@ -4,6 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { useOHLCV } from '../../hooks/useOHLCV'
+import { convertFromUsd, getCurrencyState, CURRENCY_SYMBOL } from '../../utils/format'
 import type { Timeframe, Asset } from '../../types/market.types'
 
 interface Props {
@@ -31,16 +32,26 @@ function formatTime(ts: number, tf: Timeframe): string {
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 }
 
-// Currency-aware price label: forex shows 4 decimals (no $), crypto/stock a
-// $ amount. Used for both Y-axis ticks and the tooltip.
+// Currency-aware price label (Задача A5): forex pairs are NOT USD amounts → shown
+// raw with 4 decimals; crypto/stock values are USD → converted into the active
+// display currency (convertFromUsd) with its symbol. Reads the currency singleton
+// at render time, so switching currency re-labels the Y-axis and tooltip.
+function withCurrencySymbol(num: string): string {
+  const { currency } = getCurrencyState()
+  const sym = CURRENCY_SYMBOL[currency]
+  return currency === 'RUB' ? `${num} ${sym}` : `${sym}${num}`
+}
+
 function formatAxisPrice(value: number, type?: Asset['type']): string {
   if (type === 'forex') return value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
-  return '$' + value.toLocaleString('en-US', { maximumFractionDigits: value < 1 ? 4 : 0 })
+  const v = convertFromUsd(value)
+  return withCurrencySymbol(v.toLocaleString('en-US', { maximumFractionDigits: v < 1 ? 4 : 0 }))
 }
 
 function formatTooltipPrice(value: number, type?: Asset['type']): string {
   if (type === 'forex') return value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
-  return '$' + value.toLocaleString('en-US', { maximumFractionDigits: value < 1 ? 6 : 2 })
+  const v = convertFromUsd(value)
+  return withCurrencySymbol(v.toLocaleString('en-US', { maximumFractionDigits: v < 1 ? 6 : 2 }))
 }
 
 function TooltipContent({ active, payload, label, tf, assetType }: { active?: boolean; payload?: Array<{ value: number }>; label?: number; tf: Timeframe; assetType?: Asset['type'] }) {
