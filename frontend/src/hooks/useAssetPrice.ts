@@ -11,9 +11,26 @@ interface AssetPriceResult {
   isConnected: boolean
 }
 
+// Spot-metal pseudo-pairs. They live in prices.json as type:'forex' (no dedicated
+// metal type), but Frankfurter — the forex source — knows no metals and answered
+// 502, leaving the price broken (bug A1). Route these to the class-aware backend
+// price endpoint, which sources the last close from yfinance futures (GC=F/SI=F).
+const METAL_SYMBOLS = new Set(['XAU-USD', 'XAG-USD'])
+
 // Fetch a single non-crypto quote. Pure (no component state) so TanStack Query can
 // cache it per (type, symbol) — Задача 2: повторный заход на актив не грузит заново.
 async function fetchQuote(symbol: string, type: Asset['type']): Promise<{ price: number; change24h: number }> {
+  if (METAL_SYMBOLS.has(symbol.toUpperCase())) {
+    const res = await fetch(`/api/quotes/price/${encodeURIComponent(symbol)}`, {
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) throw new Error(`quotes/price ${res.status}`)
+    const json = (await res.json()) as { price: number; change24h: number }
+    const safePrice = Number.isFinite(json.price) ? json.price : 0
+    const safeChange = Number.isFinite(json.change24h) ? json.change24h : 0
+    console.debug('[useAssetPrice] metal %s price=%s change=%s', symbol, safePrice, safeChange)
+    return { price: safePrice, change24h: safeChange }
+  }
   if (type === 'forex') {
     const [base, quote] = symbol.replace('-', '/').split('/')
     const res = await fetch(`/api/quotes/forex/${base}/${quote}`)

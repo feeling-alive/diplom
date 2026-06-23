@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { usePrices } from '../../hooks/usePrices'
+import { useGlobalMarket } from '../../hooks/useGlobalMarket'
 import { formatMarketCap, formatVolume } from '../../utils/format'
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } }
@@ -29,16 +30,26 @@ interface StatCard {
 
 export default function MarketSummaryBar() {
   const { all, isLoading } = usePrices()
+  const { data: global } = useGlobalMarket()
   const navigate = useNavigate()
   const [openInfo, setOpenInfo] = useState<string | null>(null)
 
-  const totalCap  = all.reduce((s, a) => s + (a.marketCap ?? 0), 0)
-  const totalVol  = all.reduce((s, a) => s + a.volume24h, 0)
-  const btc       = all.find(a => a.symbol === 'BTC-USDT')
-  const btcDom    = btc?.marketCap && totalCap > 0 ? ((btc.marketCap / totalCap) * 100).toFixed(1) : '–'
+  // ЕДИНЫЙ источник капы/объёма рынка — /api/quotes/global (тот же, что в виджетах
+  // GlobalMarketCap/MarketVolume), чтобы числа совпадали везде (Задача A2). Локальная
+  // сумма по списку активов остаётся fallback'ом, пока global не загрузился.
+  const localCap = all.reduce((s, a) => s + (a.marketCap ?? 0), 0)
+  const localVol = all.reduce((s, a) => s + a.volume24h, 0)
+  const btc      = all.find(a => a.symbol === 'BTC-USDT')
+  const localDom = btc?.marketCap && localCap > 0 ? (btc.marketCap / localCap) * 100 : null
+
+  const totalCap = global?.totalMarketCapUsd ?? localCap
+  const totalVol = global?.totalVolumeUsd ?? localVol
+  const btcDomNum = global?.btcDominance ?? localDom
+  const btcDom = btcDomNum != null ? btcDomNum.toFixed(1) : '–'
+  const capChange = global?.marketCapChange24h
   const activeCount = all.length
 
-  console.debug('[MarketSummaryBar] prices updated, totalCap=', totalCap, 'btcDom=', btcDom, 'isLoading=', isLoading)
+  console.debug('[MarketSummaryBar] source=%s totalCap=%s btcDom=%s isLoading=%s', global ? 'global' : 'local', totalCap, btcDom, isLoading)
 
   if (isLoading) {
     return (
@@ -48,11 +59,12 @@ export default function MarketSummaryBar() {
     )
   }
 
+  const capChangeStr = capChange != null ? `${capChange >= 0 ? '+' : ''}${capChange.toFixed(2)}%` : undefined
   const STATS: StatCard[] = [
-    { key: 'cap', label: 'Капитализация рынка', value: formatMarketCap(totalCap), change: '+2.1%', changePositive: true, info: 'Суммарная рыночная капитализация всех активов в списке.' },
-    { key: 'vol', label: 'Объём 24ч', value: formatVolume(totalVol), change: '+4.3%', changePositive: true, info: 'Совокупный торговый объём по всем активам за последние 24 часа.' },
-    { key: 'dom', label: 'BTC Доминирование', value: `${btcDom}%`, change: '+0.3%', changePositive: true, navTo: '/asset/BTC-USDT' },
-    { key: 'count', label: 'Активов в списке', value: String(activeCount), info: 'Количество отслеживаемых активов всех типов (крипто, акции, форекс, индексы).' },
+    { key: 'cap', label: 'Капитализация рынка', value: formatMarketCap(totalCap), change: capChangeStr, changePositive: (capChange ?? 0) >= 0, info: 'Совокупная капитализация крипторынка (CoinGecko /global), единый источник с виджетами.' },
+    { key: 'vol', label: 'Объём 24ч', value: formatVolume(totalVol), info: 'Совокупный торговый объём крипторынка за последние 24 часа (CoinGecko /global).' },
+    { key: 'dom', label: 'BTC Доминирование', value: `${btcDom}%`, navTo: '/asset/BTC-USDT', info: 'Доля BTC в общей капитализации рынка.' },
+    { key: 'count', label: 'Активов в списке', value: String(activeCount), info: 'Количество отслеживаемых активов всех типов (крипто, акции, форекс).' },
   ]
 
   const handleStatClick = (stat: StatCard) => {
