@@ -397,6 +397,7 @@ async def add_comment(
             raise HTTPException(status_code=404, detail="Parent comment not found")
     comment = Comment(user_id=user.id, article_url=article.url, text=body.text, parent_id=parent_id)
     session.add(comment)
+    await session.flush()  # populate comment.id so the notification can deep-link to it
     if parent_id:
         parent_comment = await session.get(Comment, parent_id)
         if parent_comment:
@@ -406,7 +407,8 @@ async def add_comment(
                 sender_id=user.id,
                 notif_type="comment_reply",
                 message=f"{user.username} ответил на ваш комментарий",
-                link=f"/news/{article_id}#comments",
+                # Deep-link straight to the new reply (NewsArticlePage scrolls to it).
+                link=f"/news/{article_id}#comment-{comment.id}",
             )
     await session.commit()
     await session.refresh(comment)
@@ -482,13 +484,19 @@ async def react_to_comment(
 
     # Notify the comment author when someone likes their comment (not on self-like).
     if notify and comment.user_id != user.id:
+        # Resolve the article id from the comment's article_url so the link can
+        # deep-link to this exact comment (the old "/news/comments#id" was broken).
+        article_id = await session.scalar(
+            select(NewsArticle.id).where(NewsArticle.url == comment.article_url)
+        )
+        link = f"/news/{article_id}#comment-{comment_id}" if article_id else "/news"
         await _create_notification(
             session,
             recipient_id=comment.user_id,
             sender_id=user.id,
             notif_type="reaction",
             message=f"{user.username} оценил ваш комментарий",
-            link=f"/news/comments#{comment_id}",
+            link=link,
         )
 
     await session.commit()

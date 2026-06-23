@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, ExternalLink, Star, ThumbsDown, ThumbsUp, Reply } from 'lucide-react'
@@ -55,11 +55,31 @@ export default function NewsArticlePage() {
   const [commentText, setCommentText] = useState('')
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
+  // Comment targeted via a "#comment-<id>" hash (e.g. from a reply notification):
+  // briefly highlighted after we scroll it into view.
+  const [highlightId, setHighlightId] = useState<string | null>(null)
 
   console.debug('[NewsArticlePage] load article', id)
 
   const { data: article, isLoading, error } = useNewsArticle(id)
   const { data: comments = [] } = useComments(id)
+
+  // Deep-link to a specific comment: once comments are in the DOM, scroll to the
+  // one named in the URL hash and flash it. Re-runs when comments change so a
+  // freshly-loaded list still resolves the anchor.
+  useEffect(() => {
+    if (!comments.length) return
+    const m = window.location.hash.match(/^#comment-(.+)$/)
+    if (!m) return
+    const targetId = m[1]
+    const el = document.getElementById(`comment-${targetId}`)
+    if (!el) return
+    console.debug('[NewsArticlePage] scroll to comment %s', targetId)
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightId(targetId)
+    const t = setTimeout(() => setHighlightId(null), 2400)
+    return () => clearTimeout(t)
+  }, [comments])
 
   const submitComment = useMutation({
     mutationFn: async ({ text, parent_id }: { text: string; parent_id?: string | null }) => {
@@ -268,6 +288,7 @@ export default function NewsArticlePage() {
               onReact={handleReactComment}
               isSubmitting={submitComment.isPending}
               depth={0}
+              highlightId={highlightId}
             />
           ))}
         </div>
@@ -289,26 +310,33 @@ interface CommentCardProps {
   onReact: (id: string, type: 'like' | 'dislike') => void
   isSubmitting: boolean
   depth: number
+  highlightId: string | null
 }
 
 function CommentCard({
   comment: c, index, replyingTo, replyText, onSetReplyingTo,
-  onSetReplyText, onSubmitReply, onReact, isSubmitting, depth,
+  onSetReplyText, onSubmitReply, onReact, isSubmitting, depth, highlightId,
 }: CommentCardProps) {
   const isReplying = replyingTo === c.id
+  const isHighlighted = highlightId === c.id
   const { user } = useAuth()
 
   console.debug('[NewsArticlePage] render comment=%s replies=%d depth=%d', c.id, c.replies.length, depth)
 
   return (
     <motion.div
+      id={`comment-${c.id}`}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.32) }}
+      style={{ scrollMarginTop: 80 }}
     >
       <div style={{
         padding: 14, borderRadius: 'var(--r-md)', background: 'var(--bg)',
-        border: '1px solid var(--border)',
+        // Flash the anchored comment so a deep-link target is obvious.
+        border: isHighlighted ? '1px solid var(--accent)' : '1px solid var(--border)',
+        boxShadow: isHighlighted ? '0 0 0 3px var(--accent-bg)' : 'none',
+        transition: 'border-color 0.3s, box-shadow 0.3s',
       }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -451,6 +479,7 @@ function CommentCard({
               onReact={onReact}
               isSubmitting={false}
               depth={1}
+              highlightId={highlightId}
             />
           ))}
         </div>
