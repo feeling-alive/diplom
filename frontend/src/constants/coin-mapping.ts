@@ -14,7 +14,7 @@ export const SYMBOL_TO_COIN_ID: Record<string, string> = {
   'DOT-USDT': 'polkadot',
   'AVAX-USDT': 'avalanche-2',
   'LINK-USDT': 'chainlink',
-  'MATIC-USDT': 'matic-network',
+  'POL-USDT': 'polygon-ecosystem-token',
   'UNI-USDT': 'uniswap',
   'ATOM-USDT': 'cosmos',
   'LTC-USDT': 'litecoin',
@@ -22,7 +22,7 @@ export const SYMBOL_TO_COIN_ID: Record<string, string> = {
   'ARB-USDT': 'arbitrum',
   'NEAR-USDT': 'near',
   'STX-USDT': 'blockstack',
-  'FTM-USDT': 'fantom',
+  'S-USDT': 'sonic-3',
   'INJ-USDT': 'injective-protocol',
   'AAVE-USDT': 'aave',
 }

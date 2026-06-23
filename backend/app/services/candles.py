@@ -63,15 +63,27 @@ _YF_TF_MAP: dict[str, tuple[str, str]] = {
 
 _MOCK_PATH = Path(__file__).resolve().parent.parent / "mock" / "candles.json"
 
+# Spot-metal pseudo-pairs the frontend uses (``XAU-USD`` gold, ``XAG-USD`` silver).
+# No free spot-metal OHLCV feed exists, and Frankfurter only covers fiat — so these
+# were misrouted to OKX as crypto and painted the crypto mock fixture. Chart them
+# from the COMEX continuous futures via yfinance instead.
+_METAL_YF_MAP: dict[str, str] = {
+    "XAU-USD": "GC=F",  # gold futures
+    "XAG-USD": "SI=F",  # silver futures
+}
+
 
 def classify_symbol(symbol: str) -> str:
-    """Return ``"crypto"``, ``"forex"`` or ``"stock"`` for *symbol*.
+    """Return ``"crypto"``, ``"forex"``, ``"metal"`` or ``"stock"`` for *symbol*.
 
-    * ``"-"`` present and both segments are fiat currencies -> ``"forex"``.
-    * ``"-"`` present otherwise (e.g. ``BTC-USDT``)          -> ``"crypto"``.
-    * no ``"-"`` (e.g. ``AAPL``)                             -> ``"stock"``.
+    * spot-metal pseudo-pair (``XAU-USD``/``XAG-USD``)        -> ``"metal"``.
+    * ``"-"`` present and both segments are fiat currencies   -> ``"forex"``.
+    * ``"-"`` present otherwise (e.g. ``BTC-USDT``)           -> ``"crypto"``.
+    * no ``"-"`` (e.g. ``AAPL``)                              -> ``"stock"``.
     """
     upper = symbol.upper()
+    if upper in _METAL_YF_MAP:
+        return "metal"
     if "-" in upper:
         parts = upper.split("-")
         if len(parts) == 2 and parts[0] in _FIAT_CURRENCIES and parts[1] in _FIAT_CURRENCIES:
@@ -282,6 +294,12 @@ async def get_candles(symbol: str, timeframe: str, limit: int = 100) -> dict[str
             candles = await _fetch_frankfurter_series(base, quote, limit)
             source = "frankfurter"
             ttl = settings.forex_ttl
+        elif kind == "metal":
+            yf_symbol = _METAL_YF_MAP[symbol]
+            logger.debug("[candles] metal %s -> yfinance futures %s", symbol, yf_symbol)
+            candles = await _fetch_yfinance(yf_symbol, timeframe, limit)
+            source = "yfinance"
+            ttl = settings.ohlcv_stock_ttl
         else:  # stock
             candles = await _fetch_yfinance(symbol, timeframe, limit)
             source = "yfinance"

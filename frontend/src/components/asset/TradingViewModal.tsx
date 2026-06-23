@@ -14,18 +14,35 @@ interface Props {
 // but some pairs are absent/delisted on Binance — route those to an exchange that
 // reliably lists them so the embed doesn't show "Invalid symbol".
 const CRYPTO_EXCHANGE: Record<string, string> = {
-  FTM: 'KUCOIN',   // delisted on Binance (rebranded to S)
+  S: 'OKX',        // Sonic (ex-FTM) — listed on OKX as S-USDT
   STX: 'KUCOIN',
 }
 
+// NYSE-listed tickers among our stocks. The default exchange is NASDAQ, but these
+// trade on NYSE — prefixing them with NASDAQ made TradingView reject the symbol
+// (JNJ/PG showed "Invalid symbol" and the chart never rendered).
+const NYSE_STOCKS: ReadonlySet<string> = new Set([
+  'JNJ', 'PG', 'JPM', 'V', 'WMT', 'XOM', 'KO', 'DIS',
+])
+
+// Spot metals reach the modal typed as 'forex' (XAU-USD / XAG-USD), but TradingView
+// lists them via OANDA, not FX — route them explicitly so the embed resolves.
+const METAL_TV: Record<string, string> = {
+  'XAU-USD': 'OANDA:XAUUSD',
+  'XAG-USD': 'OANDA:XAGUSD',
+}
+
 function toTradingViewSymbol(asset: Asset): string {
+  const metal = METAL_TV[asset.symbol.toUpperCase()]
+  if (metal) return metal
   if (asset.type === 'crypto') {
     const base = asset.symbol.split('-')[0]!.toUpperCase()
     const exchange = CRYPTO_EXCHANGE[base] ?? 'BINANCE'
     return `${exchange}:${base}USDT`
   }
   if (asset.type === 'stock') {
-    return `NASDAQ:${asset.symbol}`
+    const exchange = NYSE_STOCKS.has(asset.symbol.toUpperCase()) ? 'NYSE' : 'NASDAQ'
+    return `${exchange}:${asset.symbol}`
   }
   if (asset.type === 'forex') {
     const pair = asset.symbol.replace('-', '')

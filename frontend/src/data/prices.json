@@ -117,7 +117,7 @@
     "icon": "L"
   },
   {
-    "symbol": "MATIC-USDT",
+    "symbol": "POL-USDT",
     "name": "Polygon",
     "type": "crypto",
     "price": 0.73,
@@ -127,7 +127,7 @@
     "high24h": 0.76,
     "low24h": 0.72,
     "color": "#8247E5",
-    "icon": "M"
+    "icon": "P"
   },
   {
     "symbol": "UNI-USDT",
@@ -221,8 +221,8 @@
     "icon": "S"
   },
   {
-    "symbol": "FTM-USDT",
-    "name": "Fantom",
+    "symbol": "S-USDT",
+    "name": "Sonic",
     "type": "crypto",
     "price": 0.68,
     "change24h": 5.1,
@@ -231,7 +231,7 @@
     "high24h": 0.72,
     "low24h": 0.65,
     "color": "#1969FF",
-    "icon": "F"
+    "icon": "S"
   },
   {
     "symbol": "INJ-USDT",

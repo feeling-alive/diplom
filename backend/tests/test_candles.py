@@ -30,6 +30,8 @@ from app.services.candles import classify_symbol, get_candles
         ("gbp-usd", "forex"),
         ("AAPL", "stock"),
         ("MSFT", "stock"),
+        ("XAU-USD", "metal"),
+        ("xag-usd", "metal"),
     ],
 )
 def test_classify_symbol(symbol: str, expected: str) -> None:
@@ -75,6 +77,38 @@ async def test_get_candles_stock_routes_yfinance(monkeypatch: pytest.MonkeyPatch
     result = await get_candles("AAPL", "1D", 50)
     assert result["source"] == "yfinance"
     assert captured == {"symbol": "AAPL", "tf": "1D", "limit": 50}
+
+
+async def test_get_candles_metal_routes_yfinance_futures(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Spot metals (XAU/XAG) chart from the COMEX futures via yfinance — NOT OKX
+    crypto (which previously painted the crypto mock fixture under gold/silver)."""
+    captured: dict[str, Any] = {}
+
+    async def fake_yf(symbol: str, tf: str, limit: int) -> list[dict[str, Any]]:
+        captured.update(symbol=symbol, tf=tf, limit=limit)
+        return _FAKE
+
+    async def boom_okx(symbol: str, tf: str, limit: int) -> list[dict[str, Any]]:
+        raise AssertionError("metals must not route to OKX")
+
+    monkeypatch.setattr(candles, "_fetch_yfinance", fake_yf)
+    monkeypatch.setattr(candles, "_fetch_okx", boom_okx)
+    result = await get_candles("XAU-USD", "1D", 50)
+    assert result["source"] == "yfinance"
+    assert captured["symbol"] == "GC=F"  # gold futures, not XAU-USD
+    assert result["candles"] == _FAKE
+
+
+async def test_get_candles_metal_failure_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A metal upstream failure returns an empty set — never the crypto mock."""
+
+    async def boom(symbol: str, tf: str, limit: int) -> list[dict[str, Any]]:
+        raise LookupError("yfinance down")
+
+    monkeypatch.setattr(candles, "_fetch_yfinance", boom)
+    result = await get_candles("XAG-USD", "1D", 10)
+    assert result["source"] == "empty"
+    assert result["candles"] == []
 
 
 async def test_get_candles_forex_routes_frankfurter(monkeypatch: pytest.MonkeyPatch) -> None:
