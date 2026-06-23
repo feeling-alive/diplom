@@ -5,12 +5,22 @@ import type { WidgetSizeProps } from '../../../types/widgets.types'
 
 type Row = { symbol: string; price: number; change: number }
 
-const SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'GOOG', 'AMZN']
+// Расширенный список (3.9): крупнейшие ликвидные тикеры US-рынка. Бэкенд тянет
+// их батчем через /api/quotes/stocks (Finnhub), per-symbol ошибки отсеиваются.
+const SYMBOLS = [
+  'AAPL', 'MSFT', 'NVDA', 'TSLA', 'GOOG', 'AMZN', 'META', 'JPM',
+  'V', 'WMT', 'NFLX', 'AMD', 'DIS', 'KO', 'INTC', 'BA',
+]
 
 const MOCK_ROWS: Row[] = [
   { symbol: 'AAPL', price: 184.2, change: 1.4 }, { symbol: 'MSFT', price: 412.85, change: -0.6 },
   { symbol: 'NVDA', price: 950, change: 3.8 }, { symbol: 'TSLA', price: 178.5, change: -2.1 },
   { symbol: 'GOOG', price: 162.4, change: 0.8 }, { symbol: 'AMZN', price: 184.3, change: 1.2 },
+  { symbol: 'META', price: 505.1, change: 2.2 }, { symbol: 'JPM', price: 198.7, change: -0.4 },
+  { symbol: 'V', price: 275.3, change: 0.5 }, { symbol: 'WMT', price: 67.9, change: 0.9 },
+  { symbol: 'NFLX', price: 632.4, change: -1.1 }, { symbol: 'AMD', price: 162.8, change: 4.1 },
+  { symbol: 'DIS', price: 102.5, change: -0.7 }, { symbol: 'KO', price: 61.2, change: 0.2 },
+  { symbol: 'INTC', price: 31.4, change: -1.8 }, { symbol: 'BA', price: 178.9, change: 1.6 },
 ]
 
 interface StocksPayload {
@@ -32,7 +42,7 @@ type Props = WidgetSizeProps
 
 export default function StockScreenerWidget({ gridW = 3, gridH = 2 }: Props) {
   const [topGainers, setTopGainers] = useState(true)
-  const limit = gridH >= 3 ? 6 : 4
+  const limit = gridH >= 4 ? SYMBOLS.length : gridH >= 3 ? 8 : gridH >= 2 ? 6 : 4
 
   const { data } = useQuery<Row[], Error>({
     queryKey: ['stocks-screener', SYMBOLS.join(',')],

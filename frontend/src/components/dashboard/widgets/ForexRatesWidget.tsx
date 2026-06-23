@@ -5,28 +5,33 @@ import type { WidgetSizeProps } from '../../../types/widgets.types'
 
 interface Pair { from: string; to: string; label: string; flags: string }
 
+// Полный набор пар из Frankfurter (3.2): мажоры + кроссы + ключевые валюты.
+// Курс каждой пары тянется реально через useForexRate (бэкенд /api/quotes/forex).
 const PAIRS: Pair[] = [
   { from: 'EUR', to: 'USD', label: 'EUR/USD', flags: '🇪🇺🇺🇸' },
   { from: 'GBP', to: 'USD', label: 'GBP/USD', flags: '🇬🇧🇺🇸' },
   { from: 'USD', to: 'JPY', label: 'USD/JPY', flags: '🇺🇸🇯🇵' },
   { from: 'USD', to: 'CHF', label: 'USD/CHF', flags: '🇺🇸🇨🇭' },
+  { from: 'USD', to: 'CAD', label: 'USD/CAD', flags: '🇺🇸🇨🇦' },
+  { from: 'AUD', to: 'USD', label: 'AUD/USD', flags: '🇦🇺🇺🇸' },
+  { from: 'NZD', to: 'USD', label: 'NZD/USD', flags: '🇳🇿🇺🇸' },
+  { from: 'USD', to: 'CNY', label: 'USD/CNY', flags: '🇺🇸🇨🇳' },
+  { from: 'EUR', to: 'GBP', label: 'EUR/GBP', flags: '🇪🇺🇬🇧' },
+  { from: 'EUR', to: 'JPY', label: 'EUR/JPY', flags: '🇪🇺🇯🇵' },
+  { from: 'GBP', to: 'JPY', label: 'GBP/JPY', flags: '🇬🇧🇯🇵' },
+  { from: 'USD', to: 'SEK', label: 'USD/SEK', flags: '🇺🇸🇸🇪' },
+  { from: 'USD', to: 'PLN', label: 'USD/PLN', flags: '🇺🇸🇵🇱' },
+  { from: 'USD', to: 'TRY', label: 'USD/TRY', flags: '🇺🇸🇹🇷' },
+  { from: 'USD', to: 'INR', label: 'USD/INR', flags: '🇺🇸🇮🇳' },
 ]
-
-// Заглушечные % изменения — пока useForexRate не возвращает change, оставляем константы
-const CHANGES: Record<string, number> = {
-  'EUR/USD': 0.3,
-  'GBP/USD': -0.2,
-  'USD/JPY': 0.15,
-  'USD/CHF': -0.05,
-}
 
 type Props = WidgetSizeProps
 
 export default function ForexRatesWidget({ gridW = 2, gridH = 2 }: Props) {
   const navigate = useNavigate()
-  
-  // Растёт вниз
-  const limit = gridH >= 4 ? 8 : gridH >= 3 ? 6 : 4
+
+  // Растёт вниз: высокий виджет показывает весь набор пар со скроллом, а не обрезок.
+  const limit = gridH >= 4 ? PAIRS.length : gridH >= 3 ? 10 : gridH >= 2 ? 6 : 4
   const visiblePairs = PAIRS.slice(0, limit)
 
   console.debug('[ForexRatesWidget] gridW=%d gridH=%d pairs=%d', gridW, gridH, visiblePairs.length)
@@ -64,9 +69,7 @@ export default function ForexRatesWidget({ gridW = 2, gridH = 2 }: Props) {
 
 function ListCell({ pair, isLast, onClick }: { pair: Pair; isLast: boolean; onClick: () => void }) {
   const { rate, isLoading } = useForexRate(pair.from, pair.to)
-  const change = CHANGES[pair.label] ?? 0
-  const positive = change >= 0
-  
+
   return (
     <motion.div 
       whileHover={{ backgroundColor: 'var(--bg)', x: 2 }}
@@ -87,10 +90,7 @@ function ListCell({ pair, isLast, onClick }: { pair: Pair; isLast: boolean; onCl
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
-          {isLoading ? '…' : Number.isFinite(rate) ? rate.toFixed(4) : '—'}
-        </span>
-        <span style={{ fontSize: 11, fontWeight: 600, color: positive ? 'var(--green)' : 'var(--accent)', fontVariantNumeric: 'tabular-nums', width: 44, textAlign: 'right' }}>
-          {positive ? '+' : ''}{change.toFixed(2)}%
+          {isLoading ? '…' : Number.isFinite(rate) && rate > 0 ? rate.toFixed(4) : '—'}
         </span>
       </div>
     </motion.div>
