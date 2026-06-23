@@ -47,6 +47,12 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      // Asset favourites (GET/POST/DELETE /favorites). Same-origin via proxy so
+      // the auth cookie is sent with every request.
+      '/favorites': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/api/chat': {
         target: 'http://localhost:8000',
         changeOrigin: true,

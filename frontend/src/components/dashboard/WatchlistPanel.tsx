@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
+import { Star } from 'lucide-react'
 import type { Asset } from '../../types/market.types'
 import type { WidgetSizeProps } from '../../types/widgets.types'
 import { usePrices } from '../../hooks/usePrices'
+import { useFavorites } from '../../hooks/useFavorites'
 import { formatPrice } from '../../utils/format'
 
 interface Props extends WidgetSizeProps {
@@ -13,23 +15,41 @@ interface Props extends WidgetSizeProps {
 const ROWS_PER_GRID_H: Record<number, number> = { 2: 4, 3: 8, 4: 12 }
 
 export default function WatchlistPanel({ assets: propAssets, gridW = 2, gridH = 2 }: Props) {
-  const { cryptos, isLoading, lastUpdated } = usePrices()
+  const { bySymbol, isLoading, lastUpdated } = usePrices()
+  const { symbols: favSymbols, isLoggedIn } = useFavorites()
   const navigate = useNavigate()
   const rowsLimit = ROWS_PER_GRID_H[gridH] ?? 4
-  const assets = propAssets ?? cryptos.slice(0, rowsLimit)
+
+  // [4.2] Воч-лист = ТОЛЬКО избранные пользователя (модель Favorite через
+  // useFavorites), а не все крипто-активы из usePrices. Символы избранного
+  // маппятся на живые цены; неизвестные символы пропускаются.
+  const favoriteAssets = favSymbols
+    .map((s) => bySymbol[s] ?? bySymbol[s.toUpperCase()])
+    .filter((a): a is Asset => Boolean(a))
+  const assets = propAssets ?? favoriteAssets.slice(0, rowsLimit)
   // gridW === 1 → компактный режим (только иконка + цена + change%)
   const compact = gridW <= 1
 
   console.debug(
-    '[WatchlistPanel] gridW=%d gridH=%d rows=%d compact=%s loading=%s updated=%s',
-    gridW, gridH, assets.length, compact, isLoading,
+    '[WatchlistPanel] gridW=%d gridH=%d favs=%d rows=%d compact=%s loading=%s updated=%s',
+    gridW, gridH, favSymbols.length, assets.length, compact, isLoading,
     lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : 'never',
   )
 
   if (assets.length === 0) {
+    // Пустой воч-лист → понятный CTA вместо «Пусто».
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
-        <span style={{ fontSize: 12, color: 'var(--muted)' }}>Пусто</span>
+      <div style={{
+        width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12,
+        textAlign: 'center', boxSizing: 'border-box',
+      }}>
+        <Star size={22} style={{ color: 'var(--soft, var(--muted))' }} />
+        <span style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.4 }}>
+          {isLoggedIn
+            ? 'Добавьте активы в избранное ⭐ на странице актива — они появятся здесь'
+            : 'Войдите и добавьте активы в избранное, чтобы видеть их здесь'}
+        </span>
       </div>
     )
   }

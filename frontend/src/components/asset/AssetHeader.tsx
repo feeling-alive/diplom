@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, TrendingUp, TrendingDown, Star } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAssetPrice } from '../../hooks/useAssetPrice'
+import { useFavorites } from '../../hooks/useFavorites'
 import { formatPrice } from '../../utils/format'
 import type { Asset } from '../../types/market.types'
 
@@ -13,7 +13,9 @@ interface Props {
 export default function AssetHeader({ asset }: Props) {
   const navigate = useNavigate()
   const { price: livePrice, change24h: liveChange } = useAssetPrice(asset.symbol, asset.type)
-  const [isStarred, setIsStarred] = useState(false)
+  // [4.2] Звезда персистится через бэкенд (модель Favorite) и питает WatchlistPanel.
+  const { isFavorite, toggle, isLoggedIn } = useFavorites()
+  const isStarred = isFavorite(asset.symbol)
 
   const price = livePrice || asset.price
   const change24h = liveChange || asset.change24h
@@ -111,8 +113,13 @@ export default function AssetHeader({ asset }: Props) {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => {
-          console.debug('[AssetHeader] star toggled, was=%s', isStarred)
-          setIsStarred((v) => !v)
+          if (!isLoggedIn) {
+            console.debug('[AssetHeader] star click but not logged in -> /login')
+            navigate('/login')
+            return
+          }
+          console.debug('[AssetHeader] star toggle %s was=%s', asset.symbol, isStarred)
+          toggle(asset.symbol)
         }}
         style={{
           background: isStarred ? 'var(--accent)' : 'var(--white)',
