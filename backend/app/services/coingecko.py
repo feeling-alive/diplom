@@ -23,7 +23,15 @@ logger = logging.getLogger("backend.coingecko")
 
 _COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/{id}"
 _COINGECKO_GLOBAL_URL = "https://api.coingecko.com/api/v3/global"
+_COINGECKO_TRENDING_URL = "https://api.coingecko.com/api/v3/search/trending"
 _MOCK_PATH = Path(__file__).resolve().parent.parent / "mock" / "coin.json"
+
+# Cold-cache fallback for trending so the widget always has something to render.
+_TRENDING_FALLBACK: list[dict[str, Any]] = [
+    {"id": "bitcoin", "symbol": "BTC", "name": "Bitcoin", "marketCapRank": 1, "thumb": None, "priceUsd": 0.0},
+    {"id": "ethereum", "symbol": "ETH", "name": "Ethereum", "marketCapRank": 2, "thumb": None, "priceUsd": 0.0},
+    {"id": "solana", "symbol": "SOL", "name": "Solana", "marketCapRank": 5, "thumb": None, "priceUsd": 0.0},
+]
 
 # Last-resort numbers if CoinGecko /global is unreachable on a cold cache. Marked
 # isStale so the frontend can flag demo data instead of presenting it as live.
@@ -128,6 +136,55 @@ async def get_coin(coin_id: str) -> dict[str, Any]:
 
     result = {**_normalize(payload), "source": "coingecko"}
     await set_cached(key, result, settings.coin_ttl)
+    return result
+
+
+async def get_trending() -> dict[str, Any]:
+    """Return the top trending coins from CoinGecko ``/search/trending``.
+
+    Shape: ``{coins: [{id, symbol, name, marketCapRank, thumb, priceUsd}], source}``.
+    Cache-first (TTL = coin_ttl). Trending searches change slowly and the free tier
+    is rate-limited, so the browser proxies through here instead of calling CoinGecko
+    directly (CORS + quota). Falls back to a small static list on a cold cache miss.
+    """
+    key = "cache:trending"
+    cached = await get_cached(key)
+    if cached is not None:
+        return {**cached, "source": "cache"}
+
+    logger.info("[coingecko] fetch /search/trending")
+    try:
+        async with httpx.AsyncClient(timeout=settings.http_timeout, follow_redirects=True) as client:
+            resp = await client.get(_COINGECKO_TRENDING_URL)
+            resp.raise_for_status()
+            payload: dict[str, Any] = resp.json()
+    except httpx.HTTPError as err:
+        logger.warning("[coingecko] /search/trending upstream failed: %s", err)
+        return {"coins": _TRENDING_FALLBACK, "source": "fallback"}
+
+    coins: list[dict[str, Any]] = []
+    for entry in (payload.get("coins") or []):
+        item = entry.get("item") or {}
+        if not item.get("id"):
+            continue
+        coins.append(
+            {
+                "id": item.get("id"),
+                "symbol": str(item.get("symbol", "")).upper(),
+                "name": item.get("name"),
+                "marketCapRank": item.get("market_cap_rank"),
+                "thumb": item.get("thumb") or item.get("small"),
+                "priceUsd": safe_float((item.get("data") or {}).get("price")),
+            }
+        )
+
+    if not coins:
+        logger.warning("[coingecko] /search/trending returned no coins — using fallback")
+        return {"coins": _TRENDING_FALLBACK, "source": "fallback"}
+
+    result = {"coins": coins, "source": "coingecko"}
+    await set_cached(key, result, settings.coin_ttl)
+    logger.info("[coingecko] trending fetched: %d coins", len(coins))
     return result
 
 

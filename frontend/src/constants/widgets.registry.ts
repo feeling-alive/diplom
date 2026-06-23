@@ -2,8 +2,8 @@ import {
   TrendingUp, Star, BarChart2, PieChart,
   Newspaper, ArrowUpDown, DollarSign, Gauge,
   Activity, Flame,
-  Grid, AlertTriangle,
-  Globe, Percent, Fuel, ArrowLeftRight, Anchor,
+  Grid,
+  Globe, Percent, Fuel, ArrowLeftRight,
   Filter, Smile, ListOrdered,
 } from 'lucide-react';
 import type { WidgetDefinition } from '../types/widgets.types';
@@ -145,7 +145,7 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
   {
     type: 'trending_coins',
     title: 'Трендовые монеты',
-    description: 'Топ по объёму торгов',
+    description: 'Тренды поиска CoinGecko',
     icon: Flame,
     color: '#ef4444',
     availableSizes: [
@@ -231,13 +231,6 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     minW: 2, minH: 1, maxW: 3, maxH: 2,
   },
   {
-    type: 'whale_tracker', title: 'Кит-трекер', description: 'Крупные on-chain транзакции',
-    icon: Anchor, color: '#1d4ed8',
-    availableSizes: [{ w: 2, h: 2, label: '2×2' }, { w: 3, h: 2, label: '3×2' }],
-    defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 2, minH: 2, maxW: 3, maxH: 4,
-  },
-  {
     type: 'stock_screener', title: 'Скринер акций', description: 'P/E, дивиденды, % изменения',
     icon: Filter, color: '#92400e',
     availableSizes: [{ w: 3, h: 2, label: '3×2' }, { w: 4, h: 2, label: '4×2' }],
@@ -250,13 +243,6 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
     availableSizes: [{ w: 1, h: 2, label: '1×2' }, { w: 2, h: 2, label: '2×2' }],
     defaultSize: { w: 2, h: 2, label: '2×2' },
     minW: 1, minH: 2, maxW: 2, maxH: 3,
-  },
-  {
-    type: 'liquidations', title: 'Ликвидации', description: 'Лонги и шорты за 24ч',
-    icon: AlertTriangle, color: '#b91c1c',
-    availableSizes: [{ w: 2, h: 2, label: '2×2' }, { w: 3, h: 2, label: '3×2' }],
-    defaultSize: { w: 2, h: 2, label: '2×2' },
-    minW: 2, minH: 2, maxW: 4, maxH: 3,
   },
   {
     type: 'correlation_matrix', title: 'Корреляции', description: 'Матрица связи активов вотч-листа',

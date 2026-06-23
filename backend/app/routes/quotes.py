@@ -153,6 +153,13 @@ async def get_price(symbol: str) -> dict[str, Any]:
         raise HTTPException(status_code=502, detail=f"Price error for {symbol}") from err
 
 
+@router.get("/trending")
+async def get_trending() -> dict[str, Any]:
+    """Top trending coins (CoinGecko /search/trending), Redis-cached. Shared by the
+    trending_coins widget so the browser no longer hits CoinGecko directly."""
+    return await coingecko.get_trending()
+
+
 @router.get("/funding-rate")
 async def get_funding_rate(
     symbols: str = Query(..., description="Comma-separated OKX instIds, e.g. BTC-USDT,ETH-USDT"),

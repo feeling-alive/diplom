@@ -22,10 +22,8 @@ import GlobalMarketCapWidget from './widgets/GlobalMarketCapWidget'
 import FundingRateWidget from './widgets/FundingRateWidget'
 import GasTrackerWidget from './widgets/GasTrackerWidget'
 import CurrencyConverterWidget from './widgets/CurrencyConverterWidget'
-import WhaleTrackerWidget from './widgets/WhaleTrackerWidget'
 import StockScreenerWidget from './widgets/StockScreenerWidget'
 import SentimentMeterWidget from './widgets/SentimentMeterWidget'
-import LiquidationsWidget from './widgets/LiquidationsWidget'
 import CorrelationMatrixWidget from './widgets/CorrelationMatrixWidget'
 
 export function renderWidgetContent(type: WidgetType, gridW: number, gridH: number) {
@@ -50,10 +48,8 @@ export function renderWidgetContent(type: WidgetType, gridW: number, gridH: numb
     case 'funding_rate': return <FundingRateWidget gridW={gridW} gridH={gridH} />
     case 'gas_tracker': return <GasTrackerWidget gridW={gridW} gridH={gridH} />
     case 'currency_converter': return <CurrencyConverterWidget gridW={gridW} gridH={gridH} />
-    case 'whale_tracker': return <WhaleTrackerWidget gridW={gridW} gridH={gridH} />
     case 'stock_screener': return <StockScreenerWidget gridW={gridW} gridH={gridH} />
     case 'sentiment_meter': return <SentimentMeterWidget gridW={gridW} gridH={gridH} />
-    case 'liquidations': return <LiquidationsWidget gridW={gridW} gridH={gridH} />
     case 'correlation_matrix': return <CorrelationMatrixWidget gridW={gridW} gridH={gridH} />
     default: return null
   }

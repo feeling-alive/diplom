@@ -65,7 +65,23 @@ export default function WatchlistPanel({ assets: propAssets, gridW = 2, gridH = 
     }}>
       {!compact && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 6, flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500 }}>Все →</span>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              console.debug('[WatchlistPanel] "Все" → navigate to /market')
+              navigate('/market')
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                navigate('/market')
+              }
+            }}
+            style={{ fontSize: 11, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500 }}
+          >
+            Все →
+          </span>
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'auto' }}>

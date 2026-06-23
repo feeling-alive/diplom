@@ -1,84 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useGlobalMarket } from '../../../hooks/useGlobalMarket'
 import type { WidgetSizeProps } from '../../../types/widgets.types'
 
 type Props = WidgetSizeProps
 
-const CACHE_KEY = 'fintrack_dominance_v1'
-const CACHE_TTL_MS = 5 * 60 * 1000
-
-interface DomData {
-  btc: number
-  eth: number
-  change24h: number
-}
-
-interface CacheEntry extends DomData { cachedAt: number }
-function readCache(): CacheEntry | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const entry = JSON.parse(raw) as CacheEntry
-    if (Date.now() - entry.cachedAt > CACHE_TTL_MS) return null
-    return entry
-  } catch {
-    return null
-  }
-}
-
-function writeCache(data: DomData) {
-  try {
-    const entry = { ...data, cachedAt: Date.now() }
-    localStorage.setItem(CACHE_KEY, JSON.stringify(entry))
-  } catch { /* ignore */ }
-}
-
 export default function DominanceChartWidget({ gridW = 2, gridH = 2 }: Props) {
-  const [data, setData] = useState<DomData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  // Доминирование берётся из общего бэкенд-прокси /api/quotes/global (useGlobalMarket),
+  // как и остальные глобальные метрики — больше никаких прямых запросов в
+  // api.coingecko.com из браузера (CORS/лимиты) и дублирующего localStorage-кэша
+  // (Задача B1, тот же источник, что A2).
+  const { data: global, isLoading } = useGlobalMarket()
 
-  useEffect(() => {
-    const cached = readCache()
-    if (cached) {
-      console.info('[DominanceChartWidget] cache hit — btc=%.2f%% eth=%.2f%%', cached.btc, cached.eth)
-      setData(cached)
-      setIsLoading(false)
-      return
-    }
-
-    const controller = new AbortController()
-    const fetchFn = async () => {
-      try {
-        console.info('[DominanceChartWidget] fetching CoinGecko /global')
-        const res = await fetch('https://api.coingecko.com/api/v3/global', { signal: controller.signal })
-        if (!res.ok) throw new Error(`CoinGecko ${res.status}`)
-        const json = (await res.json()) as {
-          data: { market_cap_percentage: { btc: number; eth: number }; market_cap_change_percentage_24h_usd: number }
-        }
-        const next: DomData = {
-          btc: json.data.market_cap_percentage.btc,
-          eth: json.data.market_cap_percentage.eth,
-          change24h: json.data.market_cap_change_percentage_24h_usd,
-        }
-        setData(next)
-        writeCache(next)
-        console.info('[DominanceChartWidget] fetched btc=%.2f%% eth=%.2f%%', next.btc, next.eth)
-      } catch (err) {
-        if (controller.signal.aborted) return
-        console.warn('[DominanceChartWidget] fetch failed, using fallback:', err)
-        setData({ btc: 52.4, eth: 17.2, change24h: 1.8 })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchFn()
-    return () => controller.abort()
-  }, [])
-
-  if (isLoading && !data) {
+  if (isLoading && !global) {
     return <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 11 }}>Загрузка…</div>
   }
-  if (!data) return null
+  if (!global) return null
 
+  const data = { btc: global.btcDominance, eth: global.ethDominance, change24h: global.marketCapChange24h }
   const btc = data.btc
   const eth = data.eth
   const others = 100 - btc - eth

@@ -43,7 +43,7 @@ export default function GasTrackerWidget({ gridW = 2, gridH = 1 }: Props) {
   const compact = gridW < 2 && gridH < 2
   if (compact) {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div title="Gas — цена транзакции в сети Ethereum в gwei. Чем выше спрос на блок, тем дороже." style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#15803d' }}>{gas.standard.gwei}</div>
           <div style={{ fontSize: 9, color: 'var(--muted)' }}>gwei · ETH</div>
@@ -52,7 +52,7 @@ export default function GasTrackerWidget({ gridW = 2, gridH = 1 }: Props) {
     )
   }
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div title="Gas — цена транзакции в сети Ethereum в gwei (Slow / Std / Fast)." style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{
         flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: 6,
       }}>

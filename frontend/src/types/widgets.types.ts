@@ -21,10 +21,8 @@ export type WidgetType =
   | 'funding_rate'
   | 'gas_tracker'
   | 'currency_converter'
-  | 'whale_tracker'
   | 'stock_screener'
   | 'sentiment_meter'
-  | 'liquidations'
   | 'correlation_matrix';
 
 export type WidgetSize = {

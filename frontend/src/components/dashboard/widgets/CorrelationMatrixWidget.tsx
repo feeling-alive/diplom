@@ -55,7 +55,9 @@ export default function CorrelationMatrixWidget({ gridW = 3, gridH = 2 }: Props)
   const cols = SYMBOLS.length
 
   return (
-    <div style={{
+    <div
+      title="Корреляция дневных цен (коэф. Пирсона): 1 = активы движутся синхронно, 0 = независимо, −1 = противоположно."
+      style={{
       width: '100%', height: '100%',
       display: 'grid',
       gridTemplateColumns: `auto repeat(${cols}, 1fr)`,

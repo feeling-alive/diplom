@@ -50,13 +50,16 @@ export default function FundingRateWidget({ gridW = 2, gridH = 2 }: Props) {
   console.debug('[FundingRateWidget] gridW=%d gridH=%d rows=%d', gridW, gridH, rows.length)
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div
+      title="Funding rate — ставка финансирования перпетуальных свопов (раз в 8ч). Положительная: лонги платят шортам (бычий настрой), отрицательная: шорты платят лонгам."
+      style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+    >
       <div style={{
         display: 'flex', justifyContent: 'space-between',
         fontSize: 9, color: 'var(--muted)', fontWeight: 600,
         padding: '2px 0', borderBottom: '1px solid var(--border)',
       }}>
-        <span>Актив</span><span>Funding · 8ч</span>
+        <span>Актив</span><span title="Ставка финансирования перпов — настрой рынка">Funding · 8ч</span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         {rows.slice(0, limit).map((r) => (
