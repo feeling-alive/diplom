@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import AsyncSessionLocal
 from app.models import NewsArticle
+from app.services.api_keys import get_api_key
 
 logger = logging.getLogger("backend.news_fetcher")
 
@@ -40,8 +41,9 @@ _QUERIES = [
     {"q": "forex OR dollar OR euro OR Fed", "pageSize": 30},
 ]
 
-# Semaphore limits concurrent OpenRouter calls to 3 to avoid free-tier 429s.
-_ai_semaphore = asyncio.Semaphore(3)
+# Semaphore limits concurrent enrichment calls to 2 to avoid free-tier 429 bursts
+# (lowered from 3 — combined with the per-slot throttle and provider 429 retries).
+_ai_semaphore = asyncio.Semaphore(2)
 
 _AI_PROMPT_TEMPLATE = """Analyze this financial news article and return ONLY valid JSON, no other text:
 
@@ -62,15 +64,15 @@ For symbols: only include if explicitly mentioned (BTC, ETH, SOL, AAPL, MSFT, GO
 For category: crypto if about cryptocurrency, stocks if about equities, forex if about currencies/Fed, general otherwise"""
 
 
-async def _fetch_bucket(client: httpx.AsyncClient, params: dict) -> list[dict]:
+async def _fetch_bucket(client: httpx.AsyncClient, params: dict, news_key: str) -> list[dict]:
     """Fetch one NewsAPI bucket. Returns article dicts or [] on error."""
-    if not settings.news_api_key:
-        logger.warning("[news_fetcher] NEWS_API_KEY absent — skipping bucket %s", params.get("q", ""))
+    if not news_key:
+        logger.warning("[news_fetcher] no NewsAPI key (panel/.env) — skipping bucket %s", params.get("q", ""))
         return []
     try:
         resp = await client.get(
             _NEWSAPI_BASE,
-            params={**params, "apiKey": settings.news_api_key, "language": "en"},
+            params={**params, "apiKey": news_key, "language": "en"},
             timeout=10,
         )
         resp.raise_for_status()
@@ -86,12 +88,13 @@ async def _fetch_bucket(client: httpx.AsyncClient, params: dict) -> list[dict]:
 async def fetch_and_store_news() -> None:
     """Fetch all 4 buckets in parallel, deduplicate by URL, persist new articles."""
     logger.info("[news_fetcher] fetch started")
-    if not settings.news_api_key:
-        logger.warning("[news_fetcher] NEWS_API_KEY not set — aborting fetch")
+    news_key = await get_api_key("newsapi")
+    if not news_key:
+        logger.warning("[news_fetcher] no NewsAPI key (panel/.env) — aborting fetch")
         return
 
     async with httpx.AsyncClient() as client:
-        results = await asyncio.gather(*[_fetch_bucket(client, q) for q in _QUERIES])
+        results = await asyncio.gather(*[_fetch_bucket(client, q, news_key) for q in _QUERIES])
 
     # Flatten + deduplicate within the batch by URL.
     seen_urls: set[str] = set()
@@ -140,9 +143,26 @@ async def fetch_and_store_news() -> None:
 
     logger.info("[news_fetcher] inserted %d new articles", len(inserted))
 
-    # Enrich articles sequentially via semaphore-bounded concurrency (max 3 parallel
-    # OpenRouter calls) with 1-second inter-request delay and retry on 429.
+    # Enrich the freshly-inserted articles, then pick up a tail batch of older
+    # articles that are still untranslated (transient failures from earlier cycles)
+    # and not yet over the attempt cap.
     await _enrich_articles(inserted)
+
+    async with AsyncSessionLocal() as session:
+        tail_rows = await session.execute(
+            select(NewsArticle.id)
+            .where(
+                NewsArticle.title_ru.is_(None),
+                NewsArticle.enrich_attempts < settings.enrich_max_attempts,
+            )
+            .order_by(NewsArticle.published_at.desc())
+            .limit(settings.enrich_tail_batch)
+        )
+        tail_ids = [row[0] for row in tail_rows.all() if row[0] not in set(inserted)]
+
+    if tail_ids:
+        logger.info("[news_fetcher] backfilling %d untranslated tail articles", len(tail_ids))
+        await _enrich_articles(tail_ids)
 
 
 async def _enrich_articles(ids: list[uuid.UUID]) -> None:
@@ -191,7 +211,8 @@ def _parse_enrichment(content: str) -> dict:
 async def _openrouter_complete(prompt: str) -> str | None:
     """Enrichment completion via OpenRouter. Returns content, or None when the key
     is absent / rate-limited / failing so the caller can fall back to Groq."""
-    if not settings.openrouter_api_key:
+    openrouter_key = await get_api_key("openrouter")
+    if not openrouter_key:
         return None
 
     max_retries = 2
@@ -201,7 +222,7 @@ async def _openrouter_complete(prompt: str) -> str | None:
                 resp = await client.post(
                     f"{settings.openrouter_base_url}/chat/completions",
                     headers={
-                        "Authorization": f"Bearer {settings.openrouter_api_key}",
+                        "Authorization": f"Bearer {openrouter_key}",
                         "Content-Type": "application/json",
                     },
                     json={
@@ -230,28 +251,41 @@ async def _groq_complete(prompt: str) -> str | None:
     """Enrichment completion via Groq (fallback). Returns content or None on failure.
 
     Uses JSON response_format so the reply is guaranteed-parseable JSON."""
-    if not settings.groq_api_key:
+    groq_key = await get_api_key("groq")
+    if not groq_key:
         return None
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                _GROQ_ENRICH_URL,
-                headers={
-                    "Authorization": f"Bearer {settings.groq_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": _GROQ_ENRICH_MODEL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.3,
-                    "response_format": {"type": "json_object"},
-                },
-            )
+
+    max_retries = 2
+    for attempt in range(1, max_retries + 2):  # attempts: 1, 2, 3 (initial + 2 retries)
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    _GROQ_ENRICH_URL,
+                    headers={
+                        "Authorization": f"Bearer {groq_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": _GROQ_ENRICH_MODEL,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.3,
+                        "response_format": {"type": "json_object"},
+                    },
+                )
+            # Mirror OpenRouter's 429 handling: back off and retry before giving up.
+            if resp.status_code == 429:
+                if attempt <= max_retries:
+                    logger.warning("[news_fetcher] groq 429, retry %d/%d in 5s", attempt, max_retries)
+                    await asyncio.sleep(5)
+                    continue
+                logger.warning("[news_fetcher] groq 429 exhausted — giving up")
+                return None
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]["content"]
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("[news_fetcher] groq enrichment error: %s", exc)
-        return None
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[news_fetcher] groq enrichment error: %s", exc)
+            return None
+    return None
 
 
 async def _enrich_complete(prompt: str) -> str | None:
@@ -266,15 +300,21 @@ async def _enrich_complete(prompt: str) -> str | None:
 async def process_article_with_ai(article_id: uuid.UUID) -> bool:
     """Translate + categorize one article via OpenRouter→Groq, then update DB.
 
-    Returns True on success, False if the article was skipped (no API keys at all,
-    both providers failed, or a parse error). In every failure case the article is
-    marked ai_processed=True to prevent indefinite retries on the next fetch cycle.
+    Returns True on success, False otherwise. Failure handling distinguishes
+    *transient* from *permanent* failures:
+
+    * **Provider failure** (both providers returned None — outage / rate-limit):
+      increment ``enrich_attempts`` and leave ``ai_processed=False`` so the next
+      pass retries — until ``settings.enrich_max_attempts`` is reached, after which
+      the article is flagged processed to stop an infinite retry loop.
+    * **No keys at all** / **parse error** (malformed JSON): flag ``ai_processed``
+      immediately — retrying cannot help.
     """
     logger.debug("[news_fetcher] ai processing article %s", article_id)
 
-    if not settings.openrouter_api_key and not settings.groq_api_key:
+    if not await get_api_key("openrouter") and not await get_api_key("groq"):
         logger.warning(
-            "[news_fetcher] no enrichment key (OPENROUTER_API_KEY/GROQ_API_KEY) — skipping %s",
+            "[news_fetcher] no enrichment key (openrouter/groq, panel/.env) — skipping %s",
             article_id,
         )
         await _mark_processed(article_id)
@@ -293,14 +333,25 @@ async def process_article_with_ai(article_id: uuid.UUID) -> bool:
 
     content = await _enrich_complete(prompt)
     if content is None:
-        logger.warning("[news_fetcher] enrichment failed for %s (both providers) — saving raw", article_id)
-        await _mark_processed(article_id)
+        # Transient: bump attempts and retry next pass (give up only after the cap).
+        attempts = await _bump_attempts(article_id)
+        if attempts >= settings.enrich_max_attempts:
+            logger.warning(
+                "[news_fetcher] enrichment failed for %s (both providers), attempts=%d >= %d — giving up",
+                article_id, attempts, settings.enrich_max_attempts,
+            )
+            await _mark_processed(article_id)
+        else:
+            logger.warning(
+                "[news_fetcher] enrichment failed for %s (both providers), attempts=%d — will retry",
+                article_id, attempts,
+            )
         return False
 
     try:
         data = _parse_enrichment(content)
     except (json.JSONDecodeError, KeyError, ValueError) as exc:
-        logger.warning("[news_fetcher] ai parse error for %s: %s", article_id, exc)
+        logger.warning("[news_fetcher] ai parse error for %s: %s — flagging processed", article_id, exc)
         await _mark_processed(article_id)
         return False
 
@@ -328,14 +379,22 @@ async def reenrich_unprocessed(limit: int = 200) -> dict[str, int]:
     articles are flagged processed to avoid retry loops — so a provider outage (or a
     missing key, now fixed by the Groq fallback) leaves them processed-but-raw. This
     lets an admin backfill the existing raw articles after the fallback is in place.
+    Articles that already exhausted ``enrich_max_attempts`` are excluded so a
+    permanently-failing item is not retried forever.
     """
     async with AsyncSessionLocal() as session:
         rows = await session.execute(
-            select(NewsArticle.id).where(NewsArticle.title_ru.is_(None)).limit(limit)
+            select(NewsArticle.id)
+            .where(
+                NewsArticle.title_ru.is_(None),
+                NewsArticle.enrich_attempts < settings.enrich_max_attempts,
+            )
+            .limit(limit)
         )
         ids = [row[0] for row in rows.all()]
 
-    logger.info("[news_fetcher] reenrich: %d articles missing title_ru", len(ids))
+    logger.info("[news_fetcher] reenrich: %d articles missing title_ru (attempts<%d)",
+                len(ids), settings.enrich_max_attempts)
     await _enrich_articles(ids)
     return {"requested": len(ids)}
 
@@ -350,3 +409,20 @@ async def _mark_processed(article_id: uuid.UUID) -> None:
                     article.ai_processed = True
     except Exception as exc:  # noqa: BLE001
         logger.warning("[news_fetcher] _mark_processed error: %s", exc)
+
+
+async def _bump_attempts(article_id: uuid.UUID) -> int:
+    """Increment ``enrich_attempts`` for an article; return the new count (0 on error)."""
+    try:
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                article = await session.get(NewsArticle, article_id)
+                if article is None:
+                    return 0
+                article.enrich_attempts = (article.enrich_attempts or 0) + 1
+                count = article.enrich_attempts
+        logger.debug("[news_fetcher] enrich_attempts for %s -> %d", article_id, count)
+        return count
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[news_fetcher] _bump_attempts error: %s", exc)
+        return 0

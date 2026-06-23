@@ -236,6 +236,10 @@ class NewsArticle(Base):
     market_impact: Mapped[str | None] = mapped_column(String(16), nullable=True)
     language: Mapped[str] = mapped_column(String(8), nullable=False, default="en")
     ai_processed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Count of AI-enrichment attempts. Used to retry transient provider failures
+    # (instead of flagging ``ai_processed`` on the first failure) while still
+    # capping retries so a permanently failing article is eventually given up on.
+    enrich_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

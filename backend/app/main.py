@@ -5,6 +5,7 @@ Run: ``uvicorn app.main:app --reload --port 8000`` (from the ``backend/`` dir).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -22,7 +23,7 @@ from app.config import log_startup_config, settings
 from app.database import Base, engine
 from app.routes import admin, chat, crypto, dashboard, forex, news, notifications, profile, quotes, search
 from app.services.cache import close_client
-from app.services.news_fetcher import fetch_and_store_news
+from app.services.news_fetcher import fetch_and_store_news, reenrich_unprocessed
 
 # Importing models registers all tables on Base.metadata (needed for create_all).
 import app.models  # noqa: E402,F401  (side-effect import: table registration)
@@ -88,6 +89,18 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         logger.info("[main] APScheduler started — news fetch every 4 h")
     else:
         logger.warning("[main] NEWS_API_KEY absent — APScheduler not started")
+
+    # Background backfill of still-untranslated articles (title_ru IS NULL) on
+    # startup. Fire-and-forget so a slow/failing enrichment never blocks startup;
+    # the task reference is kept on app.state to avoid premature GC.
+    async def _startup_reenrich() -> None:
+        try:
+            await reenrich_unprocessed(limit=settings.reenrich_startup_limit)
+        except Exception as err:  # noqa: BLE001 — never crash startup over a backfill
+            logger.warning("[main] startup reenrich failed: %s", err)
+
+    _app.state.reenrich_task = asyncio.create_task(_startup_reenrich())
+    logger.info("[main] startup reenrich scheduled (limit=%d)", settings.reenrich_startup_limit)
 
     yield
 

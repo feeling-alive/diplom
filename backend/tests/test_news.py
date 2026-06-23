@@ -297,3 +297,113 @@ async def test_enrich_complete_none_when_both_fail(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(news_fetcher, "_openrouter_complete", fake_none)
     monkeypatch.setattr(news_fetcher, "_groq_complete", fake_none)
     assert await news_fetcher._enrich_complete("prompt") is None
+
+
+# ---------------------------------------------------------------------------
+# Enrichment reliability: don't get stuck, retry transient failures (bug 2.1)
+# ---------------------------------------------------------------------------
+
+
+def _patch_enrich_env(monkeypatch: pytest.MonkeyPatch, client: AsyncClient) -> None:
+    """Point news_fetcher at the in-memory test DB and pretend a key exists."""
+    from app.services import news_fetcher
+
+    monkeypatch.setattr(news_fetcher, "AsyncSessionLocal", client._test_session)  # type: ignore[attr-defined]
+
+    async def fake_key(service: str) -> str:
+        return "test-key"
+
+    monkeypatch.setattr(news_fetcher, "get_api_key", fake_key)
+
+
+async def test_provider_failure_keeps_unprocessed_and_retries(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A provider outage (content is None) must NOT flag ai_processed — the article
+    stays retryable and only enrich_attempts grows, until the cap is reached."""
+    from app.config import settings
+    from app.services import news_fetcher
+
+    _patch_enrich_env(monkeypatch, client)
+
+    async def fail(prompt: str) -> None:
+        return None
+
+    monkeypatch.setattr(news_fetcher, "_enrich_complete", fail)
+
+    art = NewsArticle(**_make_article())
+    db_session.add(art)
+    await db_session.commit()
+    await db_session.refresh(art)
+    art_id = art.id
+
+    # First two attempts: stays unprocessed, attempts increments.
+    for expected in (1, 2):
+        await news_fetcher.process_article_with_ai(art_id)
+        await db_session.refresh(art)
+        assert art.ai_processed is False
+        assert art.enrich_attempts == expected
+        assert art.title_ru is None
+
+    # Third attempt hits the cap (enrich_max_attempts=3) → give up, flag processed.
+    assert settings.enrich_max_attempts == 3
+    await news_fetcher.process_article_with_ai(art_id)
+    await db_session.refresh(art)
+    assert art.enrich_attempts == 3
+    assert art.ai_processed is True
+
+
+async def test_parse_error_marks_processed_immediately(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Malformed JSON cannot be fixed by retrying → flag processed at once."""
+    from app.services import news_fetcher
+
+    _patch_enrich_env(monkeypatch, client)
+
+    async def garbage(prompt: str) -> str:
+        return "not-json-at-all"
+
+    monkeypatch.setattr(news_fetcher, "_enrich_complete", garbage)
+
+    art = NewsArticle(**_make_article())
+    db_session.add(art)
+    await db_session.commit()
+    await db_session.refresh(art)
+
+    await news_fetcher.process_article_with_ai(art.id)
+    await db_session.refresh(art)
+    assert art.ai_processed is True
+    assert art.enrich_attempts == 0  # parse error path does not bump attempts
+
+
+async def test_enrichment_success_fills_fields(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A good provider reply populates title_ru/category/symbols/market_impact."""
+    from app.services import news_fetcher
+
+    _patch_enrich_env(monkeypatch, client)
+
+    async def ok(prompt: str) -> str:
+        return (
+            '{"title_ru": "Заголовок", "description_ru": "Описание", '
+            '"category": "crypto", "symbols": ["BTC"], "keywords": ["k"], '
+            '"market_impact": "high"}'
+        )
+
+    monkeypatch.setattr(news_fetcher, "_enrich_complete", ok)
+
+    art = NewsArticle(**_make_article())
+    db_session.add(art)
+    await db_session.commit()
+    await db_session.refresh(art)
+
+    result = await news_fetcher.process_article_with_ai(art.id)
+    assert result is True
+    await db_session.refresh(art)
+    assert art.title_ru == "Заголовок"
+    assert art.category == "crypto"
+    assert art.symbols == ["BTC"]
+    assert art.market_impact == "high"
+    assert art.ai_processed is True

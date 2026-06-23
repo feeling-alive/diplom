@@ -96,6 +96,13 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = "meta-llama/llama-3.3-70b-instruct:free"
+    # Max AI-enrichment attempts before an article is given up on (flagged
+    # ai_processed). Transient provider failures retry on later passes until this.
+    enrich_max_attempts: int = 3
+    # How many untranslated articles to backfill at the end of each fetch cycle.
+    enrich_tail_batch: int = 20
+    # How many untranslated articles to backfill in the background on startup.
+    reenrich_startup_limit: int = 50
 
     # --- External API keys (Phase 2) -------------------------------------------
     # Optional — when absent the corresponding endpoint returns a static
