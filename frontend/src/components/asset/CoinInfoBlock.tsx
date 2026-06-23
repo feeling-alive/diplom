@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Globe, Code, MessageCircle, Info, TrendingUp, TrendingDown, Calendar, Cpu, Award } from 'lucide-react'
 import { useCoinInfo } from '../../hooks/useCoinInfo'
+import { formatPrice } from '../../utils/format'
 
 interface Props {
   symbol: string
@@ -206,7 +207,7 @@ export default function CoinInfoBlock({ symbol }: Props) {
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>ATH</span>
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
-              ${formatLargeNumber(data.ath)}
+              {formatPrice(data.ath)}
             </div>
             <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
               {formatDate(data.athDate)}
@@ -220,7 +221,7 @@ export default function CoinInfoBlock({ symbol }: Props) {
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>ATL</span>
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
-              ${formatLargeNumber(data.atl)}
+              {formatPrice(data.atl)}
             </div>
             <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
               {formatDate(data.atlDate)}

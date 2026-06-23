@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { USE_MOCK } from '../../../lib/env'
+import { formatPrice } from '../../../utils/format'
 import type { WidgetSizeProps } from '../../../types/widgets.types'
 
 type Row = { symbol: string; price: number; change: number }
@@ -87,7 +88,7 @@ export default function StockScreenerWidget({ gridW = 3, gridH = 2 }: Props) {
             fontSize: 10, fontVariantNumeric: 'tabular-nums',
           }}>
             <span style={{ fontWeight: 700, color: 'var(--text)' }}>{r.symbol}</span>
-            <span style={{ textAlign: 'right' }}>${r.price.toFixed(2)}</span>
+            <span style={{ textAlign: 'right' }}>{formatPrice(r.price)}</span>
             <span style={{ textAlign: 'right', color: r.change >= 0 ? '#16a34a' : '#ef4444', fontWeight: 600 }}>
               {r.change >= 0 ? '+' : ''}{r.change.toFixed(1)}%
             </span>

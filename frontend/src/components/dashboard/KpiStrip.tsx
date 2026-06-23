@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useHoldings } from '../../hooks/useHoldings'
+import { convertFromUsd, getCurrencyState, CURRENCY_SYMBOL } from '../../utils/format'
 
-function formatCurrency(value: number): string {
-  return '$' + value.toLocaleString('en-US', { maximumFractionDigits: 0 })
+// Портфельные суммы тоже в USD — конвертируем под выбранную валюту (Задача 4.1).
+function formatCurrency(usd: number): string {
+  const { currency } = getCurrencyState()
+  const v = convertFromUsd(usd)
+  const num = v.toLocaleString('en-US', { maximumFractionDigits: currency === 'BTC' ? 4 : 0 })
+  const sym = CURRENCY_SYMBOL[currency]
+  return currency === 'RUB' ? `${num} ${sym}` : `${sym}${num}`
 }
 
 const PERIODS = ['1Ч', '1Д', '1М'] as const

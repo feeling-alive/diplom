@@ -9,6 +9,7 @@ import {
 } from 'recharts'
 import { useOHLCV } from '../../hooks/useOHLCV'
 import { useAssetPrice } from '../../hooks/useAssetPrice'
+import { formatPrice } from '../../utils/format'
 import { MOCK_PRICES } from '../../mock/prices.mock'
 import type { Timeframe } from '../../types/market.types'
 import type { WidgetSizeProps } from '../../types/widgets.types'
@@ -36,12 +37,6 @@ function formatTimestamp(ts: number): string {
   return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0')
 }
 
-function formatPrice(price: number, type: string): string {
-  if (type === 'forex') return price.toFixed(4)
-  if (price >= 1000) return '$' + price.toLocaleString('en-US', { maximumFractionDigits: 0 })
-  return '$' + price.toFixed(2)
-}
-
 interface ChartPoint {
   time: string
   close: number
@@ -65,7 +60,7 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
         fontSize: 12,
       }}
     >
-      <div style={{ fontWeight: 700, color: 'var(--ink)' }}>${val.toLocaleString('en-US', { maximumFractionDigits: 4 })}</div>
+      <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{formatPrice(val)}</div>
       <div style={{ color: 'var(--muted)', fontSize: 10, marginTop: 2 }}>{label}</div>
     </div>
   )

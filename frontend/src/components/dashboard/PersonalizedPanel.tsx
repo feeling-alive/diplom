@@ -1,6 +1,7 @@
 import { usePersonalized } from '../../hooks/usePersonalized'
 import type { Asset } from '../../types/market.types'
 import type { WidgetSizeProps } from '../../types/widgets.types'
+import { formatPrice as fmtPrice } from '../../utils/format'
 
 const TYPE_LABELS: Record<Asset['type'], string> = {
   crypto: 'Крипто',
@@ -8,10 +9,9 @@ const TYPE_LABELS: Record<Asset['type'], string> = {
   forex: 'Форекс',
 }
 
+// Валюта-aware форматирование через единый helper (Задача 4.1).
 function formatPrice(asset: Asset): string {
-  if (asset.type === 'forex') return asset.price.toFixed(4)
-  if (asset.price >= 1000) return '$' + asset.price.toLocaleString('en-US', { maximumFractionDigits: 0 })
-  return '$' + asset.price.toFixed(2)
+  return fmtPrice(asset.price, asset.type)
 }
 
 type Props = WidgetSizeProps

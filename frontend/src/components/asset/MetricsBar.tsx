@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Asset } from '../../types/market.types'
 import { useCoinInfo } from '../../hooks/useCoinInfo'
+import { formatPrice, formatMarketCap, formatVolume } from '../../utils/format'
 
 interface Props {
   asset: Asset
@@ -13,19 +14,22 @@ interface MetricItem {
   value: string
 }
 
-function formatBillion(n: number | null): string {
-  if (n === null || n === undefined) return '–'
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`
-  if (n >= 1e9)  return `$${(n / 1e9).toFixed(2)}B`
-  if (n >= 1e6)  return `$${(n / 1e6).toFixed(1)}M`
-  return `$${n.toFixed(0)}`
+// Цена/капа/объём форматируются ЕДИНЫМИ helper'ами из utils/format (валюта-aware:
+// смена глобальной валюты конвертирует значения). Локальные хардкод-$ форматтеры
+// убраны (Задача 4.1/4.3). Для пары форекс formatPrice сам не конвертирует.
+function fmtMoney(p: number | null | undefined, type?: string): string {
+  if (p === null || p === undefined) return '–'
+  return formatPrice(p, type)
 }
 
-function formatPrice(p: number | null | undefined): string {
-  if (p === null || p === undefined) return '–'
-  if (p >= 1000) return `$${p.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-  if (p >= 1) return `$${p.toFixed(2)}`
-  return `$${p.toFixed(4)}`
+function fmtCap(n: number | null | undefined): string {
+  if (n === null || n === undefined) return '–'
+  return formatMarketCap(n)
+}
+
+function fmtVol(n: number | null | undefined): string {
+  if (n === null || n === undefined) return '–'
+  return formatVolume(n)
 }
 
 export default function MetricsBar({ asset }: Props) {
@@ -39,14 +43,14 @@ export default function MetricsBar({ asset }: Props) {
     : '–'
 
   const metrics: MetricItem[] = [
-    { label: 'Капитализация', value: formatBillion(asset.marketCap ?? coinInfo?.ath ?? null) },
-    { label: 'Объём 24ч',      value: formatBillion(asset.volume24h) },
-    { label: 'Максимум 24ч',   value: formatPrice(asset.high24h) },
-    { label: 'Минимум 24ч',    value: formatPrice(asset.low24h) },
+    { label: 'Капитализация', value: fmtCap(asset.marketCap ?? coinInfo?.ath ?? null) },
+    { label: 'Объём 24ч',      value: fmtVol(asset.volume24h) },
+    { label: 'Максимум 24ч',   value: fmtMoney(asset.high24h, asset.type) },
+    { label: 'Минимум 24ч',    value: fmtMoney(asset.low24h, asset.type) },
     { label: 'Спред 24ч',      value: spread },
     { label: 'В обращении',    value: coinInfo?.circulatingSupply ? `${(coinInfo.circulatingSupply / 1e6).toFixed(1)}M` : '–' },
     { label: 'Рейтинг',        value: coinInfo?.marketCapRank ? `#${coinInfo.marketCapRank}` : '–' },
-    { label: 'ATH',            value: formatPrice(coinInfo?.ath ?? null) },
+    { label: 'ATH',            value: fmtMoney(coinInfo?.ath ?? null, asset.type) },
   ]
 
   const updateArrows = useCallback(() => {

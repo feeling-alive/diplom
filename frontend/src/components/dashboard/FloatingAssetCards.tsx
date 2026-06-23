@@ -2,6 +2,7 @@ import { motion, type Variants } from 'framer-motion'
 import { Plus } from 'lucide-react'
 import type { Asset } from '../../types/market.types'
 import { usePersonalized } from '../../hooks/usePersonalized'
+import { formatPrice } from '../../utils/format'
 import { MOCK_PRICES } from '../../mock/prices.mock'
 
 interface Props {
@@ -68,11 +69,7 @@ function FloatCard({ asset, floatDelay }: FloatCardProps) {
         </span>
       </div>
       <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>
-        {asset.type === 'forex'
-          ? asset.price.toFixed(4)
-          : asset.price >= 1000
-            ? `$${(asset.price / 1000).toFixed(1)}k`
-            : `$${asset.price.toFixed(2)}`}
+        {formatPrice(asset.price, asset.type)}
       </span>
       <span
         style={{

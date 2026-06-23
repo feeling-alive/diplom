@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useHoldings } from '../../hooks/useHoldings'
+import { convertFromUsd, getCurrencyState, CURRENCY_SYMBOL } from '../../utils/format'
 
 const ANIMATION_DURATION = 1500
 
@@ -8,8 +9,14 @@ function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3)
 }
 
-function formatCurrency(value: number): string {
-  return '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+// Портфельная сумма в USD → конвертируем под выбранную валюту (Задача 4.1).
+function formatCurrency(usd: number): string {
+  const { currency } = getCurrencyState()
+  const v = convertFromUsd(usd)
+  const digits = currency === 'BTC' ? 4 : 2
+  const num = v.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  const sym = CURRENCY_SYMBOL[currency]
+  return currency === 'RUB' ? `${num} ${sym}` : `${sym}${num}`
 }
 
 interface Props {

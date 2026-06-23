@@ -6,6 +6,7 @@ import { usePrices } from '../../hooks/usePrices'
 import { useOHLCV } from '../../hooks/useOHLCV'
 import { EmptySearchState } from '../ui/EmptySearchState'
 import type { Asset } from '../../types/market.types'
+import { formatPrice, formatVolume, formatMarketCap } from '../../utils/format'
 
 type FilterType = 'all' | 'crypto' | 'stock' | 'forex'
 type SortKey = 'price' | 'change24h' | 'volume24h' | 'marketCap'
@@ -17,25 +18,6 @@ interface Props {
 }
 
 const GRID = '32px 2fr 1.2fr 1fr 1fr 1fr 72px'
-
-function formatPrice(price: number, type: Asset['type']): string {
-  if (type === 'forex') return price.toFixed(5)
-  if (price >= 1000)    return `$${price.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-  if (price >= 1)       return `$${price.toFixed(2)}`
-  return `$${price.toFixed(4)}`
-}
-
-function formatBillion(n: number): string {
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(1)}T`
-  if (n >= 1e9)  return `$${(n / 1e9).toFixed(1)}B`
-  return `$${n.toFixed(0)}`
-}
-
-function formatTrillion(n: number): string {
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`
-  if (n >= 1e9)  return `$${(n / 1e9).toFixed(1)}B`
-  return `$${n.toFixed(0)}`
-}
 
 function SparklineCell({ symbol, positive }: { symbol: string; positive: boolean }) {
   // Single source of truth: the same /api/quotes/ohlcv hook the asset page chart uses,
@@ -261,11 +243,11 @@ export default function AssetTable({ filter, searchQuery = '' }: Props) {
           </div>
 
           <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--text)' }}>
-            {formatBillion(asset.volume24h)}
+            {formatVolume(asset.volume24h)}
           </div>
 
           <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--text)' }}>
-            {asset.marketCap ? formatTrillion(asset.marketCap) : '–'}
+            {asset.marketCap ? formatMarketCap(asset.marketCap) : '–'}
           </div>
 
           <SparklineCell symbol={asset.symbol} positive={asset.change24h >= 0} />

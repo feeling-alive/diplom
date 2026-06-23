@@ -2,6 +2,7 @@ import { motion, type Variants } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import type { Asset } from '../../types/market.types'
 import { MOCK_PRICES } from '../../mock/prices.mock'
+import { formatPrice } from '../../utils/format'
 
 interface Props {
   assets?: Asset[]
@@ -30,12 +31,6 @@ const CARD_BASE = {
   flexShrink: 0,
   boxShadow: 'var(--shadow-sm)',
 } as const
-
-function formatPrice(price: number, type: string): string {
-  if (type === 'forex') return price.toFixed(4)
-  if (price >= 1000) return '$' + price.toLocaleString('en-US', { maximumFractionDigits: 0 })
-  return '$' + price.toFixed(2)
-}
 
 export default function AssetStrip({ assets = MOCK_PRICES }: Props) {
   const navigate = useNavigate()

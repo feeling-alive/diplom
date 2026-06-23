@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import DashboardTabs from './DashboardTabs'
 import { SearchInput } from '../ui/SearchInput'
 import { EmptySearchState } from '../ui/EmptySearchState'
+import { formatPrice } from '../../utils/format'
 import { useGlobalSearch } from '../../hooks/useGlobalSearch'
 import { useNotifications } from '../../hooks/useNotifications'
 import type { AppNotification } from '../../hooks/useNotifications'
@@ -175,7 +176,7 @@ export default function DashboardHeader({
                       <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>{asset.name}</span>
                       {asset.price != null && (
                         <span style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 500 }}>
-                          ${asset.price.toLocaleString()}
+                          {formatPrice(asset.price, asset.type)}
                         </span>
                       )}
                     </motion.button>

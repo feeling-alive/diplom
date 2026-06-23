@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { usePrices } from '../../hooks/usePrices'
+import { formatPrice } from '../../utils/format'
 import type { Asset } from '../../types/market.types'
 
 type FilterType = 'all' | 'crypto' | 'stock' | 'forex'
@@ -100,7 +101,7 @@ function MoverSection({ title, items, positive }: SectionProps) {
 
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>
-              ${asset.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+              {formatPrice(asset.price, asset.type)}
             </div>
             <span
               className="badge"
