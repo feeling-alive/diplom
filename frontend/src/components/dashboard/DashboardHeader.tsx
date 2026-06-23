@@ -203,8 +203,10 @@ export default function DashboardHeader({
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.04 }}
                       onClick={() => {
-                        console.debug('[DashboardHeader] navigate to news, id=%s', item.id)
-                        navigate('/news')
+                        // Deep-link к конкретной статье (а не общий /news): открывает
+                        // NewsArticlePage по :id. Тот же приём, что и в уведомлениях.
+                        console.debug('[DashboardHeader] navigate to article id=%s', item.id)
+                        navigate(`/news/${item.id}`)
                         setSearchQuery('')
                       }}
                       style={{
