@@ -46,7 +46,7 @@
 - [x] **#2** fix(nav): deep-link к новости из поиска и уведомлений + якоря (1.2) — поиск теперь `navigate('/news/:id')`; уведомления и якорь `#comment-<id>` уже работали
 
 ### Фаза 2 — 🔴 Графики
-- **#3** fix(charts): рабочие Recharts-свечи для акций и металлов (2.1)
+- [x] **#3** fix(charts): рабочие Recharts-свечи для акций и металлов (2.1) — корень: yfinance не был установлен в .venv (есть в requirements). Установлен; добавлен явный ImportError-лог в candles.py. AAPL/GC=F/SI=F отдают 100 свечей
 
 ### Фаза 3 — 🔴 Виджеты: реальные данные
 - **#4** feat(widgets): рыночные метрики — price_chart/market_volume/global_market_cap/funding/gas (3.1/3.3/3.4/3.5/3.6) — *blocked by #3*

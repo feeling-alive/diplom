@@ -181,7 +181,17 @@ def _fetch_yfinance_sync(symbol: str, timeframe: str, limit: int) -> list[dict[s
         "[candles] yfinance fetch %s interval=%s period=%s limit=%d",
         symbol, interval, period, limit,
     )
-    import yfinance as yf  # lazy: heavy import, only needed for stock history
+    try:
+        import yfinance as yf  # lazy: heavy import, only needed for stock history
+    except ImportError as err:
+        # Распространённый прод-баг: пакет есть в requirements.txt, но не установлен в
+        # активном venv → свечи акций/металлов молча деградировали в empty. Логируем
+        # явно, чтобы причина «пустой график» не пряталась за общим degraded-варнингом.
+        logger.error(
+            "[candles] yfinance НЕ установлен в текущем окружении (%s) — акции/металлы "
+            "не получат свечей. Выполните: pip install 'yfinance>=0.2.40'", err,
+        )
+        raise LookupError("yfinance unavailable") from err
 
     ticker = yf.Ticker(symbol)
     frame = ticker.history(period=period, interval=interval, auto_adjust=False)
