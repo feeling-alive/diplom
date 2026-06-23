@@ -160,6 +160,9 @@ export function useCoinInfo(symbol: string, useMock = USE_MOCK): UseCoinInfoResu
     enabled: coinId !== null,
     staleTime: 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
+    // [perf] возврат на страницу/виджет не должен заново дёргать CoinGecko: кэш
+    // живёт 30мин (staleTime), refetchOnMount=false убирает лишний фетч при ремаунте.
+    refetchOnMount: false,
     retry: 1,
   })
 

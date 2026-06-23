@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, keepPreviousData } from '@tanstack/react-query'
 
 export interface NewsArticle {
   id: string
@@ -57,6 +57,11 @@ export function useNews(query = '', category = 'all', symbol = '') {
     initialPageParam: 1,
     getNextPageParam: (lastPage) => (lastPage.has_more ? lastPage.page + 1 : undefined),
     staleTime: 5 * 60 * 1000,
+    // [perf] лента переживает уход с дашборда/страницы новостей: ремаунт берёт кэш,
+    // а смена фильтра (категория/запрос/символ) показывает прежние статьи до прихода
+    // новых вместо вспышки пустого экрана.
+    refetchOnMount: false,
+    placeholderData: keepPreviousData,
   })
 }
 

@@ -60,6 +60,9 @@ export function useOHLCV(symbol: string, timeframe: Timeframe, useMock = USE_MOC
     },
     staleTime: 5 * 60 * 1000,
     refetchInterval: 60 * 1000,
+    // [perf] свечи кэшируются в QueryClient и тикают по refetchInterval; возврат на
+    // дашборд/страницу актива в пределах staleTime берёт кэш без флэша isLoading.
+    refetchOnMount: false,
   })
 
   return {
