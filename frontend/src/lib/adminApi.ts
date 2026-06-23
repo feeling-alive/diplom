@@ -46,6 +46,7 @@ export interface AdminComment {
   text: string
   author: { username: string; avatar_url: string | null }
   article_url: string
+  article_id: string | null
   created_at: string
 }
 

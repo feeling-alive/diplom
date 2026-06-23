@@ -406,6 +406,7 @@ function CreateAdminSection() {
 // ---------------------------------------------------------------------------
 
 function CommentsSection() {
+  const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState('')
   const [debouncedQ, setDebouncedQ] = useState('')
@@ -475,10 +476,34 @@ function CommentsSection() {
                     <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{comment.author.username}</span>
                     <span style={{ fontSize: 11, color: 'var(--muted)' }}>{new Date(comment.created_at).toLocaleString('ru-RU')}</span>
                   </div>
-                  <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5, marginBottom: 6 }}>{comment.text}</p>
-                  <a href={comment.article_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', maxWidth: 400 }}>
-                    {comment.article_url}
-                  </a>
+                  {/* Клик по тексту комментария → deep-link к статье и якорю
+                      #comment-<id> (если статья найдена в БД); иначе обычный текст. */}
+                  {comment.article_id ? (
+                    <p
+                      onClick={() => {
+                        console.debug('[CommentsSection] open /news/%s#comment-%s', comment.article_id, comment.id)
+                        navigate(`/news/${comment.article_id}#comment-${comment.id}`)
+                      }}
+                      style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5, marginBottom: 6, cursor: 'pointer' }}
+                      title="Открыть статью и перейти к комментарию"
+                    >
+                      {comment.text}
+                    </p>
+                  ) : (
+                    <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5, marginBottom: 6 }}>{comment.text}</p>
+                  )}
+                  {comment.article_id ? (
+                    <button
+                      onClick={() => navigate(`/news/${comment.article_id}#comment-${comment.id}`)}
+                      style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 600 }}
+                    >
+                      Перейти к комментарию →
+                    </button>
+                  ) : (
+                    <a href={comment.article_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--muted)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', maxWidth: 400 }}>
+                      {comment.article_url}
+                    </a>
+                  )}
                 </div>
                 <div>
                   {confirmDelete === comment.id
@@ -559,9 +584,11 @@ function ApiKeysSection() {
         {isLoading
           ? <div style={{ padding: 24, textAlign: 'center' }}><SpinnerIcon /></div>
           : API_SERVICES.map((svc) => {
+            // `saved` — маскированный ключ из БД (напр. «••••1f1»). Показываем его
+            // ТОЛЬКО как placeholder, а value поля = введённый черновик. Пустой ввод
+            // = не менять; ввод нового значения = перезапись. (Задача 5.1)
             const saved = keys[svc.key] ?? ''
             const draftVal = draft[svc.key] ?? ''
-            const displayVal = draftVal || saved
             const testResult = testResults[svc.key]
 
             return (
@@ -578,9 +605,9 @@ function ApiKeysSection() {
                   <div style={{ flex: 1, position: 'relative' }}>
                     <input
                       type={showKeys[svc.key] ? 'text' : 'password'}
-                      value={displayVal}
+                      value={draftVal}
                       onChange={(e) => setDraft((p) => ({ ...p, [svc.key]: e.target.value }))}
-                      placeholder={saved ? '(изменить ключ)' : 'Вставьте API ключ...'}
+                      placeholder={saved ? `Сохранён: ${saved} — введите новый, чтобы заменить` : 'Вставьте API ключ...'}
                       style={{ width: '100%', padding: '9px 36px 9px 12px', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', fontSize: 12, color: 'var(--text)', background: 'var(--white)', outline: 'none', fontFamily: 'monospace', boxSizing: 'border-box' }}
                     />
                     <button

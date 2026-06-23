@@ -126,6 +126,9 @@ class AdminCommentItem(BaseModel):
     text: str
     author: dict  # {username, avatar_url}
     article_url: str
+    # Внутренний UUID статьи (резолвится из article_url) — нужен фронту для
+    # deep-link /news/{article_id}#comment-{id}. None, если статья не найдена.
+    article_id: str | None = None
     created_at: str
 
 
@@ -434,12 +437,23 @@ async def list_comments(
         await db.execute(base.order_by(Comment.created_at.desc()).offset(offset).limit(limit))
     ).all()
 
+    # Резолвим внутренний id статьи по article_url одним запросом (без N+1), чтобы
+    # фронт мог построить deep-link /news/{article_id}#comment-{id}.
+    urls = {comment.article_url for comment, _ in rows if comment.article_url}
+    url_to_id: dict[str, str] = {}
+    if urls:
+        art_rows = await db.execute(
+            select(NewsArticle.id, NewsArticle.url).where(NewsArticle.url.in_(urls))
+        )
+        url_to_id = {url: str(aid) for aid, url in art_rows.all()}
+
     items = [
         AdminCommentItem(
             id=str(comment.id),
             text=comment.text,
             author={"username": user.username, "avatar_url": user.avatar_url},
             article_url=comment.article_url,
+            article_id=url_to_id.get(comment.article_url),
             created_at=comment.created_at.isoformat(),
         )
         for comment, user in rows
