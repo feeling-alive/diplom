@@ -49,9 +49,9 @@
 - [x] **#3** fix(charts): рабочие Recharts-свечи для акций и металлов (2.1) — корень: yfinance не был установлен в .venv (есть в requirements). Установлен; добавлен явный ImportError-лог в candles.py. AAPL/GC=F/SI=F отдают 100 свечей
 
 ### Фаза 3 — 🔴 Виджеты: реальные данные
-- **#4** feat(widgets): рыночные метрики — price_chart/market_volume/global_market_cap/funding/gas (3.1/3.3/3.4/3.5/3.6) — *blocked by #3*
-- **#5** feat(widgets): форекс/конвертер/скринер/настроение (3.2/3.7/3.9/3.10)
-- **#6** feat(widgets): ликвидации/киты/теханализ/стейкинг активны + стабильный top_movers (3.8/3.11/3.12/3.13)
+- [x] **#4** feat(widgets): рыночные метрики — price_chart/market_volume/global_market_cap/funding/gas (3.1/3.3/3.4/3.5/3.6) — новый прокси `/api/quotes/global` (CoinGecko) + хук useGlobalMarket; gas через keyless on-chain RPC (source=rpc); funding расширен до 12 символов; price_chart через #3
+- [x] **#5** feat(widgets): форекс/конвертер/скринер/настроение (3.2/3.7/3.9/3.10) — forex расширен до 15 реальных пар Frankfurter (убран фейковый %change и невалидный RUB); screener 6→16 тикеров; конвертер и sentiment уже были реальными (useForexRate/useFearGreed)
+- [x] **#6** feat(widgets): ликвидации/киты/теханализ/стейкинг + стабильный top_movers (3.8/3.11/3.12/3.13) — top_movers сделан детерминированным (независимый топ рост/падение, без перетасовки). technical_analysis уже активен (RSI/MACD/MA из реального OHLCV). liquidations/whale уже корректно помечены «Demo» (нет бесплатного источника) — соответствует правилу промта. Отдельного стейкинг-виджета в реестре нет
 
 ### Фаза 4 — 🟡 Поведение и UX
 - **#7** feat(ux): глобальная смена валюты везде + единый формат капитализации (4.1/4.3)

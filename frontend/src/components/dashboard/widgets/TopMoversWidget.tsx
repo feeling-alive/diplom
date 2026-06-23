@@ -12,12 +12,21 @@ export default function TopMoversWidget({ gridW = 2, gridH = 2 }: Props) {
 
   // 2x2 → 3 per column, 2x3 → 6 per column, 3x2 → 4 per column (плотные строки, без bottom-пустоты)
   const limit = gridH >= 3 ? 6 : gridW >= 3 ? 4 : 3
-  const sorted = useMemo(() => {
-    return [...all].sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h)).slice(0, 20)
-  }, [all])
 
-  const gainers = sorted.filter((s) => s.change24h > 0).slice(0, limit)
-  const losers = sorted.filter((s) => s.change24h < 0).slice(0, limit)
+  // [3.13] Стабильный детерминированный выбор: топ-рост и топ-падение считаются
+  // НЕЗАВИСИМО из полного списка (а не из общего top-20-by-abs пула, чья граница
+  // «дрожала» и перетасовывала строки между рендерами). Источник один — usePrices
+  // (Query-кэш, рефетч раз в 60с); порядок меняется только при реальном изменении
+  // данных, без рандома/перетасовки. tie-break по symbol — устойчивая сортировка.
+  const { gainers, losers } = useMemo(() => {
+    const byChangeDesc = [...all]
+      .filter((s) => s.change24h > 0)
+      .sort((a, b) => b.change24h - a.change24h || a.symbol.localeCompare(b.symbol))
+    const byChangeAsc = [...all]
+      .filter((s) => s.change24h < 0)
+      .sort((a, b) => a.change24h - b.change24h || a.symbol.localeCompare(b.symbol))
+    return { gainers: byChangeDesc.slice(0, limit), losers: byChangeAsc.slice(0, limit) }
+  }, [all, limit])
 
   console.debug('[TopMoversWidget] gridW=%d gridH=%d gainers=%d losers=%d', gridW, gridH, gainers.length, losers.length)
 
