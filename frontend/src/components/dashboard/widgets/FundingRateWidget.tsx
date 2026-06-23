@@ -4,12 +4,20 @@ import type { WidgetSizeProps } from '../../../types/widgets.types'
 
 type Row = { symbol: string; rate: number } // rate in percent (e.g. 0.012 = 0.012%)
 
-const SYMBOLS = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'XRP-USDT', 'DOGE-USDT', 'BNB-USDT']
+// Расширенный список перп-свопов OKX (3.5) — узкий виджет покажет верхушку,
+// широкий/высокий — весь список со скроллом.
+const SYMBOLS = [
+  'BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'XRP-USDT', 'DOGE-USDT', 'BNB-USDT',
+  'ADA-USDT', 'AVAX-USDT', 'LINK-USDT', 'DOT-USDT', 'LTC-USDT', 'TRX-USDT',
+]
 
 const MOCK_ROWS: Row[] = [
   { symbol: 'BTC', rate: 0.012 }, { symbol: 'ETH', rate: 0.008 },
   { symbol: 'SOL', rate: 0.024 }, { symbol: 'XRP', rate: -0.005 },
   { symbol: 'DOGE', rate: 0.041 }, { symbol: 'BNB', rate: 0.003 },
+  { symbol: 'ADA', rate: 0.006 }, { symbol: 'AVAX', rate: 0.015 },
+  { symbol: 'LINK', rate: 0.009 }, { symbol: 'DOT', rate: -0.002 },
+  { symbol: 'LTC', rate: 0.004 }, { symbol: 'TRX', rate: 0.007 },
 ]
 
 interface FundingPayload {
@@ -28,7 +36,8 @@ async function fetchFunding(): Promise<Row[]> {
 type Props = WidgetSizeProps
 
 export default function FundingRateWidget({ gridW = 2, gridH = 2 }: Props) {
-  const limit = gridW >= 3 ? 6 : 4
+  // Чем больше виджет — тем больше строк: высокий/широкий показывает весь список.
+  const limit = gridH >= 3 ? SYMBOLS.length : gridW >= 3 ? 8 : gridH >= 2 ? 6 : 4
   const { data } = useQuery<Row[], Error>({
     queryKey: ['funding-rate', SYMBOLS.join(',')],
     queryFn: fetchFunding,

@@ -1,112 +1,24 @@
-import { useState, useEffect, useMemo } from 'react'
 import type { WidgetSizeProps } from '../../../types/widgets.types'
+import { useGlobalMarket } from '../../../hooks/useGlobalMarket'
+import { formatMarketCap, formatVolume } from '../../../utils/format'
 
 type Props = WidgetSizeProps
 
-const CACHE_KEY = 'fintrack_global_market_v1'
-const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
-
-interface GlobalData {
-  totalCap: number
-  totalVolume: number
-  btcDominance: number
-  ethDominance: number
-  marketCapChange24h: number
-  volumeChange24h: number
-  timestamp: number
-}
-
-interface CacheEntry extends GlobalData { cachedAt: number }
-function readCache(): CacheEntry | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const entry = JSON.parse(raw) as CacheEntry
-    if (Date.now() - entry.cachedAt > CACHE_TTL_MS) return null
-    return entry
-  } catch {
-    return null
-  }
-}
-
-function writeCache(data: GlobalData) {
-  try {
-    const entry = { ...data, cachedAt: Date.now() }
-    localStorage.setItem(CACHE_KEY, JSON.stringify(entry))
-  } catch {
-    /* ignore */
-  }
-}
-
 export default function GlobalMarketCapWidget({ gridW = 2, gridH = 1 }: Props) {
-  const [data, setData] = useState<GlobalData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    const cached = readCache()
-    if (cached) {
-      console.info('[GlobalMarketCapWidget] cache hit — cap=%.2fT vol=%.2fT', cached.totalCap, cached.totalVolume)
-      setData(cached)
-      setIsLoading(false)
-      return
-    }
-
-    const controller = new AbortController()
-    const fetchFn = async () => {
-      try {
-        console.info('[GlobalMarketCapWidget] fetching CoinGecko /global')
-        const res = await fetch('https://api.coingecko.com/api/v3/global', { signal: controller.signal })
-        if (!res.ok) throw new Error(`CoinGecko ${res.status}`)
-        const json = (await res.json()) as {
-          data: {
-            total_market_cap: { usd: number }
-            total_volume: { usd: number }
-            market_cap_percentage: { btc: number; eth: number }
-            market_cap_change_percentage_24h_usd: number
-          }
-        }
-        const d = json.data
-        const totalCap = d.total_market_cap.usd / 1e12
-        const totalVolume = d.total_volume.usd / 1e12
-        const next: GlobalData = {
-          totalCap,
-          totalVolume,
-          btcDominance: d.market_cap_percentage.btc,
-          ethDominance: d.market_cap_percentage.eth,
-          marketCapChange24h: d.market_cap_change_percentage_24h_usd,
-          volumeChange24h: 0,
-          timestamp: Date.now(),
-        }
-        setData(next)
-        writeCache(next)
-        console.info('[GlobalMarketCapWidget] fetched cap=%.2fT vol=%.2fT btc=%.2f%%', totalCap, totalVolume, next.btcDominance)
-      } catch (err) {
-        if (controller.signal.aborted) return
-        console.warn('[GlobalMarketCapWidget] fetch failed, using fallback:', err)
-        setData({
-          totalCap: 2.43, totalVolume: 98.5,
-          btcDominance: 52.4, ethDominance: 17.2,
-          marketCapChange24h: 1.8, volumeChange24h: 0,
-          timestamp: Date.now(),
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchFn()
-    return () => controller.abort()
-  }, [])
+  // Реальные глобальные метрики через бэкенд-прокси (CoinGecko /global + Redis).
+  // Раньше виджет ходил в api.coingecko.com прямо из браузера (CORS/лимиты) и
+  // кэшировал в localStorage — теперь единый Query-кэш, общий с MarketVolumeWidget.
+  const { data, isLoading } = useGlobalMarket()
 
   if (isLoading && !data) {
     return <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 11 }}>Загрузка…</div>
   }
+  if (!data) return null
 
   const showAll = gridH >= 2 || gridW >= 3
-  const positive = (data?.marketCapChange24h ?? 0) >= 0
+  const positive = data.marketCapChange24h >= 0
 
-  console.debug('[GlobalMarketCapWidget] gridW=%d gridH=%d showAll=%s', gridW, gridH, showAll)
-
-  if (!data) return null
+  console.debug('[GlobalMarketCapWidget] gridW=%d gridH=%d showAll=%s stale=%s', gridW, gridH, showAll, data.isStale)
 
   return (
     <div style={{
@@ -119,7 +31,7 @@ export default function GlobalMarketCapWidget({ gridW = 2, gridH = 1 }: Props) {
       <div style={{ flex: 1, minWidth: 0, width: '100%' }}>
         <div style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase' }}>Капитализация</div>
         <div style={{ fontSize: showAll ? 18 : 22, fontWeight: 800, color: 'var(--ink)', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
-          ${data.totalCap.toFixed(2)}T
+          {formatMarketCap(data.totalMarketCapUsd)}
         </div>
       </div>
       {showAll && (
@@ -127,7 +39,7 @@ export default function GlobalMarketCapWidget({ gridW = 2, gridH = 1 }: Props) {
           <div style={{ flex: 1, minWidth: 0, width: '100%' }}>
             <div style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase' }}>Объём 24ч</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
-              ${data.totalVolume.toFixed(1)}B
+              {formatVolume(data.totalVolumeUsd)}
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 0, width: '100%' }}>

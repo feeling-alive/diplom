@@ -22,6 +22,50 @@ logger = logging.getLogger("backend.gas")
 
 _GAS_URL = "https://api.etherscan.io/api"
 
+# Keyless on-chain fallback: a public Ethereum JSON-RPC node answers
+# ``eth_gasPrice`` without an API key. Gives one gwei figure (the suggested gas
+# price) which we fan out into slow/standard/fast tiers — real on-chain data, so
+# the widget is no longer «демо» when ETHERSCAN_API_KEY is absent.
+_PUBLIC_RPC_URL = "https://ethereum-rpc.publicnode.com"
+
+
+async def _fetch_rpc_gas() -> dict[str, Any] | None:
+    """Fetch a live gas price from a keyless public RPC. Returns ``None`` on failure."""
+    logger.info("[gas] keyless RPC fetch %s", _PUBLIC_RPC_URL)
+    try:
+        async with httpx.AsyncClient(timeout=settings.http_timeout, follow_redirects=True) as client:
+            resp = await client.post(
+                _PUBLIC_RPC_URL,
+                json={"jsonrpc": "2.0", "id": 1, "method": "eth_gasPrice", "params": []},
+            )
+            resp.raise_for_status()
+            payload: dict[str, Any] = resp.json()
+    except httpx.HTTPError as err:
+        logger.warning("[gas] keyless RPC failed: %s", err)
+        return None
+
+    raw = payload.get("result")
+    if not isinstance(raw, str):
+        logger.warning("[gas] keyless RPC malformed result: %r", raw)
+        return None
+    try:
+        gwei = int(raw, 16) / 1e9
+    except (TypeError, ValueError):
+        return None
+    # Fan the single suggested price into tiers. Round to 1 decimal so sub-gwei
+    # values (common post-merge) still render meaningfully.
+    standard = round(gwei, 1)
+    return {
+        "slow": {"gwei": round(gwei * 0.9, 1), "usd": 0.0},
+        "standard": {"gwei": standard, "usd": 0.0},
+        "fast": {"gwei": round(gwei * 1.25, 1), "usd": 0.0},
+        "baseFee": standard,
+        "lastBlock": 0,
+        "fetchedAt": int(time.time()),
+        "isStale": False,
+        "source": "rpc",
+    }
+
 
 def _static_fallback(is_stale: bool, reason: str) -> dict[str, Any]:
     """Return a reasonable middle-of-the-road gas snapshot."""
@@ -52,7 +96,13 @@ async def get_gas() -> dict[str, Any]:
         return {**cached, "source": "cache"}
 
     if not settings.etherscan_api_key:
-        logger.info("[gas] ETHERSCAN_API_KEY absent; returning fallback")
+        # Без ключа Etherscan пробуем keyless on-chain источник, и только если он
+        # недоступен — статичный демо-fallback (isStale=true).
+        logger.info("[gas] ETHERSCAN_API_KEY absent; trying keyless RPC")
+        rpc = await _fetch_rpc_gas()
+        if rpc is not None:
+            await set_cached(key, rpc, settings.gas_ttl)
+            return rpc
         return _static_fallback(is_stale=True, reason="no_api_key")
 
     logger.info("[gas] fetch")

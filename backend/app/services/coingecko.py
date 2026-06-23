@@ -22,7 +22,19 @@ from app.utils import safe_float
 logger = logging.getLogger("backend.coingecko")
 
 _COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/{id}"
+_COINGECKO_GLOBAL_URL = "https://api.coingecko.com/api/v3/global"
 _MOCK_PATH = Path(__file__).resolve().parent.parent / "mock" / "coin.json"
+
+# Last-resort numbers if CoinGecko /global is unreachable on a cold cache. Marked
+# isStale so the frontend can flag demo data instead of presenting it as live.
+_GLOBAL_FALLBACK: dict[str, Any] = {
+    "totalMarketCapUsd": 2.4e12,
+    "totalVolumeUsd": 90e9,
+    "btcDominance": 54.0,
+    "ethDominance": 17.0,
+    "marketCapChange24h": 0.0,
+    "isStale": True,
+}
 
 
 def _load_mock() -> dict[str, Any]:
@@ -115,5 +127,42 @@ async def get_coin(coin_id: str) -> dict[str, Any]:
         return {**_mock_coin(coin_id), "source": "mock"}
 
     result = {**_normalize(payload), "source": "coingecko"}
+    await set_cached(key, result, settings.coin_ttl)
+    return result
+
+
+async def get_global() -> dict[str, Any]:
+    """Return global crypto market metrics from CoinGecko ``/global``.
+
+    Shape: ``{totalMarketCapUsd, totalVolumeUsd, btcDominance, ethDominance,
+    marketCapChange24h, isStale, source}``. Cache-first (TTL = coin_ttl) so the
+    market_volume + global_market_cap widgets share one upstream call instead of
+    each browser hitting CoinGecko directly (CORS + rate-limit friendly).
+    """
+    key = "cache:global"
+    cached = await get_cached(key)
+    if cached is not None:
+        return {**cached, "source": "cache"}
+
+    logger.info("[coingecko] fetch /global")
+    try:
+        async with httpx.AsyncClient(timeout=settings.http_timeout, follow_redirects=True) as client:
+            resp = await client.get(_COINGECKO_GLOBAL_URL)
+            resp.raise_for_status()
+            data = (resp.json() or {}).get("data") or {}
+    except httpx.HTTPError as err:
+        logger.warning("[coingecko] /global upstream failed: %s", err)
+        return {**_GLOBAL_FALLBACK, "source": "fallback"}
+
+    mc_pct = data.get("market_cap_percentage") or {}
+    result = {
+        "totalMarketCapUsd": safe_float((data.get("total_market_cap") or {}).get("usd")),
+        "totalVolumeUsd": safe_float((data.get("total_volume") or {}).get("usd")),
+        "btcDominance": safe_float(mc_pct.get("btc")),
+        "ethDominance": safe_float(mc_pct.get("eth")),
+        "marketCapChange24h": safe_float(data.get("market_cap_change_percentage_24h_usd")),
+        "isStale": False,
+        "source": "coingecko",
+    }
     await set_cached(key, result, settings.coin_ttl)
     return result

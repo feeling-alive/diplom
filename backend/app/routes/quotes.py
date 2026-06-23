@@ -78,6 +78,14 @@ async def get_fng() -> dict[str, Any]:
     return await fng.get_fng()
 
 
+@router.get("/global")
+async def get_global() -> dict[str, Any]:
+    """Global crypto market metrics (CoinGecko /global) — total market cap,
+    total 24h volume, BTC/ETH dominance. Cache-shared by the market_volume and
+    global_market_cap widgets so the browser no longer hits CoinGecko directly."""
+    return await coingecko.get_global()
+
+
 @router.get("/funding-rate")
 async def get_funding_rate(
     symbols: str = Query(..., description="Comma-separated OKX instIds, e.g. BTC-USDT,ETH-USDT"),

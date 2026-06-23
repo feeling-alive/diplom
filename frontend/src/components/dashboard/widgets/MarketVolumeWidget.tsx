@@ -1,18 +1,20 @@
 import { useMemo } from 'react'
 import { Area, AreaChart, ResponsiveContainer } from 'recharts'
-import { usePrices } from '../../../hooks/usePrices'
 import { useOHLCV } from '../../../hooks/useOHLCV'
+import { useGlobalMarket } from '../../../hooks/useGlobalMarket'
+import { formatVolume } from '../../../utils/format'
 import type { WidgetSizeProps } from '../../../types/widgets.types'
 
 type Props = WidgetSizeProps
 
 export default function MarketVolumeWidget({ gridW = 2, gridH = 1 }: Props) {
-  const { all } = usePrices()
+  // Реальный глобальный объём рынка (CoinGecko /global через бэкенд-прокси), а не
+  // сумма volume24h по ~46 локальным активам, которая давала заниженную цифру.
+  const { data: global } = useGlobalMarket()
   // Real BTC daily volume drives the sparkline (was a synthetic sine wave).
   const { data: candles } = useOHLCV('BTC-USDT', '1D')
 
-  const totalVolume = useMemo(() => all.reduce((sum, a) => sum + a.volume24h, 0), [all])
-  const totalCap = useMemo(() => all.reduce((sum, a) => sum + (a.marketCap ?? 0), 0), [all])
+  const totalVolume = global?.totalVolumeUsd ?? 0
 
   const sparkData = useMemo(
     () => candles.slice(-20).map((c, i) => ({ i, v: c.volume })),
@@ -22,7 +24,7 @@ export default function MarketVolumeWidget({ gridW = 2, gridH = 1 }: Props) {
   // 1x1 — крупная цифра + label; 2x1 — цифра слева + мини-график справа
   const showSpark = gridW >= 2 && sparkData.length > 1
 
-  console.debug('[MarketVolumeWidget] gridW=%d gridH=%d spark=%s points=%d vol=%d cap=%d', gridW, gridH, showSpark, sparkData.length, totalVolume, totalCap)
+  console.debug('[MarketVolumeWidget] gridW=%d gridH=%d spark=%s points=%d vol=%d', gridW, gridH, showSpark, sparkData.length, totalVolume)
 
   return (
     <div style={{
@@ -48,7 +50,7 @@ export default function MarketVolumeWidget({ gridW = 2, gridH = 1 }: Props) {
           lineHeight: 1.05,
           fontVariantNumeric: 'tabular-nums',
         }}>
-          ${(totalVolume / 1e12).toFixed(2)}T
+          {formatVolume(totalVolume)}
         </span>
         <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginTop: 2 }}>
           Объём 24ч
