@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { apiResetPassword } from '../lib/authApi'
+import CodeInput from '../components/auth/CodeInput'
 
 const inputStyle = (hasError: boolean, hasValue: boolean): CSSProperties => ({
   width: '100%',
@@ -238,26 +239,25 @@ export default function ResetPasswordPage() {
 
               <div>
                 <label
-                  htmlFor="reset-code"
-                  style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', display: 'block', marginBottom: 6 }}
+                  style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', display: 'block', marginBottom: 2 }}
                 >
                   Код из письма
                 </label>
-                <input
-                  id="reset-code"
-                  inputMode="numeric"
-                  maxLength={6}
+                {email && (
+                  <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
+                    Отправили на {email}
+                  </p>
+                )}
+                <CodeInput
                   value={code}
-                  onChange={(e) => {
-                    const digits = e.target.value.replace(/\D/g, '').slice(0, 6)
-                    setCode(digits)
-                    if (codeError) validateCode(digits)
+                  hasError={Boolean(codeError)}
+                  onChange={(next) => {
+                    setCode(next)
+                    if (codeError) validateCode(next)
                   }}
-                  placeholder="6-значный код"
-                  style={{ ...inputStyle(Boolean(codeError), Boolean(code)), letterSpacing: 4, fontVariantNumeric: 'tabular-nums' }}
                 />
                 {codeError && (
-                  <p style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{codeError}</p>
+                  <p style={{ fontSize: 11, color: 'var(--red)', marginTop: 6 }}>{codeError}</p>
                 )}
               </div>
 
