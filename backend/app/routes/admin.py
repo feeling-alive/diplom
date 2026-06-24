@@ -121,6 +121,13 @@ class CreateAdminBody(BaseModel):
     password: str = Field(..., min_length=8)
 
 
+class AdminCommentReply(BaseModel):
+    id: str
+    text: str
+    author: dict  # {username, avatar_url}
+    created_at: str
+
+
 class AdminCommentItem(BaseModel):
     id: str
     text: str
@@ -130,6 +137,8 @@ class AdminCommentItem(BaseModel):
     # deep-link /news/{article_id}#comment-{id}. None, если статья не найдена.
     article_id: str | None = None
     created_at: str
+    # Ответы (depth 1) на этот комментарий — показываются вложенно в админке.
+    replies: list[AdminCommentReply] = []
 
 
 class AdminCommentsResponse(BaseModel):
@@ -447,6 +456,27 @@ async def list_comments(
         )
         url_to_id = {url: str(aid) for aid, url in art_rows.all()}
 
+    # Подтягиваем ответы (depth 1) на видимые комментарии одним запросом и
+    # группируем по parent_id — чтобы админ видел ветки обсуждения целиком.
+    parent_ids = [comment.id for comment, _ in rows]
+    replies_map: dict[str, list[AdminCommentReply]] = {}
+    if parent_ids:
+        reply_rows = await db.execute(
+            select(Comment, User)
+            .join(User, User.id == Comment.user_id)
+            .where(Comment.parent_id.in_(parent_ids))
+            .order_by(Comment.created_at.asc())
+        )
+        for reply, reply_user in reply_rows.all():
+            replies_map.setdefault(str(reply.parent_id), []).append(
+                AdminCommentReply(
+                    id=str(reply.id),
+                    text=reply.text,
+                    author={"username": reply_user.username, "avatar_url": reply_user.avatar_url},
+                    created_at=reply.created_at.isoformat(),
+                )
+            )
+
     items = [
         AdminCommentItem(
             id=str(comment.id),
@@ -455,9 +485,14 @@ async def list_comments(
             article_url=comment.article_url,
             article_id=url_to_id.get(comment.article_url),
             created_at=comment.created_at.isoformat(),
+            replies=replies_map.get(str(comment.id), []),
         )
         for comment, user in rows
     ]
+    logger.debug(
+        "[admin] list_comments returned %d top-level, %d replies total",
+        len(items), sum(len(r) for r in replies_map.values()),
+    )
     return AdminCommentsResponse(items=items, total=total)
 
 

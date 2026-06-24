@@ -504,6 +504,29 @@ function CommentsSection() {
                       {comment.article_url}
                     </a>
                   )}
+
+                  {/* Ответы на комментарий (depth 1) — вложенно, с отступом и левой линией */}
+                  {comment.replies?.length > 0 && (
+                    <div style={{ marginTop: 10, paddingLeft: 12, borderLeft: '2px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {comment.replies.map((reply) => (
+                        <div key={reply.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                          <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--bg)', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0, border: '1px solid var(--border)' }}>
+                            {reply.author.avatar_url
+                              ? <img src={reply.author.avatar_url} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+                              : reply.author.username[0].toUpperCase()
+                            }
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{reply.author.username}</span>
+                              <span style={{ fontSize: 10, color: 'var(--muted)' }}>{new Date(reply.created_at).toLocaleString('ru-RU')}</span>
+                            </div>
+                            <p style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>{reply.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   {confirmDelete === comment.id
