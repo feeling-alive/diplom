@@ -29,13 +29,10 @@ describe('SettingsContext (Задача 10)', () => {
     document.documentElement.removeAttribute('data-theme')
   })
 
-  it('применяет тему к <html> и пишет в localStorage', () => {
-    const { result } = renderHook(() => useSettings(), { wrapper })
-    expect(document.documentElement.getAttribute('data-theme')).toBe('light')
-
-    act(() => result.current.setTheme('dark'))
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
-    expect(JSON.parse(localStorage.getItem(LS)!).theme).toBe('dark')
+  it('приложение всегда светлое — data-theme на <html> не выставляется', () => {
+    renderHook(() => useSettings(), { wrapper })
+    // Тёмная тема убрана (round 3): атрибут снимается, остаётся светлая тема.
+    expect(document.documentElement.getAttribute('data-theme')).toBeNull()
   })
 
   it('акцент переопределяет CSS-переменную --accent', () => {

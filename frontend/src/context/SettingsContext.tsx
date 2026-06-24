@@ -1,19 +1,17 @@
-// User settings (Задача 10): appearance (theme + accent), notification toggles
-// (UI-only in the demo), default currency (delegated to CurrencyContext) and
-// language. Persisted to localStorage (a DB-backed sync is a follow-up). Modeled
-// on AuthContext/CurrencyContext — the cross-cutting globals ARCHITECTURE allows.
+// User settings (Задача 10): appearance (accent only — тёмная тема убрана в round 3),
+// notification toggles (UI-only in the demo), default currency (delegated to
+// CurrencyContext) and language. Persisted to localStorage (a DB-backed sync is a
+// follow-up). Modeled on AuthContext/CurrencyContext — the cross-cutting globals
+// ARCHITECTURE allows.
 //
-// Theme is applied best-effort via a `data-theme` attribute on <html> plus the
-// dark overrides in index.css; accent is applied by overriding the existing
-// --accent CSS variables (no NEW palette colors — RULES.md keeps the palette
-// closed, so accent choices are existing design-system values only).
+// Приложение всегда светлое: переключатель темы и тёмная ветка удалены (round 3, A1).
+// Accent применяется переопределением существующих --accent CSS-переменных (никаких
+// НОВЫХ цветов палитры — RULES.md держит палитру закрытой).
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useCurrency } from './CurrencyContext'
 import type { Currency } from '../utils/format'
-
-export type Theme = 'light' | 'dark'
 
 export interface AccentOption {
   id: string
@@ -37,7 +35,6 @@ export interface NotificationSettings {
 }
 
 interface SettingsState {
-  theme: Theme
   accentId: string
   notifications: NotificationSettings
   language: 'ru'
@@ -45,7 +42,6 @@ interface SettingsState {
 
 interface SettingsContextValue extends SettingsState {
   defaultCurrency: Currency
-  setTheme: (t: Theme) => void
   setAccent: (id: string) => void
   setNotification: (key: keyof NotificationSettings, value: boolean) => void
   setDefaultCurrency: (c: Currency) => void
@@ -54,7 +50,6 @@ interface SettingsContextValue extends SettingsState {
 const LS_SETTINGS = 'fintrack_settings_v1'
 
 const DEFAULTS: SettingsState = {
-  theme: 'light',
   accentId: 'rose',
   notifications: { priceAlerts: true, news: true, email: false },
   language: 'ru',
@@ -62,19 +57,7 @@ const DEFAULTS: SettingsState = {
 
 const SettingsContext = createContext<SettingsContextValue | null>(null)
 
-// Системная тема как дефолт ПЕРВОГО входа (нет сохранённого выбора). Сохранённый
-// пользователем theme всегда имеет приоритет.
-function prefersDarkTheme(): boolean {
-  try {
-    return typeof window !== 'undefined'
-      && window.matchMedia?.('(prefers-color-scheme: dark)').matches === true
-  } catch {
-    return false
-  }
-}
-
 function loadSettings(): SettingsState {
-  const systemTheme: Theme = prefersDarkTheme() ? 'dark' : 'light'
   try {
     const raw = localStorage.getItem(LS_SETTINGS)
     if (raw) {
@@ -82,14 +65,11 @@ function loadSettings(): SettingsState {
       return {
         ...DEFAULTS,
         ...parsed,
-        // Если в сохранённых настройках темы нет — берём системную.
-        theme: parsed.theme ?? systemTheme,
         notifications: { ...DEFAULTS.notifications, ...parsed.notifications },
       }
     }
   } catch { /* ignore */ }
-  console.debug('[SettingsContext] no saved settings — default theme from prefers-color-scheme=%s', systemTheme)
-  return { ...DEFAULTS, theme: systemTheme }
+  return { ...DEFAULTS }
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -101,21 +81,21 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(LS_SETTINGS, JSON.stringify(next)) } catch { /* ignore */ }
   }
 
-  // Apply theme + accent to the document whenever they change.
+  // Приложение всегда светлое: снимаем любой ранее выставленный data-theme и
+  // применяем только accent.
   useEffect(() => {
     const root = document.documentElement
-    root.setAttribute('data-theme', state.theme)
+    root.removeAttribute('data-theme')
     const accent = ACCENT_OPTIONS.find((a) => a.id === state.accentId) ?? ACCENT_OPTIONS[0]
     root.style.setProperty('--accent', accent.accent)
     root.style.setProperty('--accent-bg', accent.accentBg)
     root.style.setProperty('--red', accent.accent)
-    console.debug('[SettingsContext] applied theme=%s accent=%s', state.theme, accent.id)
-  }, [state.theme, state.accentId])
+    console.debug('[SettingsContext] theme forced light, applied accent=%s', accent.id)
+  }, [state.accentId])
 
   const value: SettingsContextValue = {
     ...state,
     defaultCurrency: currency,
-    setTheme: (theme) => persist({ ...state, theme }),
     setAccent: (accentId) => persist({ ...state, accentId }),
     setNotification: (key, val) =>
       persist({ ...state, notifications: { ...state.notifications, [key]: val } }),

@@ -11,7 +11,7 @@ type Props = WidgetSizeProps
 // Подбираем «витрину» популярных активов разных типов, чтобы тикер выглядел осмысленно
 // даже когда виджет узкий (2×1 — 4 элемента).
 const PREFERRED_SYMBOLS = [
-  'BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'BNB-USDT',
+  'BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'ADA-USDT',
   'AAPL', 'NVDA', 'MSFT', 'TSLA',
   'EUR-USD', 'GBP-USD', 'USD-JPY', 'USD-CNY',
 ]
@@ -36,11 +36,14 @@ function pickTopAssets(all: Asset[], desired: number): Asset[] {
   return out.slice(0, desired)
 }
 
-// dense — узкие ячейки (3×1/2×1): прячем аватар и пилюлю %, показываем символ
-// (ellipsis, flexShrink:1) + цену (flexShrink:0), чтобы ничего не наезжало и не
+// dense — узкие ячейки (3×1/2×1): прячем пилюлю %, показываем компактную иконку +
+// символ (ellipsis, flexShrink:1) + цену (flexShrink:0), чтобы ничего не наезжало и не
 // обрезалось криво (Задача B2). Цвет цены кодирует знак изменения вместо пилюли.
+// round 3 (A2): иконку актива вернули и в плотном режиме (раньше она пряталась) —
+// просто меньшего размера, flexShrink:0, чтобы раскладка не ломалась.
 function AssetCell({ asset, onClick, dense }: { asset: Asset; onClick: () => void; dense: boolean }) {
   const positive = asset.change24h >= 0
+  const iconSize = dense ? 16 : 22
   return (
     <motion.div
       onClick={onClick}
@@ -59,25 +62,23 @@ function AssetCell({ asset, onClick, dense }: { asset: Asset; onClick: () => voi
         overflow: 'hidden',
       }}
     >
-      {!dense && (
-        <div
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: '50%',
-            background: asset.color,
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 10,
-            fontWeight: 700,
-            flexShrink: 0,
-          }}
-        >
-          {asset.icon ?? asset.symbol[0]}
-        </div>
-      )}
+      <div
+        style={{
+          width: iconSize,
+          height: iconSize,
+          borderRadius: '50%',
+          background: asset.color,
+          color: '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: dense ? 9 : 10,
+          fontWeight: 700,
+          flexShrink: 0,
+        }}
+      >
+        {asset.icon ?? asset.symbol[0]}
+      </div>
       <span
         style={{
           fontSize: 11,

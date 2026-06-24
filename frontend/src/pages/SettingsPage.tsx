@@ -1,11 +1,10 @@
-// Settings page (Задача 10) at /settings. Sections: Appearance (light/dark theme +
-// accent from the design-system palette), Notifications (UI-only toggles), Default
-// currency (delegates to CurrencyContext), Language (Russian; others are a stub).
-// All state lives in SettingsContext and persists to localStorage.
+// Settings page (Задача 10) at /settings. Sections: Default currency (delegates to
+// CurrencyContext). Тёмная тема убрана в round 3 — приложение всегда светлое, секция
+// «Внешний вид» с переключателем темы удалена. All state lives in SettingsContext
+// and persists to localStorage.
 
 import type { ReactNode } from 'react'
-import { Sun, Moon } from 'lucide-react'
-import { useSettings, type Theme } from '../context/SettingsContext'
+import { useSettings } from '../context/SettingsContext'
 import { CURRENCIES, CURRENCY_SYMBOL, type Currency } from '../utils/format'
 
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
@@ -19,45 +18,17 @@ function Section({ title, description, children }: { title: string; description?
 }
 
 export default function SettingsPage() {
-  const { theme, defaultCurrency, setTheme, setDefaultCurrency } = useSettings()
-
-  const themeBtn = (value: Theme, icon: ReactNode, label: string) => {
-    const active = theme === value
-    return (
-      <button
-        aria-label={label}
-        aria-pressed={active}
-        onClick={() => setTheme(value)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 'var(--r-md)',
-          border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'),
-          background: active ? 'var(--accent-bg)' : 'var(--white)',
-          color: active ? 'var(--accent)' : 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-        }}
-      >
-        {icon}
-        {label}
-      </button>
-    )
-  }
+  const { defaultCurrency, setDefaultCurrency } = useSettings()
 
   return (
     <div className="main-content" style={{ flex: 1 }}>
       <div style={{ padding: '18px 20px 8px' }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.02em' }}>Настройки</h1>
-        <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>Внешний вид и валюта по умолчанию</div>
+        <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>Валюта по умолчанию</div>
       </div>
 
       <div className="main-scroll">
         <div style={{ maxWidth: 640, padding: '8px 20px 32px' }}>
-          <Section title="Внешний вид" description="Тема оформления">
-            <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, marginBottom: 8 }}>Тема</div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {themeBtn('light', <Sun size={15} />, 'Светлая')}
-              {themeBtn('dark', <Moon size={15} />, 'Тёмная')}
-            </div>
-          </Section>
-
           <Section title="Валюта по умолчанию" description="Применяется ко всему приложению (тот же стор, что и переключатель в шапке)">
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {CURRENCIES.map((c: Currency) => {

@@ -3,7 +3,6 @@
 // Static gradient — no animated blobs.
 
 import { AvatarUploader } from './AvatarUploader'
-import { useSettings } from '../../context/SettingsContext'
 
 const RU_MONTHS = [
   'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
@@ -30,13 +29,10 @@ export interface ProfileHeroProps {
 }
 
 export function ProfileHero({ user, onUpload }: ProfileHeroProps) {
-  const { theme } = useSettings()
-  const isDark = theme === 'dark'
-  console.debug('[ProfileHero] render username=%s theme=%s', user.username, theme)
+  console.debug('[ProfileHero] render username=%s', user.username)
 
-  const bannerGradient = isDark
-    ? 'linear-gradient(135deg, #1a1a2e 0%, #2d1b3d 40%, #1e0a14 100%)'
-    : 'linear-gradient(135deg, #fdf2f5 0%, #fce7ed 50%, #f9d0da 100%)'
+  // Приложение всегда светлое (round 3) — баннер со светлым градиентом.
+  const bannerGradient = 'linear-gradient(135deg, #fdf2f5 0%, #fce7ed 50%, #f9d0da 100%)'
 
   return (
     <div style={{ position: 'relative', marginBottom: 56 }}>
@@ -63,25 +59,25 @@ export function ProfileHero({ user, onUpload }: ProfileHeroProps) {
         {/* Identity: name + email on the banner, to the right of the avatar */}
         <div style={{ position: 'absolute', bottom: 20, left: 120 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 20, fontWeight: 800, color: isDark ? '#fff' : 'var(--ink)' }}>
+            <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)' }}>
               {user.username}
             </span>
             <span
               className="badge badge--accent-s"
               style={{
                 textTransform: 'capitalize',
-                background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.08)',
-                color: isDark ? '#fff' : 'var(--ink)',
-                borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.12)',
+                background: 'rgba(0,0,0,0.08)',
+                color: 'var(--ink)',
+                borderColor: 'rgba(0,0,0,0.12)',
               }}
             >
               {user.role}
             </span>
           </div>
-          <div style={{ fontSize: 13, color: isDark ? 'rgba(255,255,255,0.8)' : 'var(--muted)', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>
             {user.email}
           </div>
-          <div style={{ fontSize: 11, color: isDark ? 'rgba(255,255,255,0.6)' : 'var(--soft, var(--muted))', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: 'var(--soft, var(--muted))', marginTop: 2 }}>
             {sinceLabel(user.created_at)}
           </div>
         </div>
