@@ -41,13 +41,6 @@ export interface AdminUsersResponse {
   total: number
 }
 
-export interface AdminCommentReply {
-  id: string
-  text: string
-  author: { username: string; avatar_url: string | null }
-  created_at: string
-}
-
 export interface AdminComment {
   id: string
   text: string
@@ -55,7 +48,8 @@ export interface AdminComment {
   article_url: string
   article_id: string | null
   created_at: string
-  replies: AdminCommentReply[]
+  is_reply: boolean
+  parent_id: string | null
 }
 
 export interface AdminCommentsResponse {
