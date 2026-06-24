@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import type { DashboardWidget, WidgetType } from '../../types/widgets.types'
@@ -53,6 +54,65 @@ export function renderWidgetContent(type: WidgetType, gridW: number, gridH: numb
     case 'correlation_matrix': return <CorrelationMatrixWidget gridW={gridW} gridH={gridH} />
     default: return null
   }
+}
+
+// E1: lazy-mount widget content. Each widget's data hooks (useQuery etc.) only
+// fire once the card scrolls within ~200px of the viewport, which spreads the
+// request burst on dashboard load instead of firing every widget at once. Once
+// mounted we keep it mounted (observer disconnects) so scroll-away doesn't thrash
+// refetches.
+function LazyWidgetContent({ type, gridW, gridH }: { type: WidgetType; gridW: number; gridH: number }) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (visible) return
+    const el = ref.current
+    if (!el) return
+    // Fallback for environments without IntersectionObserver (older/SSR): render now.
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisible(true)
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          console.debug('[WidgetCard] lazy mount %s', type)
+          setVisible(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin: '200px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [type, visible])
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        flex: 1,
+        minHeight: 0,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {visible ? (
+        renderWidgetContent(type, gridW, gridH)
+      ) : (
+        <div
+          style={{
+            flex: 1,
+            borderRadius: 8,
+            background: 'var(--surface-2, rgba(0,0,0,0.04))',
+            opacity: 0.6,
+          }}
+        />
+      )}
+    </div>
+  )
 }
 
 interface Props {
@@ -126,16 +186,8 @@ export default function WidgetCard({ widget, onRemove }: Props) {
         </span>
       </div>
 
-      {/* Widget content */}
-      <div style={{
-        flex: 1,
-        minHeight: 0,
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-      }}>
-        {renderWidgetContent(widget.type, widget.w, widget.h)}
-      </div>
+      {/* Widget content — lazily mounted when scrolled into view (E1) */}
+      <LazyWidgetContent type={widget.type} gridW={widget.w} gridH={widget.h} />
 
       {/* Remove button — visible on widget hover */}
       <motion.button
