@@ -1,54 +1,29 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Lightbulb, Globe, Bot, User, TrendingUp, BookOpen, BarChart3, Shield } from 'lucide-react'
+import { Send, Lightbulb, Globe, Bot, User, Newspaper, TrendingUp, TrendingDown, Gauge } from 'lucide-react'
 import { useGroqChat } from '../hooks/useGroqChat'
 import ChatLinkCard from '../components/chat/ChatLinkCard'
 
-const PLACEHOLDERS = [
-  'Спроси про криптовалюты...',
-  'Что такое ETF?',
-  'Анализ рынка сегодня',
-  'Как работают фьючерсы?',
-  'Оцени риски стратегии',
-  'Лучшие книги по трейдингу',
-]
+// G4: один статичный текст-подсказка вместо анимированного «печатающегося».
+const INPUT_PLACEHOLDER = 'Спросите про активы, рынок или новости...'
 
+// G3: осмысленные быстрые блоки — каждый шлёт полезный запрос.
 const SUGGESTED_PROMPTS = [
-  { icon: TrendingUp, label: 'Тренды рынка', text: 'Какие тренды на рынке сейчас?' },
-  { icon: BookOpen, label: 'Обучение', text: 'С чего начать изучение инвестиций?' },
-  { icon: BarChart3, label: 'Аналитика', text: 'Как анализировать акции?' },
-  { icon: Shield, label: 'Риски', text: 'Как управлять рисками в портфеле?' },
+  { icon: Newspaper, label: 'Свежие новости', text: 'Какие свежие новости на финансовых рынках?' },
+  { icon: TrendingUp, label: 'Растущие активы', text: 'Какие активы сейчас растут сильнее всего?' },
+  { icon: TrendingDown, label: 'Падающие активы', text: 'Какие активы сейчас падают сильнее всего?' },
+  { icon: Gauge, label: 'Индекс страха и жадности', text: 'Какое сейчас значение индекса страха и жадности и что оно означает?' },
 ]
 
 export default function ChatPage() {
   const { messages, loading, error, send, clear } = useGroqChat({})
   const [input, setInput] = useState('')
-  const [placeholderIndex, setPlaceholderIndex] = useState(0)
-  const [displayedPlaceholder, setDisplayedPlaceholder] = useState('')
-  const [charIndex, setCharIndex] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null!)
   const textareaRef = useRef<HTMLTextAreaElement>(null!)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
-
-  useEffect(() => {
-    if (charIndex < PLACEHOLDERS[placeholderIndex].length) {
-      const timer = setTimeout(() => {
-        setDisplayedPlaceholder((prev) => prev + PLACEHOLDERS[placeholderIndex][charIndex])
-        setCharIndex((c) => c + 1)
-      }, 50)
-      return () => clearTimeout(timer)
-    } else {
-      const timer = setTimeout(() => {
-        setDisplayedPlaceholder('')
-        setCharIndex(0)
-        setPlaceholderIndex((i) => (i + 1) % PLACEHOLDERS.length)
-      }, 2000)
-      return () => clearTimeout(timer)
-    }
-  }, [charIndex, placeholderIndex])
 
   const handleSend = useCallback(() => {
     if (!input.trim() || loading) return
@@ -67,6 +42,7 @@ export default function ChatPage() {
   }
 
   const handlePromptClick = useCallback((text: string) => {
+    console.debug('[ChatPage] quick block %s', text)
     send(text)
   }, [send])
 
@@ -252,7 +228,7 @@ export default function ChatPage() {
               e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
             }}
             onKeyDown={handleKeyDown}
-            placeholder={displayedPlaceholder}
+            placeholder={INPUT_PLACEHOLDER}
             rows={1}
             style={{
               flex: 1, border: 'none', outline: 'none', background: 'transparent',

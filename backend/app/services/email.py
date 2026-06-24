@@ -28,10 +28,7 @@ def _build_reset_html(code: str) -> str:
   <body style="margin:0;padding:0;background:#f8fafc;font-family:Inter,Arial,sans-serif;">
     <div style="max-width:480px;margin:32px auto;background:#ffffff;border-radius:16px;
                 padding:32px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
-      <h1 style="margin:0 0 8px;font-size:22px;color:#0f172a;">
-        Fin<span style="color:{_ACCENT};">Track</span>
-      </h1>
-      <h2 style="margin:0 0 16px;font-size:18px;color:#0f172a;">Сброс пароля</h2>
+      <h1 style="margin:0 0 16px;font-size:22px;color:#0f172a;">Сброс пароля</h1>
       <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#475569;">
         Мы получили запрос на сброс пароля для вашего аккаунта.
         Введите код ниже на странице сброса пароля.
@@ -70,7 +67,7 @@ def _build_mailer() -> FastMail:
         MAIL_FROM=settings.smtp_from,
         MAIL_PORT=settings.smtp_port,
         MAIL_SERVER=settings.smtp_host,
-        MAIL_FROM_NAME="FinTrack",
+        MAIL_FROM_NAME="Безопасность аккаунта",
         MAIL_STARTTLS=True,
         MAIL_SSL_TLS=False,
         USE_CREDENTIALS=bool(settings.smtp_user),
@@ -96,7 +93,7 @@ async def send_reset_code(to: str, code: str) -> None:
 
     logger.debug("[email_service] sending reset code email to %s", to)
     message = MessageSchema(
-        subject="FinTrack — код сброса пароля",
+        subject="Код для сброса пароля",
         recipients=[to],
         body=_build_reset_html(code),
         subtype=MessageType.html,

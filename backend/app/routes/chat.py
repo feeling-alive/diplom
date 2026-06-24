@@ -325,7 +325,7 @@ _DISCLAIMER = (
 # Hard topic guardrail for the general chat (bug #11.2). The asset chat is kept on
 # topic by its indicator-bound prompt; the general chat needs an explicit fence.
 _GENERAL_SYSTEM_PROMPT = (
-    "Ты — финансовый AI-ассистент FinTrack. Отвечай на русском, кратко (3-5 предложений).\n"
+    "Ты — финансовый AI-ассистент. Отвечай на русском, кратко (3-5 предложений).\n"
     "СТРОГОЕ ПРАВИЛО ТЕМЫ: ты обсуждаешь ТОЛЬКО финансы и рынки — активы (крипто, "
     "акции, форекс), рыночную ситуацию, новости, финансовые термины, риски стратегий, "
     "поиск новостей и информации об активах.\n"
@@ -397,7 +397,7 @@ def _build_system_prompt(
     news_block = _build_news_block(news_context)
 
     return (
-        "Ты — финансовый аналитик платформы FinTrack.\n"
+        "Ты — финансовый аналитик.\n"
         "Отвечай ТОЛЬКО на вопросы о финансах и рынках.\n"
         "На нефинансовые вопросы — вежливо откажи одним предложением.\n\n"
         f"══ ТЕХНИЧЕСКИЙ АНАЛИЗ: {symbol} ══\n\n"
