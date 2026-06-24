@@ -1,0 +1,55 @@
+# Прод-стек FinTrack для cloud.ru (Ubuntu + Docker, доступ по IP, HTTP).
+# Запуск:  docker compose -f docker-compose.prod.yml up -d --build
+# Бэкенд наружу НЕ публикуется — только фронт-nginx (порт 80), он проксирует /api,/auth и т.д.
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_DB: fintrack
+      POSTGRES_USER: fintrack
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fintrack_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fintrack"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    env_file: ./backend/.env            # секреты и ключи берём из backend/.env
+    environment:
+      # эти две строки переопределяют значения из .env, чтобы указывать на сервисы compose
+      - DATABASE_URL=postgresql+asyncpg://fintrack:${POSTGRES_PASSWORD:-fintrack_pass}@postgres:5432/fintrack
+      - REDIS_URL=redis://redis:6379
+      - PORT=8000
+    volumes:
+      - uploads_data:/app/uploads        # загруженные аватары переживают пересборку
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    environment:
+      - BACKEND_HOST=backend
+      - BACKEND_PORT=8000
+    ports:
+      - "80:3000"                        # сайт будет на http://<IP>/
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  uploads_data:

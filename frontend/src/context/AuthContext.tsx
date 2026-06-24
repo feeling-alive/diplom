@@ -146,7 +146,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Initial session probe on mount. All setState calls happen AFTER an await, so
   // this does not synchronously set state within the effect body.
   useEffect(() => {
-    let active = true
     if (fetchingRef.current) {
       console.debug('[useAuth] already fetching — skip duplicate init effect')
       return
@@ -162,7 +161,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         const me = await apiMe()
-        if (!active) return
+        // NOTE: do NOT bail on `!active`. Under React StrictMode the first mount's
+        // cleanup sets active=false while the second mount is skipped via fetchingRef —
+        // bailing would DISCARD a valid /auth/me result and leave the user null,
+        // bouncing authenticated users (especially Google login, which has no
+        // localStorage mirror to fall back on) to /login. The provider is the app
+        // root, so applying the result is safe.
         if (me) {
           console.debug('[useAuth] session active', me.email)
           setUserState(me)
@@ -175,9 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         // Transient/network error — keep the optimistic session, do NOT clear (bug #2).
-        if (active) {
-          console.warn('[useAuth] init failed (transient) — keeping session', err)
-        }
+        console.warn('[useAuth] init failed (transient) — keeping session', err)
       } finally {
         fetchingRef.current = false
         // Unconditional: StrictMode double-mount leaves active=false on the
@@ -185,9 +187,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false)
       }
     })()
-    return () => {
-      active = false
-    }
   }, [])
 
   const value: AuthContextValue = {
