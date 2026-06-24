@@ -99,6 +99,7 @@ def _no_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.services.fng.get_cached", fake_get_cached)
     monkeypatch.setattr("app.services.funding.get_cached", fake_get_cached)
     monkeypatch.setattr("app.services.gas.get_cached", fake_get_cached)
+    monkeypatch.setattr("app.services.movers.get_cached", fake_get_cached)
     monkeypatch.setattr("app.services.okx.get_cached", fake_get_cached)
     monkeypatch.setattr("app.services.cache.set_cached", fake_set_cached)
     monkeypatch.setattr("app.services.candles.set_cached", fake_set_cached)
@@ -106,6 +107,7 @@ def _no_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.services.fng.set_cached", fake_set_cached)
     monkeypatch.setattr("app.services.funding.set_cached", fake_set_cached)
     monkeypatch.setattr("app.services.gas.set_cached", fake_set_cached)
+    monkeypatch.setattr("app.services.movers.set_cached", fake_set_cached)
     monkeypatch.setattr("app.services.okx.set_cached", fake_set_cached)
 
 
@@ -272,6 +274,62 @@ async def test_fng_failure_returns_neutral_fallback(client: AsyncClient) -> None
     assert body["value"] == 50
     assert body["label"] == "Neutral"
     assert body["source"] == "fallback"
+
+
+# --- /api/quotes/top-movers (round 3, C1) -----------------------------------
+
+
+async def test_top_movers_up_sorted(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def fake_tickers(symbols: list[str]) -> dict[str, Any]:
+        return {"tickers": [
+            {"symbol": "BTC-USDT", "price": 60000.0, "changePercent": 2.0, "volume": 1},
+            {"symbol": "S-USDT", "price": 0.3, "changePercent": -15.0, "volume": 1},
+            {"symbol": "SOL-USDT", "price": 150.0, "changePercent": 9.0, "volume": 1},
+        ]}
+
+    async def fake_quote(symbol: str) -> dict[str, Any]:
+        return {"symbol": symbol, "price": 100.0, "change": 1.0, "changePercent": 1.0, "volume": 1}
+
+    monkeypatch.setattr("app.services.okx.get_tickers", fake_tickers)
+    monkeypatch.setattr("app.services.finnhub.get_quote", fake_quote)
+
+    resp = await client.get("/api/quotes/top-movers?direction=up&limit=3")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["direction"] == "up"
+    movers = body["movers"]
+    assert len(movers) == 3
+    # Sorted by changePercent descending: SOL (9) first, S (-15) excluded from top.
+    assert movers[0]["symbol"] == "SOL-USDT"
+    assert movers[0]["changePercent"] == 9.0
+    assert all(m["changePercent"] >= movers[-1]["changePercent"] for m in movers)
+
+
+async def test_top_movers_down_surfaces_losers(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def fake_tickers(symbols: list[str]) -> dict[str, Any]:
+        return {"tickers": [
+            {"symbol": "BTC-USDT", "price": 60000.0, "changePercent": 2.0, "volume": 1},
+            {"symbol": "S-USDT", "price": 0.3, "changePercent": -15.0, "volume": 1},
+        ]}
+
+    async def fake_quote(symbol: str) -> dict[str, Any]:
+        # price 0 => Finnhub "unknown/quota" sentinel => must be skipped.
+        return {"symbol": symbol, "price": 0.0, "change": 0.0, "changePercent": 0.0, "volume": 0}
+
+    monkeypatch.setattr("app.services.okx.get_tickers", fake_tickers)
+    monkeypatch.setattr("app.services.finnhub.get_quote", fake_quote)
+
+    resp = await client.get("/api/quotes/top-movers?direction=down&limit=5")
+    assert resp.status_code == 200
+    movers = resp.json()["movers"]
+    # Biggest loser first; zero-price stocks dropped, so only the 2 crypto remain.
+    assert movers[0]["symbol"] == "S-USDT"
+    assert movers[0]["changePercent"] == -15.0
+    assert all(m["type"] == "crypto" for m in movers)
 
 
 # --- /api/quotes/funding-rate -----------------------------------------------

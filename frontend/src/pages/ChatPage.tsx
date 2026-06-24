@@ -1,22 +1,31 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Lightbulb, Globe, Bot, User, Newspaper, TrendingUp, TrendingDown, Gauge } from 'lucide-react'
+import { Send, Bot, User, Newspaper, TrendingUp, TrendingDown, Sparkles } from 'lucide-react'
 import { useGroqChat } from '../hooks/useGroqChat'
 import ChatLinkCard from '../components/chat/ChatLinkCard'
 
 // G4: один статичный текст-подсказка вместо анимированного «печатающегося».
 const INPUT_PLACEHOLDER = 'Спросите про активы, рынок или новости...'
 
-// G3: осмысленные быстрые блоки — каждый шлёт полезный запрос.
+// Канонический ответ для чипа «Что ты умеешь» (round 3, C2) — отдаётся напрямую,
+// без обращения к модели.
+const CAPABILITIES_ANSWER =
+  'Я — ИИ-ассистент платформы. Умею искать свежие новости, находить активы и ' +
+  'показывать топ растущих и падающих, а также рассказывать о ситуации на рынке. ' +
+  'Не даю индивидуальных инвестиционных рекомендаций.'
+
+// G3 / C2: осмысленные быстрые блоки. Первые три шлют запрос модели (работают через
+// инструменты search_news / get_top_movers), а «Что ты умеешь» отвечает локально.
 const SUGGESTED_PROMPTS = [
-  { icon: Newspaper, label: 'Свежие новости', text: 'Какие свежие новости на финансовых рынках?' },
-  { icon: TrendingUp, label: 'Растущие активы', text: 'Какие активы сейчас растут сильнее всего?' },
-  { icon: TrendingDown, label: 'Падающие активы', text: 'Какие активы сейчас падают сильнее всего?' },
-  { icon: Gauge, label: 'Индекс страха и жадности', text: 'Какое сейчас значение индекса страха и жадности и что оно означает?' },
+  { icon: Newspaper, label: 'Свежие новости', text: 'Какие свежие новости на финансовых рынках?', local: false },
+  { icon: TrendingUp, label: 'Растущие активы', text: 'Какие активы сейчас растут сильнее всего?', local: false },
+  { icon: TrendingDown, label: 'Падающие активы', text: 'Какие активы сейчас падают сильнее всего?', local: false },
+  { icon: Sparkles, label: 'Что ты умеешь', text: 'Что ты умеешь?', local: true },
 ]
 
 export default function ChatPage() {
-  const { messages, loading, error, send, clear } = useGroqChat({})
+  const { messages, loading, error, send, sendLocalAnswer, clear } = useGroqChat({})
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null!)
   const textareaRef = useRef<HTMLTextAreaElement>(null!)
@@ -34,17 +43,21 @@ export default function ChatPage() {
     }
   }, [input, loading, send])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: ReactKeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
   }
 
-  const handlePromptClick = useCallback((text: string) => {
-    console.debug('[ChatPage] quick block %s', text)
-    send(text)
-  }, [send])
+  const handlePromptClick = useCallback((prompt: typeof SUGGESTED_PROMPTS[number]) => {
+    console.debug('[ChatPage] quick block %s (local=%s)', prompt.label, prompt.local)
+    if (prompt.local) {
+      sendLocalAnswer(prompt.text, CAPABILITIES_ANSWER)
+    } else {
+      send(prompt.text)
+    }
+  }, [send, sendLocalAnswer])
 
   return (
     <div style={{
@@ -100,7 +113,7 @@ export default function ChatPage() {
                   key={p.label}
                   whileHover={{ scale: 1.03, borderColor: 'var(--accent)' }}
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => handlePromptClick(p.text)}
+                  onClick={() => handlePromptClick(p)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     padding: '12px', borderRadius: 12,

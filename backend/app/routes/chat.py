@@ -26,6 +26,7 @@ from app.models import ChatSession, NewsArticle, User
 from app.services.cache import check_rate_limit, get_cached, set_cached
 from app.services.candles import get_candles
 from app.services.groq_service import get_groq_response, get_groq_response_with_tools
+from app.services.movers import get_top_movers as _get_top_movers
 from app.services.patchtst import get_prediction
 from app.services.symbols import base_ticker, normalize_to_instrument
 
@@ -337,6 +338,9 @@ _GENERAL_SYSTEM_PROMPT = (
     "При поиске новостей через search_news передавай query НА РУССКОМ ключевыми "
     "словами из запроса пользователя (например «биткоин», «экономика»). После "
     "вызова инструмента ОБЯЗАТЕЛЬНО сформулируй короткий текстовый ответ.\n"
+    "Для вопросов о топ растущих/падающих активах («что растёт», «какие активы "
+    "падают сильнее всего», «топ муверы») ОБЯЗАТЕЛЬНО вызывай инструмент "
+    "get_top_movers (direction=up для растущих, down для падающих).\n"
     "НЕ добавляй дисклеймеры и оговорки вида «не является инвестиционной "
     "рекомендацией» — отвечай по сути."
 )
@@ -481,6 +485,33 @@ _CHAT_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_top_movers",
+            "description": (
+                "Показать РЕАЛЬНЫЕ топ растущие или топ падающие активы за сегодня "
+                "(криптовалюты и акции), отсортированные по проценту изменения, в виде "
+                "карточек. Используй при вопросах вроде «какие активы растут/падают "
+                "сильнее всего», «топ растущих», «что упало»."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "direction": {
+                        "type": "string",
+                        "enum": ["up", "down"],
+                        "description": "up — растущие (гейнеры), down — падающие (лузеры)",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Сколько активов вернуть (по умолчанию 5)",
+                    },
+                },
+                "required": ["direction"],
+            },
+        },
+    },
 ]
 
 
@@ -593,6 +624,36 @@ async def _tool_get_asset(args: dict[str, Any]) -> tuple[str, dict[str, Any] | N
     return f"Актив {symbol}: цена {subtitle}.", card
 
 
+def _mover_card(item: dict[str, Any]) -> dict[str, Any]:
+    """Build a clickable asset card for one mover row."""
+    symbol = str(item.get("symbol", ""))
+    name = str(item.get("name") or symbol)
+    price = float(item.get("price", 0.0))
+    pct = float(item.get("changePercent", 0.0))
+    subtitle = f"${price:,.2f}, {pct:+.2f}%"
+    return {"type": "asset", "title": name, "subtitle": subtitle, "href": f"/asset/{symbol}"}
+
+
+async def _tool_get_top_movers(args: dict[str, Any]) -> tuple[str, list[dict[str, Any]] | None]:
+    """get_top_movers tool: real top gainers/losers today, as link cards."""
+    direction = "down" if str(args.get("direction", "up")).lower() == "down" else "up"
+    try:
+        limit = int(args.get("limit", 5))
+    except (TypeError, ValueError):
+        limit = 5
+    items = await _get_top_movers(direction, limit)  # type: ignore[arg-type]
+    if not items:
+        logger.debug("[chat] tool get_top_movers dir=%s no data", direction)
+        return "Сейчас не удалось получить данные по движениям активов.", None
+
+    cards = [_mover_card(i) for i in items]
+    verb = "растут" if direction == "up" else "падают"
+    parts = "; ".join(f"{c['title']} ({i['changePercent']:+.2f}%)" for c, i in zip(cards, items))
+    text = f"Активы, которые сильнее всего {verb} сегодня: {parts}."
+    logger.debug("[chat] tool get_top_movers dir=%s limit=%d matched=%d", direction, limit, len(cards))
+    return text, cards
+
+
 @router.post("/message", response_model=ChatResponse)
 async def chat_message(
     body: ChatRequest,
@@ -685,6 +746,8 @@ async def chat_message(
                 return await _tool_search_news(db, args)
             if name == "get_asset":
                 return await _tool_get_asset(args)
+            if name == "get_top_movers":
+                return await _tool_get_top_movers(args)
             logger.warning("[chat] unknown tool requested: %s", name)
             return f"Неизвестный инструмент: {name}", None
 

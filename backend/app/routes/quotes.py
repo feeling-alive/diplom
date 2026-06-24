@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, HTTPException, Query
 
-from app.services import candles, coingecko, finnhub, fng, frankfurter, funding, gas, okx
+from app.services import candles, coingecko, finnhub, fng, frankfurter, funding, gas, movers, okx
 
 logger = logging.getLogger("backend.routes.quotes")
 
@@ -84,6 +84,18 @@ async def get_global() -> dict[str, Any]:
     total 24h volume, BTC/ETH dominance. Cache-shared by the market_volume and
     global_market_cap widgets so the browser no longer hits CoinGecko directly."""
     return await coingecko.get_global()
+
+
+@router.get("/top-movers")
+async def get_top_movers(
+    direction: str = Query("up", pattern="^(up|down)$"),
+    limit: int = Query(5, ge=1, le=20),
+) -> dict[str, Any]:
+    """Top gainers (``direction=up``) or losers (``direction=down``) across crypto
+    and stocks, sorted by today's % change. Same live sources as the market
+    overview (OKX + Finnhub). Returns ``{direction, movers: [...]}``."""
+    items = await movers.get_top_movers(direction, limit)  # type: ignore[arg-type]
+    return {"direction": direction, "movers": items}
 
 
 @router.get("/price/{symbol}")

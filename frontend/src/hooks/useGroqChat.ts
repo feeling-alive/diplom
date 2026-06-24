@@ -126,6 +126,19 @@ export function useGroqChat({ symbol }: UseGroqChatOptions) {
     }
   }, [currentSymbol])
 
+  // round 3 (C2): append a user question + a canned assistant reply locally,
+  // WITHOUT hitting the backend/model. Used by the «Что ты умеешь» quick block —
+  // a fixed capabilities answer that never varies and costs no AI request.
+  const sendLocalAnswer = useCallback((userMessage: string, assistantReply: string) => {
+    console.debug('[useGroqChat] local answer (no model) for %s', userMessage.slice(0, 40))
+    const userMsg: ChatMessage = { role: 'user', content: userMessage }
+    const assistantMsg: ChatMessage = { role: 'assistant', content: assistantReply }
+    const updated = [...messagesRef.current, userMsg, assistantMsg]
+    messagesRef.current = updated
+    setMessages(updated)
+    setError(null)
+  }, [])
+
   // Clear must also wipe the server-side session (bug #11.1) — otherwise the
   // accumulated context lived on in the DB and "Очистить" only reset the UI.
   const clear = useCallback(() => {
@@ -146,5 +159,5 @@ export function useGroqChat({ symbol }: UseGroqChatOptions) {
     })()
   }, [currentSymbol])
 
-  return { messages, loading, error, prediction, send, clear }
+  return { messages, loading, error, prediction, send, sendLocalAnswer, clear }
 }

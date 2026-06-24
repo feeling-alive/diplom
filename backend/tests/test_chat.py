@@ -417,6 +417,38 @@ async def test_tool_get_asset_builds_card(monkeypatch: pytest.MonkeyPatch) -> No
     assert "+10.00%" in card["subtitle"]
 
 
+async def test_tool_get_top_movers_builds_cards(monkeypatch: pytest.MonkeyPatch) -> None:
+    """get_top_movers tool returns one card per mover with %change in the text (C1)."""
+    from app.routes import chat as chat_module
+
+    async def fake_movers(direction: str, limit: int) -> list[dict[str, Any]]:
+        assert direction == "down"
+        return [
+            {"symbol": "S-USDT", "name": "S", "type": "crypto", "price": 0.3, "changePercent": -15.0},
+            {"symbol": "ADA-USDT", "name": "ADA", "type": "crypto", "price": 0.5, "changePercent": -8.0},
+        ]
+
+    monkeypatch.setattr(chat_module, "_get_top_movers", fake_movers)
+    content, cards = await chat_module._tool_get_top_movers({"direction": "down", "limit": 2})
+    assert isinstance(cards, list) and len(cards) == 2
+    assert cards[0]["type"] == "asset"
+    assert cards[0]["href"] == "/asset/S-USDT"
+    assert "падают" in content
+    assert "-15.00%" in content
+
+
+async def test_tool_get_top_movers_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.routes import chat as chat_module
+
+    async def fake_movers(direction: str, limit: int) -> list[dict[str, Any]]:
+        return []
+
+    monkeypatch.setattr(chat_module, "_get_top_movers", fake_movers)
+    content, cards = await chat_module._tool_get_top_movers({"direction": "up"})
+    assert cards is None
+    assert "не удалось" in content
+
+
 async def test_groq_tools_loop_executes_tool(monkeypatch: pytest.MonkeyPatch) -> None:
     """get_groq_response_with_tools runs a requested tool then returns the final reply."""
     from app.config import settings
