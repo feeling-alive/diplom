@@ -4,8 +4,10 @@ import type { WidgetSizeProps } from '../../../types/widgets.types'
 
 type Props = WidgetSizeProps
 
-const PAIRS = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'BNB-USDT', 'XRP-USDT']
-const SYMBOLS = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP']
+// round 3 (A4): BNB заменён на ADA — по BNB нет данных в нашем источнике (матрица
+// показывала 0.00), ADA-USDT есть в prices.json и тянется через OKX/useOHLCV.
+const PAIRS = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'ADA-USDT', 'XRP-USDT']
+const SYMBOLS = ['BTC', 'ETH', 'SOL', 'ADA', 'XRP']
 
 function corrColor(v: number): string {
   if (v >= 0.9) return '#065f46'

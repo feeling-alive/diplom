@@ -7,14 +7,14 @@ type Row = { symbol: string; rate: number } // rate in percent (e.g. 0.012 = 0.0
 // Расширенный список перп-свопов OKX (3.5) — узкий виджет покажет верхушку,
 // широкий/высокий — весь список со скроллом.
 const SYMBOLS = [
-  'BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'XRP-USDT', 'DOGE-USDT', 'BNB-USDT',
+  'BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'XRP-USDT', 'DOGE-USDT', 'ATOM-USDT',
   'ADA-USDT', 'AVAX-USDT', 'LINK-USDT', 'DOT-USDT', 'LTC-USDT', 'TRX-USDT',
 ]
 
 const MOCK_ROWS: Row[] = [
   { symbol: 'BTC', rate: 0.012 }, { symbol: 'ETH', rate: 0.008 },
   { symbol: 'SOL', rate: 0.024 }, { symbol: 'XRP', rate: -0.005 },
-  { symbol: 'DOGE', rate: 0.041 }, { symbol: 'BNB', rate: 0.003 },
+  { symbol: 'DOGE', rate: 0.041 }, { symbol: 'ATOM', rate: 0.003 },
   { symbol: 'ADA', rate: 0.006 }, { symbol: 'AVAX', rate: 0.015 },
   { symbol: 'LINK', rate: 0.009 }, { symbol: 'DOT', rate: -0.002 },
   { symbol: 'LTC', rate: 0.004 }, { symbol: 'TRX', rate: 0.007 },

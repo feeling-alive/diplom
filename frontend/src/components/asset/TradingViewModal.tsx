@@ -22,7 +22,7 @@ const CRYPTO_EXCHANGE: Record<string, string> = {
 // trade on NYSE — prefixing them with NASDAQ made TradingView reject the symbol
 // (JNJ/PG showed "Invalid symbol" and the chart never rendered).
 const NYSE_STOCKS: ReadonlySet<string> = new Set([
-  'JNJ', 'PG', 'JPM', 'V', 'WMT', 'XOM', 'KO', 'DIS',
+  'JNJ', 'PG', 'JPM', 'V', 'XOM', 'KO', 'DIS',
 ])
 
 // Spot metals reach the modal typed as 'forex' (XAU-USD / XAG-USD), but TradingView

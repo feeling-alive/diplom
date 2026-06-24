@@ -60,7 +60,7 @@ async function fetchAllPrices(): Promise<Asset[]> {
   } catch { /* forex fail */ }
 
   {
-    const symbols = ['AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA','JPM','V','WMT']
+    const symbols = ['AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA','JPM','V']
     const results = await Promise.allSettled(
       symbols.map(async (s) => {
         const r = await fetch(`/api/quotes/stock/${s}`, { signal: AbortSignal.timeout(4000) })

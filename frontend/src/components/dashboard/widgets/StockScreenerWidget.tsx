@@ -10,7 +10,7 @@ type Row = { symbol: string; price: number; change: number }
 // их батчем через /api/quotes/stocks (Finnhub), per-symbol ошибки отсеиваются.
 const SYMBOLS = [
   'AAPL', 'MSFT', 'NVDA', 'TSLA', 'GOOG', 'AMZN', 'META', 'JPM',
-  'V', 'WMT', 'NFLX', 'AMD', 'DIS', 'KO', 'INTC', 'BA',
+  'V', 'NFLX', 'AMD', 'DIS', 'KO', 'INTC', 'BA',
 ]
 
 const MOCK_ROWS: Row[] = [
@@ -18,7 +18,7 @@ const MOCK_ROWS: Row[] = [
   { symbol: 'NVDA', price: 950, change: 3.8 }, { symbol: 'TSLA', price: 178.5, change: -2.1 },
   { symbol: 'GOOG', price: 162.4, change: 0.8 }, { symbol: 'AMZN', price: 184.3, change: 1.2 },
   { symbol: 'META', price: 505.1, change: 2.2 }, { symbol: 'JPM', price: 198.7, change: -0.4 },
-  { symbol: 'V', price: 275.3, change: 0.5 }, { symbol: 'WMT', price: 67.9, change: 0.9 },
+  { symbol: 'V', price: 275.3, change: 0.5 },
   { symbol: 'NFLX', price: 632.4, change: -1.1 }, { symbol: 'AMD', price: 162.8, change: 4.1 },
   { symbol: 'DIS', price: 102.5, change: -0.7 }, { symbol: 'KO', price: 61.2, change: 0.2 },
   { symbol: 'INTC', price: 31.4, change: -1.8 }, { symbol: 'BA', price: 178.9, change: 1.6 },

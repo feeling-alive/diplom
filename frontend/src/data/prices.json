@@ -449,17 +449,6 @@
     "icon": "V"
   },
   {
-    "symbol": "WMT",
-    "name": "Walmart",
-    "type": "stock",
-    "price": 172.3,
-    "change24h": 1.1,
-    "volume24h": 1200000000,
-    "marketCap": 460000000000,
-    "color": "#0071CE",
-    "icon": "W"
-  },
-  {
     "symbol": "JNJ",
     "name": "Johnson & Johnson",
     "type": "stock",
