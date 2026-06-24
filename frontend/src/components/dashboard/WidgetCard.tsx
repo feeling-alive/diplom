@@ -56,11 +56,37 @@ export function renderWidgetContent(type: WidgetType, gridW: number, gridH: numb
   }
 }
 
+// D3: staggered mount scheduler. On dashboard open many widgets intersect at once;
+// mounting them all in the same tick fires every data hook simultaneously (request
+// storm). We drain mount callbacks in small batches spread over time, so concurrent
+// fetches are capped to ~MOUNT_BATCH at a time. A widget scrolled into view later
+// (empty queue) still mounts in the first synchronous batch — no perceptible delay.
+const MOUNT_BATCH = 3
+const MOUNT_STEP_MS = 120
+const _mountQueue: Array<() => void> = []
+let _draining = false
+
+function _drainMountQueue() {
+  _draining = true
+  const batch = _mountQueue.splice(0, MOUNT_BATCH)
+  for (const cb of batch) cb()
+  if (_mountQueue.length > 0) {
+    setTimeout(_drainMountQueue, MOUNT_STEP_MS)
+  } else {
+    _draining = false
+  }
+}
+
+function scheduleMount(cb: () => void): void {
+  _mountQueue.push(cb)
+  if (!_draining) _drainMountQueue()
+}
+
 // E1: lazy-mount widget content. Each widget's data hooks (useQuery etc.) only
 // fire once the card scrolls within ~200px of the viewport, which spreads the
 // request burst on dashboard load instead of firing every widget at once. Once
 // mounted we keep it mounted (observer disconnects) so scroll-away doesn't thrash
-// refetches.
+// refetches. D3: mounts are additionally throttled through scheduleMount.
 function LazyWidgetContent({ type, gridW, gridH }: { type: WidgetType; gridW: number; gridH: number }) {
   const ref = useRef<HTMLDivElement | null>(null)
   const [visible, setVisible] = useState(false)
@@ -69,23 +95,28 @@ function LazyWidgetContent({ type, gridW, gridH }: { type: WidgetType; gridW: nu
     if (visible) return
     const el = ref.current
     if (!el) return
-    // Fallback for environments without IntersectionObserver (older/SSR): render now.
+    let alive = true
+    // Fallback for environments without IntersectionObserver (older/SSR): mount on
+    // the next tick (deferred so we never setState synchronously inside the effect).
     if (typeof IntersectionObserver === 'undefined') {
-      setVisible(true)
-      return
+      const t = setTimeout(() => { if (alive) setVisible(true) }, 0)
+      return () => { alive = false; clearTimeout(t) }
     }
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) {
-          console.debug('[WidgetCard] lazy mount %s', type)
-          setVisible(true)
           io.disconnect()
+          scheduleMount(() => {
+            if (!alive) return
+            console.debug('[WidgetCard] lazy mount %s', type)
+            setVisible(true)
+          })
         }
       },
       { rootMargin: '200px' },
     )
     io.observe(el)
-    return () => io.disconnect()
+    return () => { alive = false; io.disconnect() }
   }, [type, visible])
 
   return (

@@ -274,19 +274,21 @@ ul, li { list-style: none; }
    REACT-GRID-LAYOUT — iPhone-style DnD always on
    ============================================ */
 
-/* [FIX] Resize handles: 20×20 transparent hit-area at every direction.
-   Единственная подсказка — смена курсора при наведении на край (ew/ns/nwse/nesw-resize).
-   Никаких видимых глифов: ни background-image-SVG (react-resizable), ни уголка-«скобки»
-   через ::after (react-grid-layout/css/styles.css). opacity:0 !important перебивает
-   RGL-правило `.react-grid-item:hover > .react-resizable-handle { opacity: 1 }`. */
+/* [FIX] Resize handles: transparent hit-area at every direction.
+   round 3 (D2): зона захвата увеличена 20→30px (углы 30×30), а боковые ручки
+   вытянуты вдоль края — раньше попасть в край было тяжело. Единственная подсказка —
+   смена курсора при наведении на край (ew/ns/nwse/nesw-resize). Никаких видимых
+   глифов: ни background-image-SVG (react-resizable), ни уголка-«скобки» через ::after
+   (react-grid-layout/css/styles.css). opacity:0 !important перебивает RGL-правило
+   `.react-grid-item:hover > .react-resizable-handle { opacity: 1 }`. */
 .react-grid-item > .react-resizable-handle {
   background: transparent !important;
   background-image: none !important;
   border: none !important;
   padding: 0;
   opacity: 0 !important;
-  width: 20px;
-  height: 20px;
+  width: 30px;
+  height: 30px;
   z-index: 4;
 }
 
@@ -307,8 +309,10 @@ ul, li { list-style: none; }
 .react-grid-item > .react-resizable-handle.react-resizable-handle-sw { bottom: 0; left: 0; cursor: nesw-resize !important; transform: none !important; }
 .react-grid-item > .react-resizable-handle.react-resizable-handle-ne { top: 0; right: 0; cursor: nesw-resize !important; transform: none !important; }
 .react-grid-item > .react-resizable-handle.react-resizable-handle-nw { top: 0; left: 0; cursor: nwse-resize !important; transform: none !important; }
-.react-grid-item > .react-resizable-handle.react-resizable-handle-s  { bottom: 0; left: 50%; transform: translateX(-50%) !important; cursor: ns-resize !important; }
-.react-grid-item > .react-resizable-handle.react-resizable-handle-e  { right: 0; top: 50%; transform: translateY(-50%) !important; cursor: ew-resize !important; }
+/* Боковые ручки вытянуты вдоль своего края (длина 50% стороны, толщина 30px),
+   чтобы целиться было проще; центр стороны по-прежнему по 50%. */
+.react-grid-item > .react-resizable-handle.react-resizable-handle-s  { bottom: 0; left: 50%; width: 50%; transform: translateX(-50%) !important; cursor: ns-resize !important; }
+.react-grid-item > .react-resizable-handle.react-resizable-handle-e  { right: 0; top: 50%; height: 50%; transform: translateY(-50%) !important; cursor: ew-resize !important; }
 
 /* iPhone-style drag: neighbours glide smoothly, no ghost placeholder */
 .react-grid-item {
