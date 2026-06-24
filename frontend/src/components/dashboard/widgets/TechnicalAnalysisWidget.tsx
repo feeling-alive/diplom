@@ -64,28 +64,48 @@ function calculateMA(data: PricePoint[], period = 20): number | null {
 
 interface IndicatorStatus { label: string; status: Signal }
 
-function evaluateSignal(rsi: number | null, macdData: { macd: number; signal: number } | null, ma: number | null, lastPrice: number): { signal: Signal; score: number; indicators: IndicatorStatus[] } {
+interface EvalInput {
+  rsi: number | null
+  macdData: { macd: number; signal: number } | null
+  ma20: number | null
+  ma50: number | null
+  lastPrice: number
+}
+
+// round 3 (B2): раньше вердикт почти всегда был «Нейтрально» — RSI в 30–70 (т.е.
+// почти всегда) считался нейтральным и не давал направления, а порог ±2 требовал
+// согласия MACD и MA20. Теперь, как в backend/features.py (RSI + MACD-кросс +
+// тренд SMA20/SMA50), используем градуированный счёт: каждый индикатор даёт вес,
+// сумма решает вердикт. Так результат реально меняется по активу.
+function evaluateSignal({ rsi, macdData, ma20, ma50, lastPrice }: EvalInput): { signal: Signal; score: number; indicators: IndicatorStatus[] } {
   const indicators: IndicatorStatus[] = []
-  let buy = 0
-  let sell = 0
-  let neutral = 0
+  let score = 0
+
+  const lean = (v: number): Signal => (v > 0 ? 'buy' : v < 0 ? 'sell' : 'neutral')
 
   if (rsi !== null) {
-    if (rsi < 30) { indicators.push({ label: 'RSI', status: 'buy' }); buy++ }
-    else if (rsi > 70) { indicators.push({ label: 'RSI', status: 'sell' }); sell++ }
-    else { indicators.push({ label: 'RSI', status: 'neutral' }); neutral++ }
+    // Градуированный RSI: перепроданность/перекупленность сильнее, мягкий уклон в зоне 30–70.
+    const w = rsi < 30 ? 2 : rsi < 45 ? 1 : rsi <= 55 ? 0 : rsi <= 70 ? -1 : -2
+    score += w
+    indicators.push({ label: 'RSI', status: lean(w) })
   }
   if (macdData) {
-    if (macdData.macd > macdData.signal) { indicators.push({ label: 'MACD', status: 'buy' }); buy++ }
-    else if (macdData.macd < macdData.signal) { indicators.push({ label: 'MACD', status: 'sell' }); sell++ }
-    else { indicators.push({ label: 'MACD', status: 'neutral' }); neutral++ }
+    const w = macdData.macd > macdData.signal ? 1 : macdData.macd < macdData.signal ? -1 : 0
+    score += w
+    indicators.push({ label: 'MACD', status: lean(w) })
   }
-  if (ma !== null) {
-    if (lastPrice > ma) { indicators.push({ label: 'MA20', status: 'buy' }); buy++ }
-    else if (lastPrice < ma) { indicators.push({ label: 'MA20', status: 'sell' }); sell++ }
-    else { indicators.push({ label: 'MA20', status: 'neutral' }); neutral++ }
+  if (ma20 !== null) {
+    const w = lastPrice > ma20 ? 1 : lastPrice < ma20 ? -1 : 0
+    score += w
+    indicators.push({ label: 'MA20', status: lean(w) })
   }
-  const score = buy - sell
+  if (ma20 !== null && ma50 !== null) {
+    // Тренд: золотой/мёртвый крест SMA20 vs SMA50.
+    const w = ma20 > ma50 ? 1 : ma20 < ma50 ? -1 : 0
+    score += w
+    indicators.push({ label: 'Тренд', status: lean(w) })
+  }
+
   let signal: Signal = 'neutral'
   if (score >= 2) signal = 'buy'
   else if (score <= -2) signal = 'sell'
@@ -103,9 +123,10 @@ export default function TechnicalAnalysisWidget({ gridW = 2, gridH = 2 }: Props)
     const sorted = [...ohlcv].sort((a, b) => a.timestamp - b.timestamp)
     const rsi = calculateRSI(sorted)
     const macd = calculateMACDValue(sorted)
-    const ma = calculateMA(sorted, 20)
+    const ma20 = calculateMA(sorted, 20)
+    const ma50 = calculateMA(sorted, 50)
     const lastPrice = sorted[sorted.length - 1].close
-    return evaluateSignal(rsi, macd, ma, lastPrice)
+    return evaluateSignal({ rsi, macdData: macd, ma20, ma50, lastPrice })
   }, [ohlcv])
 
   const value = result?.signal === 'buy' ? 75 : result?.signal === 'sell' ? 25 : 50

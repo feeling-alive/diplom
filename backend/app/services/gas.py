@@ -22,49 +22,89 @@ logger = logging.getLogger("backend.gas")
 
 _GAS_URL = "https://api.etherscan.io/api"
 
-# Keyless on-chain fallback: a public Ethereum JSON-RPC node answers
-# ``eth_gasPrice`` without an API key. Gives one gwei figure (the suggested gas
-# price) which we fan out into slow/standard/fast tiers — real on-chain data, so
-# the widget is no longer «демо» when ETHERSCAN_API_KEY is absent.
-_PUBLIC_RPC_URL = "https://ethereum-rpc.publicnode.com"
+# Keyless on-chain fallback: public Ethereum JSON-RPC nodes answer ``eth_gasPrice``
+# without an API key. Gives one gwei figure (the suggested gas price) which we fan
+# out into slow/standard/fast tiers — real on-chain data, so the widget is no longer
+# «демо» when ETHERSCAN_API_KEY is absent.
+#
+# round 3 (B3): один эндпоинт (publicnode) периодически не отвечает/блокирует запрос,
+# и виджет залипал на статичном «демо» 24 gwei. Теперь перебираем НЕСКОЛЬКО публичных
+# RPC по очереди и шлём явный User-Agent (некоторые ноды отбивают запросы без него),
+# берём первый успешный ответ.
+_PUBLIC_RPC_URLS: tuple[str, ...] = (
+    "https://ethereum-rpc.publicnode.com",
+    "https://eth.llamarpc.com",
+    "https://rpc.ankr.com/eth",
+    "https://cloudflare-eth.com",
+    "https://1rpc.io/eth",
+)
+
+_RPC_HEADERS = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "User-Agent": "FinTrack/1.0 (+gas-tracker)",
+}
+
+
+async def _rpc_call(client: httpx.AsyncClient, url: str, method: str) -> Any:
+    """Single JSON-RPC call, returns the ``result`` field (or ``None`` on error)."""
+    resp = await client.post(
+        url,
+        headers=_RPC_HEADERS,
+        json={"jsonrpc": "2.0", "id": 1, "method": method, "params": []},
+    )
+    resp.raise_for_status()
+    payload: dict[str, Any] = resp.json()
+    return payload.get("result")
 
 
 async def _fetch_rpc_gas() -> dict[str, Any] | None:
-    """Fetch a live gas price from a keyless public RPC. Returns ``None`` on failure."""
-    logger.info("[gas] keyless RPC fetch %s", _PUBLIC_RPC_URL)
-    try:
-        async with httpx.AsyncClient(timeout=settings.http_timeout, follow_redirects=True) as client:
-            resp = await client.post(
-                _PUBLIC_RPC_URL,
-                json={"jsonrpc": "2.0", "id": 1, "method": "eth_gasPrice", "params": []},
-            )
-            resp.raise_for_status()
-            payload: dict[str, Any] = resp.json()
-    except httpx.HTTPError as err:
-        logger.warning("[gas] keyless RPC failed: %s", err)
-        return None
+    """Fetch a live gas price from the first responsive keyless public RPC.
 
-    raw = payload.get("result")
-    if not isinstance(raw, str):
-        logger.warning("[gas] keyless RPC malformed result: %r", raw)
-        return None
-    try:
-        gwei = int(raw, 16) / 1e9
-    except (TypeError, ValueError):
-        return None
-    # Fan the single suggested price into tiers. Round to 1 decimal so sub-gwei
-    # values (common post-merge) still render meaningfully.
-    standard = round(gwei, 1)
-    return {
-        "slow": {"gwei": round(gwei * 0.9, 1), "usd": 0.0},
-        "standard": {"gwei": standard, "usd": 0.0},
-        "fast": {"gwei": round(gwei * 1.25, 1), "usd": 0.0},
-        "baseFee": standard,
-        "lastBlock": 0,
-        "fetchedAt": int(time.time()),
-        "isStale": False,
-        "source": "rpc",
-    }
+    Returns ``None`` only when every endpoint fails."""
+    for url in _PUBLIC_RPC_URLS:
+        logger.info("[gas] keyless RPC fetch %s", url)
+        try:
+            async with httpx.AsyncClient(timeout=settings.http_timeout, follow_redirects=True) as client:
+                raw = await _rpc_call(client, url, "eth_gasPrice")
+                if not isinstance(raw, str):
+                    logger.warning("[gas] keyless RPC %s malformed result: %r", url, raw)
+                    continue
+                try:
+                    gwei = int(raw, 16) / 1e9
+                except (TypeError, ValueError):
+                    logger.warning("[gas] keyless RPC %s unparseable gwei: %r", url, raw)
+                    continue
+                # Latest block number is best-effort — failure here must not drop the
+                # otherwise-valid gas reading.
+                last_block = 0
+                try:
+                    block_raw = await _rpc_call(client, url, "eth_blockNumber")
+                    if isinstance(block_raw, str):
+                        last_block = int(block_raw, 16)
+                except (httpx.HTTPError, TypeError, ValueError) as err:
+                    logger.debug("[gas] keyless RPC %s blockNumber skipped: %s", url, err)
+        except httpx.HTTPError as err:
+            logger.warning("[gas] keyless RPC %s failed: %s", url, err)
+            continue
+
+        # Fan the single suggested price into tiers. Round to 1 decimal so sub-gwei
+        # values (common post-merge) still render meaningfully.
+        standard = round(gwei, 1)
+        logger.info("[gas] keyless RPC %s OK gwei=%.2f block=%d", url, standard, last_block)
+        return {
+            "slow": {"gwei": round(gwei * 0.9, 1), "usd": 0.0},
+            "standard": {"gwei": standard, "usd": 0.0},
+            "fast": {"gwei": round(gwei * 1.25, 1), "usd": 0.0},
+            "baseFee": standard,
+            "lastBlock": last_block,
+            "fetchedAt": int(time.time()),
+            "isStale": False,
+            "source": "rpc",
+        }
+
+    logger.warning("[gas] all keyless RPC endpoints failed")
+    return None
 
 
 def _static_fallback(is_stale: bool, reason: str) -> dict[str, Any]:
@@ -117,7 +157,11 @@ async def get_gas() -> dict[str, Any]:
             resp.raise_for_status()
             payload: dict[str, Any] = resp.json()
     except httpx.HTTPError as err:
-        logger.warning("[gas] upstream failed: %s", err)
+        logger.warning("[gas] upstream failed: %s; trying keyless RPC", err)
+        rpc = await _fetch_rpc_gas()
+        if rpc is not None:
+            await set_cached(key, rpc, settings.gas_ttl)
+            return rpc
         return _static_fallback(is_stale=True, reason="upstream_error")
 
     status = str(payload.get("status") or "")

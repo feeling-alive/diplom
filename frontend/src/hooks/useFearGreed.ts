@@ -15,6 +15,7 @@ interface FngBackendPayload {
   value: number
   label: string
   timestamp: number
+  timeUntilUpdate?: number
   fetchedAt: number
   source: 'alternative.me' | 'cache' | 'fallback'
 }

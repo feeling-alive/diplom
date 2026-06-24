@@ -3,6 +3,7 @@ import {
   AreaChart,
   Area,
   XAxis,
+  YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
@@ -217,6 +218,11 @@ export default function PriceChartWidget({ gridW = 3, gridH = 2 }: Props) {
               axisLine={false}
               interval="preserveStartEnd"
             />
+            {/* round 3 (B1): без YAxis Recharts ставит домен [0, max] — реальная
+                вариация цены жмётся к верху и график выглядит «плоским». Скрытый
+                YAxis с доменом [dataMin, dataMax] зумит на реальный диапазон, как в
+                SimpleChart на странице актива. */}
+            <YAxis hide domain={['dataMin', 'dataMax']} />
             <Tooltip content={<CustomTooltip />} />
             <Area
               type="monotone"

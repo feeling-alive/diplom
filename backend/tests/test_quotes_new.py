@@ -69,6 +69,14 @@ class FakeAsyncClient:
             raise AssertionError(f"FakeAsyncClient: no response queued for GET {url}")
         return self.responses.pop(0)
 
+    async def post(self, url: str, json: Any = None, headers: Any = None) -> _FakeResponse:
+        self.calls.append({"url": url, "json": json or {}, "headers": headers or {}})
+        if not self.responses:
+            # Model a network failure (e.g. unreachable RPC) so gas keyless-RPC
+            # fallback paths degrade like they would in production.
+            raise httpx.HTTPError(f"FakeAsyncClient: no response queued for POST {url}")
+        return self.responses.pop(0)
+
 
 # --- Cache isolation: each test gets a fresh no-op cache --------------------
 
@@ -227,6 +235,31 @@ async def test_fng_ok(client: AsyncClient) -> None:
     assert body["timestamp"] == 1700000000
 
 
+async def test_fng_ttl_tracks_time_until_update(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # round 3 (B4): the cache TTL must follow alternative.me's time_until_update
+    # (+60s buffer) so the value refreshes exactly when a new one is published.
+    captured: dict[str, int] = {}
+
+    async def capture_set_cached(key: str, data: Any, ttl: int) -> None:
+        captured["ttl"] = ttl
+
+    monkeypatch.setattr("app.services.fng.set_cached", capture_set_cached)
+
+    with patch("httpx.AsyncClient", FakeAsyncClient):
+        FakeAsyncClient.responses.append(_FakeResponse(
+            {"data": [{"value": "17", "value_classification": "Extreme Fear",
+                       "timestamp": "1700000000", "time_until_update": "3600"}]}
+        ))
+        resp = await client.get("/api/quotes/fng")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["value"] == 17
+    assert body["timeUntilUpdate"] == 3600
+    assert captured["ttl"] == 3660  # 3600 + 60s buffer
+
+
 async def test_fng_failure_returns_neutral_fallback(client: AsyncClient) -> None:
     class _RaisingClient(FakeAsyncClient):
         async def get(self, url: str, params: Any = None) -> _FakeResponse:
@@ -275,9 +308,12 @@ async def test_funding_rate_empty_symbols_400(client: AsyncClient) -> None:
 # --- /api/quotes/gas ---------------------------------------------------------
 
 
-async def test_gas_no_api_key_returns_stale_fallback(client: AsyncClient) -> None:
-    # The default test Settings has etherscan_api_key="" -> fallback path.
-    resp = await client.get("/api/quotes/gas")
+async def test_gas_no_api_key_keyless_rpc_unreachable_falls_back(client: AsyncClient) -> None:
+    # No Etherscan key -> keyless RPC is tried. With every RPC POST unreachable
+    # (FakeAsyncClient.post raises with no queued response) we land on the static
+    # fallback with reason="no_api_key".
+    with patch("httpx.AsyncClient", FakeAsyncClient):
+        resp = await client.get("/api/quotes/gas")
     assert resp.status_code == 200
     body = resp.json()
     assert body["isStale"] is True
@@ -286,14 +322,33 @@ async def test_gas_no_api_key_returns_stale_fallback(client: AsyncClient) -> Non
     assert {"slow", "standard", "fast", "baseFee"} <= set(body.keys())
 
 
+async def test_gas_no_api_key_keyless_rpc_ok(client: AsyncClient) -> None:
+    # No Etherscan key -> keyless RPC answers eth_gasPrice (+ eth_blockNumber).
+    # 0x6fc23ac00 wei = 30 gwei.
+    with patch("httpx.AsyncClient", FakeAsyncClient):
+        FakeAsyncClient.responses.append(_FakeResponse({"jsonrpc": "2.0", "id": 1, "result": "0x6fc23ac00"}))
+        FakeAsyncClient.responses.append(_FakeResponse({"jsonrpc": "2.0", "id": 1, "result": "0x1295f00"}))
+        resp = await client.get("/api/quotes/gas")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["isStale"] is False
+    assert body["source"] == "rpc"
+    assert body["standard"]["gwei"] == 30.0
+    assert body["lastBlock"] == 0x1295f00
+
+
 async def test_gas_etherscan_429_returns_stale_fallback(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Pretend a key IS configured so the route tries the upstream, then 429s.
+    # The keyless-RPC secondary also fails (POST raises), so we land on the static fallback.
     monkeypatch.setattr("app.services.gas.settings.etherscan_api_key", "fake-test-key")
     class _RaisingClient(FakeAsyncClient):
         async def get(self, url: str, params: Any = None) -> _FakeResponse:
             raise httpx.HTTPError("etherscan 429")
+
+        async def post(self, url: str, json: Any = None, headers: Any = None) -> _FakeResponse:
+            raise httpx.HTTPError("rpc down")
 
     with patch("httpx.AsyncClient", _RaisingClient):
         resp = await client.get("/api/quotes/gas")
