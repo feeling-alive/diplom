@@ -1,5 +1,11 @@
+import { useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
+
+// Module-level guard so the auto-clear-on-load fires exactly once per app load
+// (per user), even if useNotifications mounts in several components at once.
+// Keyed by user id so a logout→login as a different user re-arms it.
+let autoClearedForUserId: string | null = null
 
 export interface AppNotification {
   id: string
@@ -43,6 +49,21 @@ export function useNotifications() {
     await fetch(`/api/notifications/${notifId}/read`, { method: 'POST' })
     qc.invalidateQueries({ queryKey: ['notifications'] })
   }
+
+  // D1: auto-clear the unread counter once after the user is authenticated, so
+  // the bell resets to 0 on every visit. Idempotent — the module-level guard
+  // ensures a single read-all per app load even with multiple hook consumers.
+  const firedRef = useRef(false)
+  useEffect(() => {
+    if (!user) return
+    if (autoClearedForUserId === user.id) return
+    if (firedRef.current) return
+    firedRef.current = true
+    autoClearedForUserId = user.id
+    console.debug('[notifications] auto-clear on app load')
+    void markAllRead()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
   return { ...query, unreadCount, markAllRead, markRead }
 }
