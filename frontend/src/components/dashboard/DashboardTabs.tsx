@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 
 interface Props {
   dashboards: { id: string; name: string }[]
@@ -77,26 +77,34 @@ export default function DashboardTabs({ dashboards, activeId, canAdd, onSwitch, 
         )
       })}
 
-      {/* Add button — always clickable; parent decides whether to add or show upgrade modal */}
-      <motion.div
+      {/* Add button — always clickable; parent decides whether to add or show upgrade modal.
+          F2: чётко видимая круглая кнопка с lucide Plus (раньше «+» был почти невидим). */}
+      <motion.button
+        type="button"
         aria-label={canAdd ? 'Новый дашборд' : 'Достигнут лимит дашбордов'}
-        animate={{ width: 12, background: 'rgba(0,0,0,0.10)' }}
-        whileHover={{ width: 22, background: 'rgba(0,0,0,0.20)' }}
+        title={canAdd ? 'Новый дашборд' : 'Достигнут лимит дашбордов'}
+        whileHover={{ scale: 1.12, background: 'var(--accent, #E11D48)', color: '#fff' }}
+        whileTap={{ scale: 0.92 }}
         transition={SPRING}
         onClick={handleAdd}
         style={{
-          height: 8,
+          marginLeft: 4,
+          width: 18,
+          height: 18,
+          padding: 0,
+          border: '1px solid var(--border, rgba(0,0,0,0.15))',
           borderRadius: 999,
+          background: 'var(--white, #fff)',
+          color: 'var(--muted, #64748B)',
           cursor: 'pointer',
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          overflow: 'hidden',
         }}
       >
-        <span style={{ fontSize: 8, lineHeight: 1, color: 'rgba(0,0,0,0.4)', userSelect: 'none' }}>+</span>
-      </motion.div>
+        <Plus size={12} strokeWidth={2.75} />
+      </motion.button>
     </div>
   )
 }
